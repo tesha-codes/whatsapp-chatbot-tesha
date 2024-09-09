@@ -26,7 +26,7 @@ app.use(errorWrapperMiddleware)
 
 app.listen(PORT, function () {
     console.log(`Warming up the server 🔥🔥...`);
-    connectDb(process.env.MONGO_URL + process.env.MONGO_DATABASE_NAME).then(response => {
+    connectDb(process.env.MONGO_URL).then(response => {
         console.log(`Successfully connected to ${response.db.databaseName} ✅✅`);
         console.log(`Server now running on port ${PORT} 👍👌😁😁`);
     }).catch(error => {
