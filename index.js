@@ -39,7 +39,7 @@ app.post('/bot', async (req, res) => {
         // Handle further processing
         res.status(200).json({ message: "Chat received", phoneNumber, username, country, message, balance, cacheKey });
     } else {
-        res.status(400).json({ error: "Invalid payload" });
+        res.status(200).json({ error: "Invalid payload" });
     }
 });
 
