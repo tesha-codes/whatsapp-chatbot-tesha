@@ -24,6 +24,10 @@ app.get('/api/version-01/test/route', async (request, response) => {
 // app.use(renderNotFound);
 // app.use(errorWrapperMiddleware)
 
+app.get('/bot', async (request, response) => {
+    response.status(StatusCodes.OK).json({ message: 'Successfully served you sir 😘😘😘' });
+});
+
 app.listen(PORT, function () {
     console.log(`Warming up the server 🔥🔥...`);
     connectDb(process.env.MONGO_URL).then(response => {
