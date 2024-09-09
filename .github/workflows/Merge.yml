@@ -1,0 +1,32 @@
+name: Basic Integration Check
+
+on:
+  push:
+    branches: [master]
+  pull_request:
+    branches: [master]
+
+jobs:
+  integration-check:
+    runs-on: ubuntu-latest
+
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v3
+
+    - name: Set up Node.js
+      uses: actions/setup-node@v3
+      with:
+        node-version: '20.x'
+
+    - name: Verify package.json
+      run: node -e "JSON.parse(require('fs').readFileSync('package.json'))"
+
+    - name: Install dependencies
+      run: npm ci
+
+    - name: Check for obvious syntax errors
+      run: |
+        for file in $(find . -name "*.js" -not -path "./node_modules/*"); do
+          node -c "$file" || exit 1
+        done
