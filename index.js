@@ -37,10 +37,10 @@ app.post('/bot', async (req, res) => {
         const cacheKey = response.id;
 
         // Handle further processing
-    res.status(200).send(`Hi, ${username}\nYou said: ${message}`);
+    return res.status(200).send(`Hi, ${username}\nYou said: ${message}`);
     }
     // RETURN 200, FOR SUCCESSFUL CALLBACKS
-     res.status(200).send('');
+     return res.status(200).send('');
 });
 
 app.listen(PORT, function () {
