@@ -26,7 +26,7 @@ app.get('/api/version-01/test/route', async (request, response) => {
 
 app.post('/bot', async (req, res) => {
     const response = req.body.payload;
-
+    console.log(response);
     if (response && response.source) {
         // Variables
         const phoneNumber = response.sender.phone;
