@@ -24,8 +24,23 @@ app.get('/api/version-01/test/route', async (request, response) => {
 // app.use(renderNotFound);
 // app.use(errorWrapperMiddleware)
 
-app.get('/bot', async (request, response) => {
-    response.status(StatusCodes.OK).json({ message: 'Successfully served you sir 😘😘😘' });
+app.post('/bot', async (req, res) => {
+    const response = req.body.payload;
+
+    if (response && response.source) {
+        // Variables
+        const phoneNumber = response.sender.phone;
+        const username = response.sender.name;
+        const country = response.sender.country_code;
+        const message = response.payload?.text || "";  // Optional chaining for text
+        const balance = process.env.STARTER_BAL;
+        const cacheKey = response.id;
+
+        // Handle further processing
+        res.status(200).json({ message: "Chat received", phoneNumber, username, country, message, balance, cacheKey });
+    } else {
+        res.status(400).json({ error: "Invalid payload" });
+    }
 });
 
 app.listen(PORT, function () {
