@@ -4,9 +4,9 @@ const bodyParser = require('body-parser');
 const { StatusCodes } = require("http-status-codes");
 const morgan = require('morgan');
 const connectDb = require("./database/Connect.database");
-const renderNotFound = require("./Helpers/notFound.helper");
-const UserRoutes = require("./Routes/User.routes");
-const errorWrapperMiddleware = require("./Middlewares/Error.middleware");
+// const renderNotFound = require("./Helpers/notFound.helper");
+// const UserRoutes = require("./Routes/User.routes");
+// const errorWrapperMiddleware = require("./Middlewares/Error.middleware");
 
 
 const app = express();
@@ -20,9 +20,9 @@ app.get('/api/version-01/test/route', async (request, response) => {
     response.status(StatusCodes.OK).json({ message: 'Successfully served you sir 😘😘😘' });
 });
 
-app.use("/api/version-01/auth", UserRoutes)
-app.use(renderNotFound);
-app.use(errorWrapperMiddleware)
+// app.use("/api/version-01/auth", UserRoutes)
+// app.use(renderNotFound);
+// app.use(errorWrapperMiddleware)
 
 app.listen(PORT, function () {
     console.log(`Warming up the server 🔥🔥...`);
