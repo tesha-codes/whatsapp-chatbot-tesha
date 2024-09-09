@@ -37,7 +37,7 @@ app.post('/bot', async (req, res) => {
         const cacheKey = response.id;
 
         // Handle further processing
-        res.status(200).json({ message: "Chat received", phoneNumber, username, country, message, balance, cacheKey });
+       return res.status(200).json({ message: "Chat received", phoneNumber, username, country, message, balance, cacheKey });
     } else {
         res.status(200).json({ error: "Invalid payload" });
     }
