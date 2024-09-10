@@ -47,7 +47,10 @@ app.post("/bot", async (req, res) => {
     //...
     const botResponse = "You said: " + message;
     // await sendTextMessage(phoneNumber, botResponse);
-    return res.status(200).send(botResponse);
+    res.status(200).json({
+      type: "text",
+      text: botResponse,
+    });
   }
   // acknowledge callback requests, do not remove:)
   return res.status(StatusCodes.ACCEPTED).send("Callback received:)");
