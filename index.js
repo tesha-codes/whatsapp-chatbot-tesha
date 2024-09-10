@@ -4,9 +4,6 @@ const bodyParser = require('body-parser');
 const { StatusCodes } = require("http-status-codes");
 const morgan = require('morgan');
 const connectDb = require("./database/Connect.database");
-// const renderNotFound = require("./Helpers/notFound.helper");
-// const UserRoutes = require("./Routes/User.routes");
-// const errorWrapperMiddleware = require("./Middlewares/Error.middleware");
 
 
 const app = express();
@@ -16,8 +13,10 @@ app.use(morgan("combined"))
 app.use(bodyParser.urlencoded({ extended: false }));
 app.use(express.json());
 
-app.get('/api/version-01/test/route', async (request, response) => {
-    response.status(StatusCodes.OK).json({ message: 'Successfully served you sir 😘😘😘' });
+app.get("/😂😂😂", async (request, response) => {
+  response
+    .status(StatusCodes.OK)
+    .json({ message: "Successfully laughed, its working..." });
 });
 
 // app.use("/api/version-01/auth", UserRoutes)

@@ -1,8 +1,7 @@
-const mongoose = require("mongoose");
-const asyncWrapperMiddleware = require("../Middlewares/Async.middleware");
+const mongoose = require("mongoose");;
 const { StatusCodes, ReasonPhrases } = require("http-status-codes");
-const Profile = require('./../Models/Profile.model');
-const { createCustomError } = require("../Errors/CustomAPIError.error");
+const Profile = require('../models/profile.model');
+
 
 const registerNewUser = asyncWrapperMiddleware(async (request, response, next) => {
     const { whatsAppAccountId } = request.params;
