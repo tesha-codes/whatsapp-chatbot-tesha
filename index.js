@@ -1,5 +1,14 @@
 require("dotenv").config();
 const express = require("express");
+const {
+  getTemplatesList,
+  markBulkOptIn,
+  markUserOptIn,
+  sendMediaImageMessage,
+  sendMediaVideoMessage,
+  sendTextMessage,
+  sendTemplateMessage,
+} = require("./services/whatsappService");
 const bodyParser = require("body-parser");
 const { StatusCodes } = require("http-status-codes");
 const morgan = require("morgan");
