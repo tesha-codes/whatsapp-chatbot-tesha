@@ -23,15 +23,17 @@ app.get("/😂😂😂", async (request, response) => {
 // app.use(errorWrapperMiddleware)
 
 app.post("/bot", async (req, res) => {
-  const data = req.body.payload;
+  const userResponse = req.body.payload;
   //
-  if (data && data.source) {
+  console.log(userResponse);
+  
+  if (userResponse && userResponse.source) {
     // extract user whatsapp message/query from data object
-    const phoneNumber = data.sender.phone;
-    const username = data.sender.name;
-    const country = data.sender.country_code;
-    const message = data.payload?.text || "";
-    const cacheKey = data.id;
+    const phoneNumber = userResponse.sender.phone;
+    const username = userResponse.sender.name;
+    const country = userResponse.sender.country_code;
+    const message = userResponse.payload?.text || "";
+    const originalChatId = userResponse.id;
     // Additional code to handle user interactions and store data in the database
     //...
     const botResponse = "You said: " + message;
