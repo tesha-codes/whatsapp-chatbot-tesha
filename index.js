@@ -47,7 +47,7 @@ app.post("/bot", async (req, res) => {
     //...
     const botResponse = "You said: " + message;
     // await sendTextMessage(phoneNumber, botResponse);
-    res.status(200).json({
+    return res.status(200).json({
       type: "text",
       text: botResponse,
     });
