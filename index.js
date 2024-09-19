@@ -62,7 +62,9 @@ app.get("/😂😂😂", async (request, response) => {
 app.post("/bot", async (req, res) => {
   try {
     const userResponse = req.body.payload;
-    if (userResponse.source) {
+    console.log('User response: ',userResponse);
+    
+    if (userResponse && userResponse.source) {
       const phone = userResponse.sender.phone;
       const message = userResponse.payload?.text || "";
       const username = userResponse.sender.name;
@@ -76,6 +78,7 @@ app.post("/bot", async (req, res) => {
       if (user && user.termsAndConditionsAccepted) {
         //Continue with session
       } else {
+        console.log('Creating new user now');
         const newUser = new User.create({
           _id: new mongoose.Types.ObjectId(),
           phone,
@@ -83,7 +86,9 @@ app.post("/bot", async (req, res) => {
         });
         await newUser.save();
         const response = await initialResponse(phone);
-        res.status(StatusCodes.OK).json({ response })
+        console.log(response);
+        
+       return res.status(StatusCodes.OK).json({ response })
       }
     }
   } catch (error) {
