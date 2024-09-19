@@ -89,7 +89,7 @@ app.post("/bot", async (req, res) => {
         //Continue with session
       } else {
         console.log('Creating new user now');
-        const newUser =  User.create({
+        const newUser = new User({
           _id: new mongoose.Types.ObjectId(),
           phone,
           username
