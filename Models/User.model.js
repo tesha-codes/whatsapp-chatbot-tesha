@@ -12,34 +12,28 @@ const UserSchema = new mongoose.Schema({
     },
     firstName: {
         type: String,
-        required: true,
         trim: true
     },
     lastName: {
         type: String,
-        required: true,
         trim: true
     },
     gender: {
         type: String,
         enum: ["Male", "Female", "Other"],
-        required: true
     },
     accountType: {
         isClient: {
             type: Boolean,
-            require: true,
             default: true
         },
         isServiceProvider: {
             type: Boolean,
-            require: true,
             default: false
         }
     },
     dob: {
         type: Date,
-        required: true
     },
     address: {
         physicalAddress: {
@@ -51,18 +45,18 @@ const UserSchema = new mongoose.Schema({
     },
     verified: {
         type: Boolean,
-        require: true,
         default: false
+    },
+    username: {
+        type: String,
     },
     preferredLanguage: {
         type: String,
-        required: true,
         enum: ["English", "Shona", "Ndebele"],
         default: "English"
     },
     termsAndConditionsAccepted: {
         type: Boolean,
-        required: true,
         default: false
     }
 }, { timestamps: true }).index(
