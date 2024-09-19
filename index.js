@@ -89,12 +89,12 @@ app.post("/bot", async (req, res) => {
         //Continue with session
       } else {
         console.log('Creating new user now');
-        const newUser = new User.create({
+        const newUser =  User.create({
           _id: new mongoose.Types.ObjectId(),
           phone,
           username
         });
-        await newUser.save();
+         await newUser.save();
         const botMessage =  `
         Hello there, you've reached TeshaBot.
         You have to accept the terms and conditions before
