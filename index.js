@@ -70,32 +70,28 @@ app.get("/😂😂😂", async (request, response) => {
 
 
 app.post("/bot", async (req, res) => {
-  
-    const userResponse = req.body.payload;
-    console.log('User response: ', userResponse);
 
-    if (userResponse && userResponse.source) {
-      const phone = userResponse.sender.phone;
-      const message = userResponse.payload?.text || "";
-      const username = userResponse.sender.name;
-      const user = await User.findOne({ phone },
-        {
-          createdAt: 1,
-          phone: 1,
-          termsAndConditionsAccepted: 1
-        });
+  const userResponse = req.body.payload;
+  console.log('User response: ', userResponse);
 
-      if (user && user.termsAndConditionsAccepted) {
-        //Continue with session
-      } else {
-        console.log('Creating new user now');
-        const newUser = new User({
-          _id: new mongoose.Types.ObjectId(),
-          phone,
-          username
-        });
-         await newUser.save();
-        const botMessage =  `
+  if (userResponse && userResponse.source) {
+    const phone = userResponse.sender.phone;
+    const message = userResponse.payload?.text || "";
+    const username = userResponse.sender.name;
+    const user = await User.findOne({ phone },
+      {
+        createdAt: 1,
+        phone: 1,
+        termsAndConditionsAccepted: 1
+      });
+
+    console.log(user);
+
+
+    if (user) {
+      //Continue with session
+      if (!user.termsAndConditionsAccepted) {
+        const botMessage = `
         Hello there, you've reached TeshaBot.
         You have to accept the terms and conditions before
         proceeding to the next step.
@@ -106,8 +102,27 @@ app.post("/bot", async (req, res) => {
         await sendTextMessage(phone, botMessage);
         return res.status(StatusCodes.OK).json({ response })
       }
+    } else {
+      console.log('Creating new user now');
+      const newUser = new User({
+        _id: new mongoose.Types.ObjectId(),
+        phone,
+        username
+      });
+      await newUser.save();
+      const botMessage = `
+        Hello there, you've reached TeshaBot.
+        You have to accept the terms and conditions before
+        proceeding to the next step.
+
+        *Send*
+        1. *Yes* - to accept terms and conditions. *Visit* https://tesha.co.zw/legal to view terms and conditions.
+        2. *No* - to cancel the whole process.`
+      await sendTextMessage(phone, botMessage);
+      return res.status(StatusCodes.OK).json({ response })
     }
- 
+  }
+
 })
 
 
