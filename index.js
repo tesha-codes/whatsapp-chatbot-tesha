@@ -85,9 +85,18 @@ app.post("/bot", async (req, res) => {
           username
         });
         await newUser.save();
-        const response = await initialResponse(phone);
+        const message = `
+        Hello there, you've reached TeshaBot.
+        You have to accept the terms and conditions before
+        proceeding to the next step.
+
+        Type
+        1. Yes - to accept terms and conditions. Visit https://tesha.co.zw/legal to view terms and conditions.
+        2. No - to cancel the whole process.
+          `;
+       
+        const response =  await sendTextMessage(phone, message);
         console.log(response);
-        
        return res.status(StatusCodes.OK).json({ response })
       }
     }
