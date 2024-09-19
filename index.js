@@ -33,81 +33,70 @@ app.get("/😂😂😂", async (request, response) => {
 // app.use(renderNotFound);
 // app.use(errorWrapperMiddleware)
 
-// app.post("/bot", async (req, res) => {
-//   const userResponse = req.body.payload;
-//   //
-//   console.log(userResponse);
-
-//   if (userResponse && userResponse.source) {
-//     // extract user whatsapp message/query from data object
-//     const phoneNumber = userResponse.sender.phone;
-//     const username = userResponse.sender.name;
-//     const country = userResponse.sender.country_code;
-//     const message = userResponse.payload?.text || "";
-//     const originalChatId = userResponse.id;
-//     // Additional code to handle user interactions and store data in the database
-//     //...
-//     const botResponse = "You said: " + message;
-//     await sendTextMessage(phoneNumber, botResponse);
-//     return res.status(200).json({
-//       type: "text",
-//       text: botResponse,
-//     });
-//   }
-//   // acknowledge callback requests, do not remove:)
-//   return res.status(StatusCodes.ACCEPTED).send("Callback received:)");
-// });
-
-//
 app.post("/bot", async (req, res) => {
-  try {
-    const userResponse = req.body.payload;
-    console.log('User response: ', userResponse);
+  const userResponse = req.body.payload;
+  //
+  console.log(userResponse);
 
-    if (userResponse && userResponse.source) {
-      const phone = userResponse.sender.phone;
-      const message = userResponse.payload?.text || "";
-      const username = userResponse.sender.name;
-      const user = await User.findOne({ phone },
-        {
-          createdAt: 1,
-          phone: 1,
-          termsAndConditionsAccepted: 1
-        });
-
-      if (user && user.termsAndConditionsAccepted) {
-        //Continue with session
-      } else {
-        console.log('Creating new user now');
-        const newUser = new User.create({
-          _id: new mongoose.Types.ObjectId(),
-          phone,
-          username
-        });
-        await newUser.save();
-        const message = "Hello there, you've reached TeshaBot. How do I help?"
-
-        await sendTextMessage(phone, message);
-        return res.status(StatusCodes.OK).json({ response })
-      }
-    }
-  } catch (error) {
-    res.status(StatusCodes.INTERNAL_SERVER_ERROR).send(error)
+  if (userResponse && userResponse.source) {
+    // extract user whatsapp message/query from data object
+    const phoneNumber = userResponse.sender.phone;
+    const username = userResponse.sender.name;
+    const country = userResponse.sender.country_code;
+    const message = userResponse.payload?.text || "";
+    const originalChatId = userResponse.id;
+    // Additional code to handle user interactions and store data in the database
+    //...
+    const botResponse = "You said: " + message;
+    await sendTextMessage(phoneNumber, botResponse);
+    return res.status(200).json({
+      type: "text",
+      text: botResponse,
+    });
   }
-})
+  // acknowledge callback requests, do not remove:)
+  return res.status(StatusCodes.ACCEPTED).send("Callback received:)");
+});
 
-async function initialResponse(phone) {
-  const message = `
-    Hello there, you've reached TeshaBot.
-    You have to accept the terms and conditions before
-    proceeding to the next step.
 
-    Type
-    1. Yes - to accept terms and conditions. Visit https://tesha.co.zw/legal to view terms and conditions.
-    2. No - to cancel the whole process.
-      `;
-  await sendTextMessage(phone, message);
-}
+// app.post("/bot", async (req, res) => {
+//   try {
+//     const userResponse = req.body.payload;
+//     console.log('User response: ', userResponse);
+
+//     if (userResponse && userResponse.source) {
+//       const phone = userResponse.sender.phone;
+//       const message = userResponse.payload?.text || "";
+//       const username = userResponse.sender.name;
+//       const user = await User.findOne({ phone },
+//         {
+//           createdAt: 1,
+//           phone: 1,
+//           termsAndConditionsAccepted: 1
+//         });
+
+//       if (user && user.termsAndConditionsAccepted) {
+//         //Continue with session
+//       } else {
+//         console.log('Creating new user now');
+//         const newUser = new User.create({
+//           _id: new mongoose.Types.ObjectId(),
+//           phone,
+//           username
+//         });
+//         await newUser.save();
+//         const message = "Hello there, you've reached TeshaBot. How do I help?"
+
+//         await sendTextMessage(phone, message);
+//         return res.status(StatusCodes.OK).json({ response })
+//       }
+//     }
+//   } catch (error) {
+//     res.status(StatusCodes.INTERNAL_SERVER_ERROR).send(error)
+//   }
+// })
+
+
 
 app.listen(PORT, function () {
   console.log(`Warming up the server 🔥🔥...`);
