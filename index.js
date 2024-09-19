@@ -82,7 +82,8 @@ app.post("/bot", async (req, res) => {
           username
         });
         await newUser.save();
-        await initialResponse(phone);
+        const response = await initialResponse(phone);
+        res.status(StatusCodes.OK).json({ response })
       }
     }
   } catch (error) {
