@@ -15,7 +15,7 @@ const morgan = require("morgan");
 const connectDb = require("./database/Connect.database");
 
 const app = express();
-const PORT = process.env.PORT || 3002;
+const PORT = process.env.PORT || 3000;
 
 app.use(morgan("combined"));
 app.use(bodyParser.urlencoded({ extended: false }));
@@ -46,7 +46,7 @@ app.post("/bot", async (req, res) => {
     // Additional code to handle user interactions and store data in the database
     //...
     const botResponse = "You said: " + message;
-    // await sendTextMessage(phoneNumber, botResponse);
+    await sendTextMessage(phoneNumber, botResponse);
     return res.status(200).json({
       type: "text",
       text: botResponse,
