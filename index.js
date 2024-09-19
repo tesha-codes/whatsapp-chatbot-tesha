@@ -62,8 +62,8 @@ app.get("/😂😂😂", async (request, response) => {
 app.post("/bot", async (req, res) => {
   try {
     const userResponse = req.body.payload;
-    console.log('User response: ',userResponse);
-    
+    console.log('User response: ', userResponse);
+
     if (userResponse && userResponse.source) {
       const phone = userResponse.sender.phone;
       const message = userResponse.payload?.text || "";
@@ -85,19 +85,10 @@ app.post("/bot", async (req, res) => {
           username
         });
         await newUser.save();
-        const message = `
-        Hello there, you've reached TeshaBot.
-        You have to accept the terms and conditions before
-        proceeding to the next step.
+        const message = "Hello there, you've reached TeshaBot. How do I help?"
 
-        Type
-        1. Yes - to accept terms and conditions. Visit https://tesha.co.zw/legal to view terms and conditions.
-        2. No - to cancel the whole process.
-          `;
-       
-        const response =  await sendTextMessage(phone, message);
-        console.log(response);
-       return res.status(StatusCodes.OK).json({ response })
+        await sendTextMessage(phone, message);
+        return res.status(StatusCodes.OK).json({ response })
       }
     }
   } catch (error) {
