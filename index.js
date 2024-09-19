@@ -59,42 +59,39 @@ app.post("/bot", async (req, res) => {
 });
 
 
-// app.post("/bot", async (req, res) => {
-//   try {
-//     const userResponse = req.body.payload;
-//     console.log('User response: ', userResponse);
+app.post("/bot", async (req, res) => {
+  
+    const userResponse = req.body.payload;
+    console.log('User response: ', userResponse);
 
-//     if (userResponse && userResponse.source) {
-//       const phone = userResponse.sender.phone;
-//       const message = userResponse.payload?.text || "";
-//       const username = userResponse.sender.name;
-//       const user = await User.findOne({ phone },
-//         {
-//           createdAt: 1,
-//           phone: 1,
-//           termsAndConditionsAccepted: 1
-//         });
+    if (userResponse && userResponse.source) {
+      const phone = userResponse.sender.phone;
+      const message = userResponse.payload?.text || "";
+      const username = userResponse.sender.name;
+      const user = await User.findOne({ phone },
+        {
+          createdAt: 1,
+          phone: 1,
+          termsAndConditionsAccepted: 1
+        });
 
-//       if (user && user.termsAndConditionsAccepted) {
-//         //Continue with session
-//       } else {
-//         console.log('Creating new user now');
-//         const newUser = new User.create({
-//           _id: new mongoose.Types.ObjectId(),
-//           phone,
-//           username
-//         });
-//         await newUser.save();
-//         const message = "Hello there, you've reached TeshaBot. How do I help?"
-
-//         await sendTextMessage(phone, message);
-//         return res.status(StatusCodes.OK).json({ response })
-//       }
-//     }
-//   } catch (error) {
-//     res.status(StatusCodes.INTERNAL_SERVER_ERROR).send(error)
-//   }
-// })
+      if (user && user.termsAndConditionsAccepted) {
+        //Continue with session
+      } else {
+        console.log('Creating new user now');
+        const newUser = new User.create({
+          _id: new mongoose.Types.ObjectId(),
+          phone,
+          username
+        });
+        await newUser.save();
+        const botMessage = "Hello there, you've reached TeshaBot. How do I help?"
+        await sendTextMessage(phone, botMessage);
+        return res.status(StatusCodes.OK).json({ response })
+      }
+    }
+ 
+})
 
 
 
