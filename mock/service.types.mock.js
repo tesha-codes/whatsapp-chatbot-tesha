@@ -1,0 +1,22 @@
+module.exports = [
+    "Cleaner",
+    "Electrician",
+    "Plumber",
+    "Handyman",
+    "Carpenter",
+    "Gardener",
+    "Painter",
+    "Mechanic",
+    "Furniture Assembler",
+    "TV Mounting Specialist",
+    "AC Installer",
+    "Maid/Nanny",
+    "Laundry Specialist",
+    "Home Security Installer",
+    "General Contractor",
+    "Pest Control Specialist",
+    "Window Cleaner",
+    "Driver",
+    "Mover",
+    "Appliance Repair Specialist"
+];
