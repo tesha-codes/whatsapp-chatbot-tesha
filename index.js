@@ -132,11 +132,6 @@ app.post("/bot", async (req, res) => {
       } else {
         session = { state: steps.NEW_USER }
         setSession(phone, session)
-      }
-    }
-
-    switch (session.state) {
-      case steps.NEW_USER:
         const newUser = new User({
           _id: new mongoose.Types.ObjectId(),
           phone,
@@ -145,23 +140,27 @@ app.post("/bot", async (req, res) => {
         await newUser.save();
         await sendMessage(phone)
         updateSession(phone, { state: steps.TERMS_AND_CONDITIONS })
-        break;
+      }
+    } else {
 
-      case steps.TERMS_AND_CONDITIONS:
-        await acceptTermsAndConditons(phone, message);
-        updateSession(phone, { state: steps.REGISTRATION });
-        break;
+      switch (session.state) {
+        case steps.TERMS_AND_CONDITIONS:
+          await acceptTermsAndConditons(phone, message);
+          updateSession(phone, { state: steps.REGISTRATION });
+          break;
 
-      case steps.REGISTRATION:
-        await saySomething()
-        updateSession(phone, { state: steps.TERMINATE_SESSION });
-        break;
+        case steps.REGISTRATION:
+          await saySomething()
+          updateSession(phone, { state: steps.TERMINATE_SESSION });
+          break;
 
-      default:
-        steps.TERMINATE_SESSION
-        break;
+        default:
+          console.log('Soon to be determined state');
+          break;
 
+      }
     }
+
     return res.status(StatusCodes.OK).send('Proceed')
   }
 })
