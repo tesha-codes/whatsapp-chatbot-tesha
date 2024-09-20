@@ -44,14 +44,14 @@ app.post("/bot", async (req, res) => {
     // };
 
     const session = await getSession(phone);
-    console.log('session: ', session);
-    
+    console.log("session: ", session);
+
     const user = await getUser(phone);
     const lActivity = Date.now();
 
     if (!user) {
       // : new user
-      await createUser(userResponse.source);
+      await createUser({ phone, username });
       await sendTextMessage(phone, messages.WELCOME_TERMS);
       await setSession(phone, {
         step: "ACCEPT_TERMS",
