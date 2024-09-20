@@ -1,26 +1,48 @@
 const User = require("../models/user.model");
 // create user
 const createUser = async (data) => {
-  const user = await User.findOne({ phone: data.phone });
-  if (!user) {
-    const newUser = new User({ ...data });
-    await newUser.save();
+  try {
+    const user = await User.findOne({ phone: data.phone });
+    if (!user) {
+      const newUser = new User(data);
+      await newUser.save();
+      return newUser;
+    }
+    return user;
+  } catch (error) {
+    console.error("Error creating user:", error);
+    throw error;
   }
 };
 // get user
 const getUser = async (phone) => {
-  return await User.findOne(
-    { phone },
-    { phone: 1, termsAndConditionsAccepted: 1, accountType: 1 }
-  );
+  try {
+    const user = await User.findOne(
+      { phone },
+      { phone: 1, termsAndConditionsAccepted: 1, accountType: 1 }
+    );
+    return user;
+  } catch (error) {
+    console.error("Error getting user:", error);
+    throw error;
+  }
 };
-
+// update user
 const updateUser = async (data) => {
-  await User.findOneAndUpdate(
-    { phone: data.phone },
-    { $set: data },
-    { new: true }
-  );
+  try {
+    const updatedUser = await User.findOneAndUpdate(
+      { phone: data.phone },
+      { $set: data },
+      { new: true, runValidators: true }
+    );
+    if (!updatedUser) {
+      throw new Error("User not found");
+    }
+    return updatedUser;
+  } catch (error) {
+    console.error("Error updating user:", error);
+    throw error;
+  }
 };
 
 module.exports = {

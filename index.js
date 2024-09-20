@@ -36,7 +36,7 @@ app.post("/bot", async (req, res) => {
     const username = userResponse.sender.name;
     // const SESSION_TEMPLATE = {
     //   phone,
-    //   role,
+    //   accountType,
     //   step,
     //   message,
     //   lActivity: Date.now(),
@@ -65,7 +65,7 @@ app.post("/bot", async (req, res) => {
           // client.accountType
           if (user.accountType === "Client") {
             await setSession(phone, {
-              role: "Client",
+              accountType: "Client",
               step: "ACCEPTED_TERMS",
               message,
               lActivity,
@@ -76,7 +76,7 @@ app.post("/bot", async (req, res) => {
           // provider.accountType
           if (user.accountType === "ServiceProvider") {
             await setSession(phone, {
-              role: "ServiceProvider",
+              accountType: "ServiceProvider",
               step: "ACCEPTED_TERMS",
               message,
               lActivity,
@@ -96,10 +96,10 @@ app.post("/bot", async (req, res) => {
         }
       }
 
-      if (session?.role) {
+      if (session?.accountType) {
         // : are already user or service provider
         // : check they user or service provider
-        if (session.role === "user") {
+        if (session.accountType === "Client") {
           // : user
           //  request service
           // list services
@@ -145,9 +145,9 @@ app.post("/bot", async (req, res) => {
         } else if (session.step === "USER_OR_PROVIDER") {
           if (message.toLowerCase() === "1") {
             await sendTextMessage(phone, messages.CLIENT_HOME);
-            await updateUser({ phone, role: "Client" });
+            await updateUser({ phone, accountType: "Client" });
             await setSession(phone, {
-              role: "Client",
+              accountType: "Client",
               step: "CLIENT_HOME",
               message,
               lActivity,
@@ -155,9 +155,9 @@ app.post("/bot", async (req, res) => {
             return res.status(StatusCodes.ACCEPTED).json({});
           } else if (message.toLowerCase() === "2") {
             await sendTextMessage(phone, messages.PROVIDER_HOME);
-            await updateUser({ phone, role: "ServiceProvider" });
+            await updateUser({ phone, accountType: "ServiceProvider" });
             await setSession(phone, {
-              role: "ServiceProvider",
+              accountType: "ServiceProvider",
               step: "PROVIDER_HOME",
               message,
               lActivity,
