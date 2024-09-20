@@ -1,11 +1,16 @@
 require("dotenv").config();
-const redis = require("redis");
+const { createClient } = require("redis");
+
 const { promisify } = require("util");
 //
 const { REDIS_URL } = process.env;
 
 // : redis
-const client = redis.createClient(REDIS_URL);
+const client = createClient({ url: REDIS_URL });
+
+client.on("error", (err) => console.log("Redis Client Error", err));
+
+await client.connect();
 
 // Promisify Redis commands
 const getSession = promisify(client.get).bind(client);
