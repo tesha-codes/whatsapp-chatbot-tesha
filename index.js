@@ -75,7 +75,8 @@ const steps = {
   TERMS_AND_CONDITIONS: 'TERMS_AND_CONDITIONS',
   NEW_USER: 'NEW_USER',
   REGISTRATION: 'REGISTRATION',
-  TERMINATE_SESSION: 'TERMINATE_SESSION'
+  TERMINATE_SESSION: 'TERMINATE_SESSION',
+  MAIN_MENU: 'MAIN_MENU'
 }
 
 function getSession(phone) {
@@ -121,13 +122,17 @@ app.post("/bot", async (req, res) => {
       if (user) {
         if (!user.termsAndConditionsAccepted) {
           session = { user, state: steps.TERMS_AND_CONDITIONS }
+          setSession(phone, session)
           await sendMessage(phone)
-          res.status(StatusCodes.OK).json({ response })
+        }
+        else {
+          session = { user, state: steps.MAIN_MENU }
+          setSession(phone, session)
         }
       } else {
         session = { state: steps.NEW_USER }
+        setSession(phone, session)
       }
-      setSession(phone, session)
     }
 
     switch (session.state) {
@@ -154,6 +159,7 @@ app.post("/bot", async (req, res) => {
 
       default:
         steps.TERMINATE_SESSION
+        break;
 
     }
     return res.status(StatusCodes.OK).send('Proceed')
