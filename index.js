@@ -1,20 +1,13 @@
 require("dotenv").config();
 const express = require("express");
-const {
-  getTemplatesList,
-  markBulkOptIn,
-  markUserOptIn,
-  sendMediaImageMessage,
-  sendMediaVideoMessage,
-  sendTextMessage,
-  sendTemplateMessage,
-} = require("./services/whatsappService");
+const { sendTextMessage } = require("./services/whatsappService");
 const bodyParser = require("body-parser");
 const { StatusCodes } = require("http-status-codes");
 const morgan = require("morgan");
 const connectDb = require("./database/Connect.database");
-const User = require('./Models/User.model');
-const { default: mongoose } = require("mongoose");
+const User = require("./Models/User.model");
+const mongoose = require("mongoose");
+const { getSession, setSession, deleteSession } = require("./utils/redis");
 
 const app = express();
 const PORT = process.env.PORT || 3000;
@@ -23,10 +16,10 @@ app.use(morgan("combined"));
 app.use(bodyParser.urlencoded({ extended: false }));
 app.use(express.json());
 
-app.get("/😂😂😂", async (request, response) => {
+app.get("/", async (request, response) => {
   response
     .status(StatusCodes.OK)
-    .json({ message: "Successfully laughed, its working..." });
+    .json({ message: "Never stray from the way." });
 });
 
 // app.use("/api/version-01/auth", UserRoutes)
@@ -69,27 +62,23 @@ app.get("/😂😂😂", async (request, response) => {
 // });
 
 let sessions = new Map();
-const SESSION_TIMEOUT = 30 * 60 * 1000;//30
+const SESSION_TIMEOUT = 30 * 60 * 1000; //30
 
 const steps = {
-  TERMS_AND_CONDITIONS: 'TERMS_AND_CONDITIONS',
-  NEW_USER: 'NEW_USER',
-  REGISTRATION: 'REGISTRATION',
-  TERMINATE_SESSION: 'TERMINATE_SESSION',
-  MAIN_MENU: 'MAIN_MENU'
-}
+  TERMS_AND_CONDITIONS: "TERMS_AND_CONDITIONS",
+  NEW_USER: "NEW_USER",
+  REGISTRATION: "REGISTRATION",
+  TERMINATE_SESSION: "TERMINATE_SESSION",
+  MAIN_MENU: "MAIN_MENU",
+};
 
-function getSession(phone) {
-  return sessions.get(phone)
-}
-
-function setSession(phone, data) {
-  sessions.set(phone, { ...data, lActivity: Date.now() })
+function setSessionByMapByMap(phone, data) {
+  sessions.set(phone, { ...data, lActivity: Date.now() });
   setTimeout(() => {
     if (sessions.has(phone)) {
       let curSession = sessions.get(phone);
       if (Date.now() - curSession >= SESSION_TIMEOUT) {
-        sessions.delete(phone)
+        sessions.delete(phone);
       }
     }
   }, SESSION_TIMEOUT);
@@ -97,13 +86,12 @@ function setSession(phone, data) {
 
 function updateSession(phone, data) {
   const curSession = sessions.get(phone);
-  sessions.set(phone, { ...curSession, ...data })
+  sessions.set(phone, { ...curSession, ...data });
 }
 
 app.post("/bot", async (req, res) => {
-
   const userResponse = req.body.payload;
-  console.log('User response: ', userResponse);
+  console.log("User response: ", userResponse);
 
   if (userResponse && userResponse.source) {
     const phone = userResponse.sender.phone;
@@ -112,68 +100,66 @@ app.post("/bot", async (req, res) => {
 
     let session = sessions.get(phone);
     if (!session) {
-      const user = await User.findOne({ phone },
+      const user = await User.findOne(
+        { phone },
         {
           createdAt: 1,
           phone: 1,
-          termsAndConditionsAccepted: 1
-        });
+          termsAndConditionsAccepted: 1,
+        }
+      );
 
       if (user) {
         if (!user.termsAndConditionsAccepted) {
-          session = { user, state: steps.TERMS_AND_CONDITIONS }
-          setSession(phone, session)
-          await sendMessage(phone)
-          return res.status(200).json({})
-        }
-        else {
-          session = { user, state: steps.MAIN_MENU }
-          setSession(phone, session);
-          await saySomething()
-          return res.status(200).json({})
+          session = { user, state: steps.TERMS_AND_CONDITIONS };
+          setSessionByMap(phone, session);
+          await sendMessage(phone);
+          return res.status(200).json({});
+        } else {
+          session = { user, state: steps.MAIN_MENU };
+          setSessionByMap(phone, session);
+          await saySomething();
+          return res.status(200).json({});
         }
       } else {
-        session = { state: steps.NEW_USER }
-        setSession(phone, session)
+        session = { state: steps.NEW_USER };
+        setSessionByMap(phone, session);
         const newUser = new User({
           _id: new mongoose.Types.ObjectId(),
           phone,
-          username
+          username,
         });
         await newUser.save();
-        await sendMessage(phone)
-        updateSession(phone, { state: steps.TERMS_AND_CONDITIONS })
-        return res.status(200).json({})
+        await sendMessage(phone);
+        updateSession(phone, { state: steps.TERMS_AND_CONDITIONS });
+        return res.status(200).json({});
       }
     }
-
 
     switch (session.state) {
       case steps.TERMS_AND_CONDITIONS:
         await acceptTermsAndConditons(phone, message);
         // updateSession(phone, { state: steps.REGISTRATION });
-        res.status(200).json({})
+        res.status(200).json({});
         break;
 
       case steps.REGISTRATION:
-        await saySomething()
+        await saySomething();
         // updateSession(phone, { state: steps.TERMINATE_SESSION });
-        res.status(200).json({})
+        res.status(200).json({});
         break;
 
       case steps.MAIN_MENU:
-        await sendMainMenu(phone)
-        res.status(200).json({})
+        await sendMainMenu(phone);
+        res.status(200).json({});
         break;
       default:
-        console.log('Soon to be determined state');
+        console.log("Soon to be determined state");
         break;
-
     }
-    return res.status(StatusCodes.OK).send('Proceed')
+    return res.status(StatusCodes.OK).send("Proceed");
   }
-})
-
+});
 
 async function sendMessage(phone) {
   const botMessage = `
@@ -183,24 +169,26 @@ proceeding to the next step.
 
 *Reply with:*
 1. *Yes* - to accept terms and conditions. *Visit* https://tesha.co.zw/legal to view terms and conditions.
-2. *No* - to cancel the whole process.`
+2. *No* - to cancel the whole process.`;
   await sendTextMessage(phone, botMessage);
 }
 
 async function acceptTermsAndConditons(phone, message) {
-  if (message.toLowerCase() === 'yes') {
-    await User.findOneAndUpdate({ phone }, { termsAndConditionsAccepted: true }, { new: true });
-    updateSession(phone, { state: steps.REGISTRATION })
-    await saySomething(phone)
-  }
-  else if (message.toLowerCase() === 'no') {
-    updateSession(phone, { state: steps.TERMINATE_SESSION })
-    let declineMessage = `You have declined the *terms* and *conditons*. If you change your mind feel free to contact us again. Thank you!`
-    await sendTextMessage(phone, declineMessage)
-  }
-  else {
-    let invalidMessage = `You have provided an invalid response. Please type 'Yes' or 'No'to proceed.`
-    await sendTextMessage(phone, invalidMessage)
+  if (message.toLowerCase() === "yes") {
+    await User.findOneAndUpdate(
+      { phone },
+      { termsAndConditionsAccepted: true },
+      { new: true }
+    );
+    updateSession(phone, { state: steps.REGISTRATION });
+    await saySomething(phone);
+  } else if (message.toLowerCase() === "no") {
+    updateSession(phone, { state: steps.TERMINATE_SESSION });
+    let declineMessage = `You have declined the *terms* and *conditons*. If you change your mind feel free to contact us again. Thank you!`;
+    await sendTextMessage(phone, declineMessage);
+  } else {
+    let invalidMessage = `You have provided an invalid response. Please type 'Yes' or 'No'to proceed.`;
+    await sendTextMessage(phone, invalidMessage);
   }
 }
 
@@ -219,7 +207,6 @@ Welcome to the main menu. What would you like to do?
 3. Option 3`;
   await sendTextMessage(phone, message);
 }
-
 
 app.listen(PORT, function () {
   console.log(`Warming up the server 🔥🔥...`);
