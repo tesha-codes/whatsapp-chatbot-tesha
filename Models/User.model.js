@@ -1,69 +1,66 @@
 const mongoose = require("mongoose");
 const { fieldEncryption } = require("mongoose-field-encryption");
-const crypto = require("node:crypto")
+const crypto = require("node:crypto");
 
-const UserSchema = new mongoose.Schema({
+const UserSchema = new mongoose.Schema(
+  {
     _id: mongoose.Types.ObjectId,
     phone: {
-        type: String,
-        required: true,
-        trim: true,
-        // unique: true
-    },
-    firstName: {
-        type: String,
-        trim: true
-    },
-    lastName: {
-        type: String,
-        trim: true
-    },
-    gender: {
-        type: String,
-        enum: ["Male", "Female", "Other"],
-    },
-    accountType: {
-        isClient: {
-            type: Boolean,
-            default: true
-        },
-        isServiceProvider: {
-            type: Boolean,
-            default: false
-        }
-    },
-    dob: {
-        type: Date,
-    },
-    address: {
-        physicalAddress: {
-            type: String,
-        },
-        coordinates: {
-            type: [Number]
-        }
-    },
-    verified: {
-        type: Boolean,
-        default: false
+      type: String,
+      required: true,
+      trim: true,
+      unique: true,
     },
     username: {
-        type: String,
+      type: String,
     },
-    preferredLanguage: {
+    firstName: {
+      type: String,
+      trim: true,
+    },
+    lastName: {
+      type: String,
+      trim: true,
+    },
+    gender: {
+      type: String,
+      enum: ["Male", "Female", "Other"],
+    },
+    accountType: {
+      type: String,
+      enum: ["Client", "ServiceProvider"],
+    },
+    dob: {
+      type: Date,
+    },
+    address: {
+      physicalAddress: {
         type: String,
-        enum: ["English", "Shona", "Ndebele"],
-        default: "English"
+      },
+      coordinates: {
+        type: [Number],
+      },
+    },
+    verified: {
+      type: Boolean,
+      default: false,
+    },
+
+    preferredLanguage: {
+      type: String,
+      enum: ["English", "Shona", "Ndebele"],
+      default: "English",
     },
     termsAndConditionsAccepted: {
-        type: Boolean,
-        default: false
-    }
-}, { timestamps: true }).index(
-    {
-        "address.coordinates": "2dsphere"
-        , "serviceProvider": "text"
-    })
+      type: Boolean,
+      default: false,
+    },
+  },
+  { timestamps: true }
+).index({
+  "address.coordinates": "2dsphere",
+  serviceProvider: "text",
+});
 
 // UserSchema.plugin(fieldEncryption, {
 //     fields: ['phone', 'firstName', 'lastName', 'accountType', 'dob', 'address.physicalAddress', 'address.coordinates', 'profile',],
@@ -74,4 +71,3 @@ const UserSchema = new mongoose.Schema({
 //     }
 // })
 module.exports = mongoose.model("User", UserSchema);
-

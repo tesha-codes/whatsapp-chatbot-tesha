@@ -1,18 +1,21 @@
-const mongoose = require("mongoose");;
-const { StatusCodes, ReasonPhrases } = require("http-status-codes");
-const Profile = require('../models/profile.model');
-
-
-const registerNewUser = asyncWrapperMiddleware(async (request, response, next) => {
-    const { whatsAppAccountId } = request.params;
-    const profile = await Profile.findOne({ whatsAppAccountId }, '_id user');
-    if (!profile) {
-        return next(createCustomError('No profile found!', StatusCodes.NOT_FOUND))
-    }
-    return response.status(StatusCodes.ACCEPTED).send(ReasonPhrases.ACCEPTED)
-});
-
+const User = require("../models/user.model");
+// create user
+const createUser = async (data) => {
+  const user = await User.findOne({ phone: data.phone });
+  if (!user) {
+    const newUser = new User({ ...data });
+    await newUser.save();
+  }
+};
+// get user
+const getUser = async (phone) => {
+  return await User.findOne(
+    { phone },
+    { phone: 1, termsAndConditionsAccepted: 1, accountType: 1 }
+  );
+};
 
 module.exports = {
-    registerNewUser
-}
+  createUser,
+  getUser,
+};

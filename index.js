@@ -5,9 +5,10 @@ const bodyParser = require("body-parser");
 const { StatusCodes } = require("http-status-codes");
 const morgan = require("morgan");
 const connectDb = require("./database/Connect.database");
-const User = require("./Models/User.model");
-const mongoose = require("mongoose");
+const User = require("./models/user.model");
 const { getSession, setSession, deleteSession } = require("./utils/redis");
+const { createUser, getUser } = require("./controllers/user.controllers");
+const { messages } = require("./modules/client");
 
 const app = express();
 const PORT = process.env.PORT || 3000;
@@ -21,45 +22,6 @@ app.get("/", async (request, response) => {
     .status(StatusCodes.OK)
     .json({ message: "Never stray from the way." });
 });
-
-// app.use("/api/version-01/auth", UserRoutes)
-// app.use(renderNotFound);
-// app.use(errorWrapperMiddleware)
-
-// app.post("/bot", async (req, res) => {
-//   const userResponse = req.body.payload;
-//   //
-//   console.log(userResponse);
-
-//   if (userResponse && userResponse.source) {
-//     // extract user whatsapp message/query from data object
-//     const phoneNumber = userResponse.sender.phone;
-//     const username = userResponse.sender.name;
-//     const country = userResponse.sender.country_code;
-//     // const message = userResponse.payload?.text || "";
-//     const originalChatId = userResponse.id;
-//     // Additional code to handle user interactions and store data in the database
-//     //...
-
-//     const message = `
-// Hello there, you've reached TeshaBot.
-// You have to accept the terms and conditions before
-// proceeding to the next step.
-
-// Type
-// 1. Yes - to accept terms and conditions. Visit https://tesha.co.zw/legal to view terms and conditions.
-// 2. No - to cancel the whole process.
-//   `;
-//     const botResponse = "You said: " + message;
-//     await sendTextMessage(phoneNumber, botResponse);
-//     return res.status(200).json({
-//       type: "text",
-//       text: botResponse,
-//     });
-//   }
-//   // acknowledge callback requests, do not remove:)
-//   return res.status(StatusCodes.ACCEPTED).send("Callback received:)");
-// });
 
 let sessions = new Map();
 const SESSION_TIMEOUT = 30 * 60 * 1000; //30
@@ -98,115 +60,154 @@ app.post("/bot", async (req, res) => {
     const message = userResponse.payload?.text || "";
     const username = userResponse.sender.name;
 
-    let session = sessions.get(phone);
-    if (!session) {
-      const user = await User.findOne(
-        { phone },
-        {
-          createdAt: 1,
-          phone: 1,
-          termsAndConditionsAccepted: 1,
-        }
-      );
+    // const SESSION_TEMPLATE = {
+    //   phone,
+    //   role,
+    //   step,
+    //   message,
+    //   lActivity: Date.now(),
+    // };
 
-      if (user) {
-        if (!user.termsAndConditionsAccepted) {
-          session = { user, state: steps.TERMS_AND_CONDITIONS };
-          setSessionByMap(phone, session);
-          await sendMessage(phone);
-          return res.status(200).json({});
+    const session = getSession(phone);
+    const user = await getUser(phone);
+    const lActivity = Date.now();
+
+    if (!user) {
+      // : new user
+      await createUser(userResponse.source);
+      await sendTextMessage(phone, messages.WELCOME_TERMS);
+      setSession(phone, {
+        step: "ACCEPT_TERMS",
+        message,
+        lActivity,
+      });
+      return res.status(StatusCodes.ACCEPTED).json({});
+    } else {
+      // check session
+      if (!session) {
+        if (user.termsAndConditionsAccepted && user.accountType) {
+          // client.accountType
+          if (user.accountType === "Client") {
+            setSession(phone, {
+              role: "Client",
+              step: "ACCEPTED_TERMS",
+              message,
+              lActivity,
+            });
+            await sendTextMessage(phone, messages.CLIENT_HOME);
+            return res.status(StatusCodes.ACCEPTED).json({});
+          }
+          // provider.accountType
+          if (user.accountType === "ServiceProvider") {
+            setSession(phone, {
+              role: "ServiceProvider",
+              step: "ACCEPTED_TERMS",
+              message,
+              lActivity,
+            });
+            await sendTextMessage(phone, messages.PROVIDER_HOME);
+            return res.status(StatusCodes.ACCEPTED).json({});
+          }
         } else {
-          session = { user, state: steps.MAIN_MENU };
-          setSessionByMap(phone, session);
-          await saySomething();
-          return res.status(200).json({});
+          // no session and no terms were accepted
+          await sendTextMessage(phone, messages.WELCOME_TERMS);
+          setSession(phone, {
+            step: "ACCEPT_TERMS",
+            message,
+            lActivity,
+          });
+          return res.status(StatusCodes.ACCEPTED).json({});
+        }
+      }
+
+      if (session?.role) {
+        // : are already user or service provider
+        // : check they user or service provider
+        if (session.role === "user") {
+          // : user
+          //  request service
+          // list services
+          // : acknlowledge request
+        } else {
+          // : service provider
+          // : register service
+          // : continue ...
         }
       } else {
-        session = { state: steps.NEW_USER };
-        setSessionByMap(phone, session);
-        const newUser = new User({
-          _id: new mongoose.Types.ObjectId(),
-          phone,
-          username,
-        });
-        await newUser.save();
-        await sendMessage(phone);
-        updateSession(phone, { state: steps.TERMS_AND_CONDITIONS });
-        return res.status(200).json({});
+        // 1 .
+        // : accept terms and conditions
+        if (session.step === "ACCEPT_TERMS") {
+          if (message.toLowerCase() === "yes") {
+            await sendTextMessage(phone, messages.ACCEPTED_TERMS);
+            setSession(phone, {
+              step: "ACCEPTED_TERMS",
+              message,
+              lActivity,
+            });
+            return res.status(StatusCodes.ACCEPTED).json({});
+          } else if (message.toLowerCase() === "no") {
+            await sendTextMessage(phone, messages.DECLINE_TERMS);
+            setSession(phone, {
+              step: "ACCEPT_TERMS",
+              message,
+              lActivity,
+            });
+            return res.status(StatusCodes.ACCEPTED).json({});
+          } else {
+            const invalidMessage = `You have provided an invalid response. Please type 'Yes' or 'No'to proceed.`;
+            await sendTextMessage(phone, invalidMessage);
+            return res.status(StatusCodes.ACCEPTED).json({});
+          }
+        } else if (session.step === "ACCEPTED_TERMS") {
+          await sendTextMessage(phone, messages.USER_OR_PROVIDER);
+          setSession(phone, {
+            step: "USER_OR_PROVIDER",
+            message,
+            lActivity,
+          });
+          return res.status(StatusCodes.ACCEPTED).json({});
+        } else if (session.step === "USER_OR_PROVIDER") {
+          if (message.toLowerCase() === "1") {
+            await sendTextMessage(phone, messages.CLIENT_HOME);
+            setSession(phone, {
+              role: "Client",
+              step: "CLIENT_HOME",
+              message,
+              lActivity,
+            });
+            return res.status(StatusCodes.ACCEPTED).json({});
+          } else if (message.toLowerCase() === "2") {
+            await sendTextMessage(phone, messages.PROVIDER_HOME);
+            setSession(phone, {
+              role: "ServiceProvider",
+              step: "PROVIDER_HOME",
+              message,
+              lActivity,
+            });
+            return res.status(StatusCodes.ACCEPTED).json({});
+          } else {
+            const invalidMessage = `You have provided an invalid response. Please type '1' or '2' to proceed.`;
+            await sendTextMessage(phone, invalidMessage);
+            return res.status(StatusCodes.ACCEPTED).json({});
+          }
+        }
+        // / : update user
+        // : update session
+        // : send welcome message for terms acceptance, prompt if they user or service provider or decline
+        // : acknlowledge request
+        // 2 . they choose a role and  continue
       }
     }
-
-    switch (session.state) {
-      case steps.TERMS_AND_CONDITIONS:
-        await acceptTermsAndConditons(phone, message);
-        // updateSession(phone, { state: steps.REGISTRATION });
-        res.status(200).json({});
-        break;
-
-      case steps.REGISTRATION:
-        await saySomething();
-        // updateSession(phone, { state: steps.TERMINATE_SESSION });
-        res.status(200).json({});
-        break;
-
-      case steps.MAIN_MENU:
-        await sendMainMenu(phone);
-        res.status(200).json({});
-        break;
-      default:
-        console.log("Soon to be determined state");
-        break;
-    }
-    return res.status(StatusCodes.OK).send("Proceed");
+    r;
   }
+  // acknowledge callback requests, do not remove:)
+  return res.status(StatusCodes.ACCEPTED).send("Callback received:)");
 });
 
-async function sendMessage(phone) {
-  const botMessage = `
-Hello there, you've reached TeshaBot.
-You have to accept the terms and conditions before
-proceeding to the next step.
-
-*Reply with:*
-1. *Yes* - to accept terms and conditions. *Visit* https://tesha.co.zw/legal to view terms and conditions.
-2. *No* - to cancel the whole process.`;
-  await sendTextMessage(phone, botMessage);
-}
-
-async function acceptTermsAndConditons(phone, message) {
-  if (message.toLowerCase() === "yes") {
-    await User.findOneAndUpdate(
-      { phone },
-      { termsAndConditionsAccepted: true },
-      { new: true }
-    );
-    updateSession(phone, { state: steps.REGISTRATION });
-    await saySomething(phone);
-  } else if (message.toLowerCase() === "no") {
-    updateSession(phone, { state: steps.TERMINATE_SESSION });
-    let declineMessage = `You have declined the *terms* and *conditons*. If you change your mind feel free to contact us again. Thank you!`;
-    await sendTextMessage(phone, declineMessage);
-  } else {
-    let invalidMessage = `You have provided an invalid response. Please type 'Yes' or 'No'to proceed.`;
-    await sendTextMessage(phone, invalidMessage);
-  }
-}
-
-async function saySomething(phone) {
-  const message = `
-Great! You've accepted the terms and conditions. Let's start the registration process. We will send you the registration form soon. Thank you!🙂
-  `;
-  await sendTextMessage(phone, message);
-}
-
-async function sendMainMenu(phone) {
-  const message = `
-Welcome to the main menu. What would you like to do?
-1. Option 1
-2. Option 2
-3. Option 3`;
-  await sendTextMessage(phone, message);
-}
+// async function sendMessage(phone) {
+//   const botMessage = ;
+//   await sendTextMessage(phone, botMessage);
+// }
 
 app.listen(PORT, function () {
   console.log(`Warming up the server 🔥🔥...`);
