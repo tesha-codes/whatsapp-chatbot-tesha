@@ -5,7 +5,7 @@ const bodyParser = require("body-parser");
 const { StatusCodes } = require("http-status-codes");
 const morgan = require("morgan");
 const connectDb = require("./database/connect.database");
-const { getSession, setSession, deleteSession } = require("./utils/redis");
+const { getSession, setSession } = require("./utils/redis");
 const {createUser, updateUser, getUser} = require("./controllers/user.controllers");
 const { messages } = require("./modules/client");
 

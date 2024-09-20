@@ -10,7 +10,7 @@ const client = createClient({ url: REDIS_URL });
 
 client.on("error", (err) => console.log("Redis Client Error", err));
 
-await client.connect();
+client.on("connect", () => console.log("Connected to Redis..."));
 
 // Promisify Redis commands
 const getSession = promisify(client.get).bind(client);
