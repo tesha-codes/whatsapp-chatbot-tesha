@@ -183,8 +183,8 @@ proceeding to the next step.
 }
 
 async function acceptTermsAndConditons(phone, message) {
-  if (message.toLowerCase() === 'yes') {
-    await User.findByIdAndUpdate({ phone }, { termsAndConditionsAccepted: true });
+  if (message.toLowerCase() === 'yes' ) {
+    await User.findByIdAndUpdate({ phone: phone }, { termsAndConditionsAccepted: true }, { new: true });
     updateSession(phone, { state: steps.REGISTRATION })
   }
   else if (message.toLowerCase() === 'no') {
