@@ -34,7 +34,6 @@ app.post("/bot", async (req, res) => {
     const phone = userResponse.sender.phone;
     const message = userResponse.payload?.text || "";
     const username = userResponse.sender.name;
-
     // const SESSION_TEMPLATE = {
     //   phone,
     //   role,
