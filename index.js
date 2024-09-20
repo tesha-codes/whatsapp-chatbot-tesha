@@ -69,7 +69,7 @@ app.get("/😂😂😂", async (request, response) => {
 // });
 
 let sessions = new Map();
-const SESSION_TIMEOUT = 30 * 60 * 1000;
+const SESSION_TIMEOUT = 30 * 60 * 1000;//30
 
 const steps = {
   TERMS_AND_CONDITIONS: 'TERMS_AND_CONDITIONS',
