@@ -6,7 +6,11 @@ const { StatusCodes } = require("http-status-codes");
 const morgan = require("morgan");
 const connectDb = require("./database/connect.database");
 const { getSession, setSession } = require("./utils/redis");
-const {createUser, updateUser, getUser} = require("./controllers/user.controllers");
+const {
+  createUser,
+  updateUser,
+  getUser,
+} = require("./controllers/user.controllers");
 const { messages } = require("./modules/client");
 
 const app = express();
@@ -21,24 +25,6 @@ app.get("/", async (request, response) => {
     .status(StatusCodes.OK)
     .json({ message: "Never stray from the way." });
 });
-
-
-function setSessionByMapByMap(phone, data) {
-  sessions.set(phone, { ...data, lActivity: Date.now() });
-  setTimeout(() => {
-    if (sessions.has(phone)) {
-      let curSession = sessions.get(phone);
-      if (Date.now() - curSession >= SESSION_TIMEOUT) {
-        sessions.delete(phone);
-      }
-    }
-  }, SESSION_TIMEOUT);
-}
-
-function updateSession(phone, data) {
-  const curSession = sessions.get(phone);
-  sessions.set(phone, { ...curSession, ...data });
-}
 
 app.post("/bot", async (req, res) => {
   const userResponse = req.body.payload;
@@ -57,7 +43,9 @@ app.post("/bot", async (req, res) => {
     //   lActivity: Date.now(),
     // };
 
-    const session = getSession(phone);
+    const session = await getSession(phone);
+    console.log('session: ', session);
+    
     const user = await getUser(phone);
     const lActivity = Date.now();
 
@@ -65,7 +53,7 @@ app.post("/bot", async (req, res) => {
       // : new user
       await createUser(userResponse.source);
       await sendTextMessage(phone, messages.WELCOME_TERMS);
-      setSession(phone, {
+      await setSession(phone, {
         step: "ACCEPT_TERMS",
         message,
         lActivity,
@@ -77,7 +65,7 @@ app.post("/bot", async (req, res) => {
         if (user.termsAndConditionsAccepted && user.accountType) {
           // client.accountType
           if (user.accountType === "Client") {
-            setSession(phone, {
+            await setSession(phone, {
               role: "Client",
               step: "ACCEPTED_TERMS",
               message,
@@ -88,7 +76,7 @@ app.post("/bot", async (req, res) => {
           }
           // provider.accountType
           if (user.accountType === "ServiceProvider") {
-            setSession(phone, {
+            await setSession(phone, {
               role: "ServiceProvider",
               step: "ACCEPTED_TERMS",
               message,
@@ -100,7 +88,7 @@ app.post("/bot", async (req, res) => {
         } else {
           // no session and no terms were accepted
           await sendTextMessage(phone, messages.WELCOME_TERMS);
-          setSession(phone, {
+          await setSession(phone, {
             step: "ACCEPT_TERMS",
             message,
             lActivity,
@@ -128,7 +116,7 @@ app.post("/bot", async (req, res) => {
         if (session.step === "ACCEPT_TERMS") {
           if (message.toLowerCase() === "yes") {
             await sendTextMessage(phone, messages.ACCEPTED_TERMS);
-            setSession(phone, {
+            await setSession(phone, {
               step: "ACCEPTED_TERMS",
               message,
               lActivity,
@@ -136,7 +124,7 @@ app.post("/bot", async (req, res) => {
             return res.status(StatusCodes.ACCEPTED).json({});
           } else if (message.toLowerCase() === "no") {
             await sendTextMessage(phone, messages.DECLINE_TERMS);
-            setSession(phone, {
+            await setSession(phone, {
               step: "ACCEPT_TERMS",
               message,
               lActivity,
@@ -149,7 +137,7 @@ app.post("/bot", async (req, res) => {
           }
         } else if (session.step === "ACCEPTED_TERMS") {
           await sendTextMessage(phone, messages.USER_OR_PROVIDER);
-          setSession(phone, {
+          await setSession(phone, {
             step: "USER_OR_PROVIDER",
             message,
             lActivity,
@@ -159,7 +147,7 @@ app.post("/bot", async (req, res) => {
           if (message.toLowerCase() === "1") {
             await sendTextMessage(phone, messages.CLIENT_HOME);
             await updateUser({ phone, role: "Client" });
-            setSession(phone, {
+            await setSession(phone, {
               role: "Client",
               step: "CLIENT_HOME",
               message,
@@ -169,7 +157,7 @@ app.post("/bot", async (req, res) => {
           } else if (message.toLowerCase() === "2") {
             await sendTextMessage(phone, messages.PROVIDER_HOME);
             await updateUser({ phone, role: "ServiceProvider" });
-            setSession(phone, {
+            await setSession(phone, {
               role: "ServiceProvider",
               step: "PROVIDER_HOME",
               message,
@@ -182,11 +170,6 @@ app.post("/bot", async (req, res) => {
             return res.status(StatusCodes.ACCEPTED).json({});
           }
         }
-        // / : update user
-        // : update session
-        // : send welcome message for terms acceptance, prompt if they user or service provider or decline
-        // : acknlowledge request
-        // 2 . they choose a role and  continue
       }
     }
     r;
@@ -194,7 +177,6 @@ app.post("/bot", async (req, res) => {
   // acknowledge callback requests, do not remove:)
   return res.status(StatusCodes.ACCEPTED).send("Callback received:)");
 });
-
 
 app.listen(PORT, function () {
   console.log(`Warming up the server 🔥🔥...`);
