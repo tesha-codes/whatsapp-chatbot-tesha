@@ -15,6 +15,14 @@ const getUser = async (phone) => {
   );
 };
 
+const updateUser = async (data) => {
+  await User.findOneAndUpdate(
+    { phone: data.phone },
+    { $set: data },
+    { new: true }
+  );
+};
+
 module.exports = {
   createUser,
   getUser,

@@ -5,7 +5,6 @@ const bodyParser = require("body-parser");
 const { StatusCodes } = require("http-status-codes");
 const morgan = require("morgan");
 const connectDb = require("./database/Connect.database");
-const User = require("./models/user.model");
 const { getSession, setSession, deleteSession } = require("./utils/redis");
 const { createUser, getUser } = require("./controllers/user.controllers");
 const { messages } = require("./modules/client");
@@ -23,16 +22,6 @@ app.get("/", async (request, response) => {
     .json({ message: "Never stray from the way." });
 });
 
-let sessions = new Map();
-const SESSION_TIMEOUT = 30 * 60 * 1000; //30
-
-const steps = {
-  TERMS_AND_CONDITIONS: "TERMS_AND_CONDITIONS",
-  NEW_USER: "NEW_USER",
-  REGISTRATION: "REGISTRATION",
-  TERMINATE_SESSION: "TERMINATE_SESSION",
-  MAIN_MENU: "MAIN_MENU",
-};
 
 function setSessionByMapByMap(phone, data) {
   sessions.set(phone, { ...data, lActivity: Date.now() });
@@ -169,6 +158,7 @@ app.post("/bot", async (req, res) => {
         } else if (session.step === "USER_OR_PROVIDER") {
           if (message.toLowerCase() === "1") {
             await sendTextMessage(phone, messages.CLIENT_HOME);
+            await updateuser({ phone, role: "Client" });
             setSession(phone, {
               role: "Client",
               step: "CLIENT_HOME",
@@ -178,6 +168,7 @@ app.post("/bot", async (req, res) => {
             return res.status(StatusCodes.ACCEPTED).json({});
           } else if (message.toLowerCase() === "2") {
             await sendTextMessage(phone, messages.PROVIDER_HOME);
+            await updateuser({ phone, role: "ServiceProvider" });
             setSession(phone, {
               role: "ServiceProvider",
               step: "PROVIDER_HOME",
@@ -204,10 +195,6 @@ app.post("/bot", async (req, res) => {
   return res.status(StatusCodes.ACCEPTED).send("Callback received:)");
 });
 
-// async function sendMessage(phone) {
-//   const botMessage = ;
-//   await sendTextMessage(phone, botMessage);
-// }
 
 app.listen(PORT, function () {
   console.log(`Warming up the server 🔥🔥...`);
