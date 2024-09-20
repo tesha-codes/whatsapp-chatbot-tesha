@@ -127,7 +127,8 @@ app.post("/bot", async (req, res) => {
         }
         else {
           session = { user, state: steps.MAIN_MENU }
-          setSession(phone, session)
+          setSession(phone, session);
+          await saySomething()
         }
       } else {
         session = { state: steps.NEW_USER }
@@ -146,14 +147,17 @@ app.post("/bot", async (req, res) => {
       switch (session.state) {
         case steps.TERMS_AND_CONDITIONS:
           await acceptTermsAndConditons(phone, message);
-          updateSession(phone, { state: steps.REGISTRATION });
+          // updateSession(phone, { state: steps.REGISTRATION });
           break;
 
         case steps.REGISTRATION:
           await saySomething()
-          updateSession(phone, { state: steps.TERMINATE_SESSION });
+          // updateSession(phone, { state: steps.TERMINATE_SESSION });
           break;
 
+        case steps.MAIN_MENU:
+          await sendMainMenu(phone)
+          break;
         default:
           console.log('Soon to be determined state');
           break;
@@ -172,7 +176,7 @@ Hello there, you've reached TeshaBot.
 You have to accept the terms and conditions before
 proceeding to the next step.
 
-*Send*
+*Reply with:*
 1. *Yes* - to accept terms and conditions. *Visit* https://tesha.co.zw/legal to view terms and conditions.
 2. *No* - to cancel the whole process.`
   await sendTextMessage(phone, botMessage);
@@ -198,6 +202,15 @@ async function saySomething(phone) {
   const message = `
 Great! You've accepted the terms and conditions. Let's start the registration process. We will send you the registration form soon. Thank you!🙂
   `;
+  await sendTextMessage(phone, message);
+}
+
+async function sendMainMenu(phone) {
+  const message = `
+Welcome to the main menu. What would you like to do?
+1. Option 1
+2. Option 2
+3. Option 3`;
   await sendTextMessage(phone, message);
 }
 
