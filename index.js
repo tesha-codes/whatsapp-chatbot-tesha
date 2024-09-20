@@ -68,6 +68,36 @@ app.get("/😂😂😂", async (request, response) => {
 //   return res.status(StatusCodes.ACCEPTED).send("Callback received:)");
 // });
 
+let sessions = new Map();
+const SESSION_TIMEOUT = 30 * 60 * 1000;
+
+const steps = {
+  TERMS_AND_CONDITIONS: 'TERMS_AND_CONDITIONS',
+  NEW_USER: 'NEW_USER',
+  REGISTRATION: 'REGISTRATION',
+  TERMINATE_SESSION: 'TERMINATE_SESSION'
+}
+
+function getSession(phone) {
+  return sessions.get(phone)
+}
+
+function setSession(phone, data) {
+  sessions.set(phone, { ...data, lActivity: Date.now() })
+  setTimeout(() => {
+    if (sessions.has(phone)) {
+      let curSession = sessions.get(phone);
+      if (Date.now() - curSession >= SESSION_TIMEOUT) {
+        sessions.delete(phone)
+      }
+    }
+  }, SESSION_TIMEOUT);
+}
+
+function updateSession(phone, data) {
+  const curSession = sessions.get(phone);
+  sessions.set(phone, { ...curSession, ...data })
+}
 
 app.post("/bot", async (req, res) => {
 
@@ -78,53 +108,93 @@ app.post("/bot", async (req, res) => {
     const phone = userResponse.sender.phone;
     const message = userResponse.payload?.text || "";
     const username = userResponse.sender.name;
-    const user = await User.findOne({ phone },
-      {
-        createdAt: 1,
-        phone: 1,
-        termsAndConditionsAccepted: 1
-      });
 
-    console.log(user);
+    let session = sessions.get(phone);
+    if (!session) {
+      const user = await User.findOne({ phone },
+        {
+          createdAt: 1,
+          phone: 1,
+          termsAndConditionsAccepted: 1
+        });
 
-
-    if (user) {
-      //Continue with session
-      if (!user.termsAndConditionsAccepted) {
-        const botMessage = `
-        Hello there, you've reached TeshaBot.
-        You have to accept the terms and conditions before
-        proceeding to the next step.
-
-        *Send*
-        1. *Yes* - to accept terms and conditions. *Visit* https://tesha.co.zw/legal to view terms and conditions.
-        2. *No* - to cancel the whole process.`
-        await sendTextMessage(phone, botMessage);
-        return res.status(StatusCodes.OK).json({ response })
+      if (user) {
+        if (!user.termsAndConditionsAccepted) {
+          session = { user, state: steps.TERMS_AND_CONDITIONS }
+          await sendMessage(phone)
+          res.status(StatusCodes.OK).json({ response })
+        }
+      } else {
+        session = { state: steps.NEW_USER }
       }
-    } else {
-      console.log('Creating new user now');
-      const newUser = new User({
-        _id: new mongoose.Types.ObjectId(),
-        phone,
-        username
-      });
-      await newUser.save();
-      const botMessage = `
-        Hello there, you've reached TeshaBot.
-        You have to accept the terms and conditions before
-        proceeding to the next step.
-
-        *Send*
-        1. *Yes* - to accept terms and conditions. *Visit* https://tesha.co.zw/legal to view terms and conditions.
-        2. *No* - to cancel the whole process.`
-      await sendTextMessage(phone, botMessage);
-      return res.status(StatusCodes.OK).json({ response })
+      setSession(phone, session)
     }
-  }
 
+    switch (session.state) {
+      case steps.NEW_USER:
+        const newUser = new User({
+          _id: new mongoose.Types.ObjectId(),
+          phone,
+          username
+        });
+        await newUser.save();
+        await sendMessage(phone)
+        updateSession(phone, { state: steps.TERMS_AND_CONDITIONS })
+        break;
+
+      case steps.TERMS_AND_CONDITIONS:
+        await acceptTermsAndConditons(phone, message);
+        updateSession(phone, { state: steps.REGISTRATION });
+        break;
+
+      case steps.REGISTRATION:
+        await saySomething()
+        updateSession(phone, { state: steps.TERMINATE_SESSION });
+        break;
+
+      default:
+        steps.TERMINATE_SESSION
+
+    }
+    return res.status(StatusCodes.OK).send('Proceed')
+  }
 })
 
+
+async function sendMessage(phone) {
+  const botMessage = `
+Hello there, you've reached TeshaBot.
+You have to accept the terms and conditions before
+proceeding to the next step.
+
+*Send*
+1. *Yes* - to accept terms and conditions. *Visit* https://tesha.co.zw/legal to view terms and conditions.
+2. *No* - to cancel the whole process.`
+  await sendTextMessage(phone, botMessage);
+}
+
+async function acceptTermsAndConditons(phone, message) {
+  if (message.toLowerCase() === 'yes') {
+    await User.findByIdAndUpdate({ phone }, { termsAndConditionsAccepted: true });
+    updateSession(phone, { state: steps.REGISTRATION })
+  }
+  else if (message.toLowerCase() === 'no') {
+    updateSession(phone, { state: steps.TERMINATE_SESSION })
+    let declineMessage = `You have declined the *terms* and *conditons*. If you change your mind feel free to contact us again. Thank you!`
+    await sendTextMessage(phone, declineMessage)
+  }
+  else {
+    let invalidMessage = `You have provided an invalid response. Please type 'Yes' or 'No'to proceed.`
+    await sendTextMessage(phone, invalidMessage)
+  }
+}
+
+async function saySomething(phone) {
+  const message = `
+Great! You've accepted the terms and conditions. Let's start the registration process. We will send you the registration form soon. Thank you!🙂
+  `;
+  await sendTextMessage(phone, message);
+}
 
 
 app.listen(PORT, function () {
