@@ -185,6 +185,7 @@ async function acceptTermsAndConditons(phone, message) {
   if (message.toLowerCase() === 'yes') {
     await User.findOneAndUpdate({ phone }, { termsAndConditionsAccepted: true }, { new: true });
     updateSession(phone, { state: steps.REGISTRATION })
+    await saySomething(phone)
   }
   else if (message.toLowerCase() === 'no') {
     updateSession(phone, { state: steps.TERMINATE_SESSION })
