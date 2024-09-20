@@ -124,11 +124,13 @@ app.post("/bot", async (req, res) => {
           session = { user, state: steps.TERMS_AND_CONDITIONS }
           setSession(phone, session)
           await sendMessage(phone)
+          return res.status(200).json({})
         }
         else {
           session = { user, state: steps.MAIN_MENU }
           setSession(phone, session);
           await saySomething()
+          return res.status(200).json({})
         }
       } else {
         session = { state: steps.NEW_USER }
@@ -141,6 +143,7 @@ app.post("/bot", async (req, res) => {
         await newUser.save();
         await sendMessage(phone)
         updateSession(phone, { state: steps.TERMS_AND_CONDITIONS })
+        return res.status(200).json({})
       }
     }
 
@@ -149,15 +152,18 @@ app.post("/bot", async (req, res) => {
       case steps.TERMS_AND_CONDITIONS:
         await acceptTermsAndConditons(phone, message);
         // updateSession(phone, { state: steps.REGISTRATION });
+        res.status(200).json({})
         break;
 
       case steps.REGISTRATION:
         await saySomething()
         // updateSession(phone, { state: steps.TERMINATE_SESSION });
+        res.status(200).json({})
         break;
 
       case steps.MAIN_MENU:
         await sendMainMenu(phone)
+        res.status(200).json({})
         break;
       default:
         console.log('Soon to be determined state');
