@@ -26,4 +26,5 @@ const updateUser = async (data) => {
 module.exports = {
   createUser,
   getUser,
+  updateUser,
 };

@@ -6,7 +6,7 @@ const { StatusCodes } = require("http-status-codes");
 const morgan = require("morgan");
 const connectDb = require("./database/Connect.database");
 const { getSession, setSession, deleteSession } = require("./utils/redis");
-const { createUser, getUser } = require("./controllers/user.controllers");
+const {createUser, updateUser, getUser} = require("./controllers/user.controllers");
 const { messages } = require("./modules/client");
 
 const app = express();
@@ -158,7 +158,7 @@ app.post("/bot", async (req, res) => {
         } else if (session.step === "USER_OR_PROVIDER") {
           if (message.toLowerCase() === "1") {
             await sendTextMessage(phone, messages.CLIENT_HOME);
-            await updateuser({ phone, role: "Client" });
+            await updateUser({ phone, role: "Client" });
             setSession(phone, {
               role: "Client",
               step: "CLIENT_HOME",
@@ -168,7 +168,7 @@ app.post("/bot", async (req, res) => {
             return res.status(StatusCodes.ACCEPTED).json({});
           } else if (message.toLowerCase() === "2") {
             await sendTextMessage(phone, messages.PROVIDER_HOME);
-            await updateuser({ phone, role: "ServiceProvider" });
+            await updateUser({ phone, role: "ServiceProvider" });
             setSession(phone, {
               role: "ServiceProvider",
               step: "PROVIDER_HOME",
