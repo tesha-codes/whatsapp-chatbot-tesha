@@ -142,29 +142,28 @@ app.post("/bot", async (req, res) => {
         await sendMessage(phone)
         updateSession(phone, { state: steps.TERMS_AND_CONDITIONS })
       }
-    } else {
-
-      switch (session.state) {
-        case steps.TERMS_AND_CONDITIONS:
-          await acceptTermsAndConditons(phone, message);
-          // updateSession(phone, { state: steps.REGISTRATION });
-          break;
-
-        case steps.REGISTRATION:
-          await saySomething()
-          // updateSession(phone, { state: steps.TERMINATE_SESSION });
-          break;
-
-        case steps.MAIN_MENU:
-          await sendMainMenu(phone)
-          break;
-        default:
-          console.log('Soon to be determined state');
-          break;
-
-      }
     }
 
+
+    switch (session.state) {
+      case steps.TERMS_AND_CONDITIONS:
+        await acceptTermsAndConditons(phone, message);
+        // updateSession(phone, { state: steps.REGISTRATION });
+        break;
+
+      case steps.REGISTRATION:
+        await saySomething()
+        // updateSession(phone, { state: steps.TERMINATE_SESSION });
+        break;
+
+      case steps.MAIN_MENU:
+        await sendMainMenu(phone)
+        break;
+      default:
+        console.log('Soon to be determined state');
+        break;
+
+    }
     return res.status(StatusCodes.OK).send('Proceed')
   }
 })
@@ -183,7 +182,7 @@ proceeding to the next step.
 }
 
 async function acceptTermsAndConditons(phone, message) {
-  if (message.toLowerCase() === 'yes' ) {
+  if (message.toLowerCase() === 'yes') {
     await User.findOneAndUpdate({ phone }, { termsAndConditionsAccepted: true }, { new: true });
     updateSession(phone, { state: steps.REGISTRATION })
   }
