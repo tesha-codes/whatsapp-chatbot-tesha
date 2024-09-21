@@ -11,7 +11,7 @@ client.on("connect", () => console.log("Connected to Redis🔥🔥🔥..."));
 // Connect to Redis
 client.connect().catch(console.error);
 
-// Use async functions instead of promisify
+// helper functions
 const getSession = async (key) => await client.hGetAll(key);
 const setSession = async (key, value) => await client.hSet(key, value);
 const deleteSession = async (key) => await client.del(key);

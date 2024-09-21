@@ -118,6 +118,7 @@ app.post("/bot", async (req, res) => {
         if (session.step === "ACCEPT_TERMS") {
           if (message.toLowerCase() === "yes") {
             await sendTextMessage(phone, messages.ACCEPTED_TERMS);
+            await updateUser({ phone, termsAndConditionsAccepted: true });
             await setSession(phone, {
               step: "ACCEPTED_TERMS",
               message,
