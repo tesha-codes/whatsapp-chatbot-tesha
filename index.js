@@ -99,15 +99,18 @@ app.post("/bot", async (req, res) => {
       if (session?.accountType) {
         // : are already user or service provider
         // : check they user or service provider
+        console.log('The sessions here: ', session);
         if (session.accountType === "Client") {
           // : user
           //  request service
           // list services
           // : acknlowledge request
+          console.log('Client session: ', session);
         } else {
           // : service provider
           // : register service
           // : continue ...
+          console.log('Client session: ', session);
         }
       } else {
         // 1 .
