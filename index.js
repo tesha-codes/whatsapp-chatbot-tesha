@@ -175,7 +175,6 @@ app.post("/bot", async (req, res) => {
         }
       }
     }
-    r;
   }
   // acknowledge callback requests, do not remove:)
   return res.status(StatusCodes.ACCEPTED).send("Callback received:)");
