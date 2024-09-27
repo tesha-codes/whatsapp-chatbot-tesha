@@ -51,6 +51,36 @@ For a full list of our services, feel free to visit tesha.co.zw/services.
 Welcome to Tesha's main menu! Please let us know who you are:
 1. Client - Looking for services
 2. Service Provider - Offering services`,
+CLIENT_WELCOME_MESSAGE:` 
+*What can we help you with today?*
+
+Please select a category by replying with the corresponding number:
+  
+  🏠 *Household Services*
+  1. Cleaning, Laundry, Home Organization, Handyman tasks, etc.
+  
+  🌳 *Yard & Outdoor Services*
+  2. Lawn care, Gardening, Yard cleanup, Pool maintenance, etc.
+  
+  🛍 *Errands & Shopping*
+  3. Grocery shopping, Dog walking, Household item pickups, etc.
+  
+  🛠 *Skilled Tasks*
+  4. Plumbing, Electrical work, Painting, Carpentry, etc.
+  
+  🚚 *Moving & Hauling*
+  5. Local moving, Junk removal, Donation pickups, etc.
+  
+  🐾 *Pet Care*
+  6. Dog walking, Pet sitting, Pet grooming, etc.
+  
+  👵 *Senior Care*
+  7. Companion care, Personal care, Transportation, etc.
+  
+  🏡 *Home Maintenance*
+  8. HVAC maintenance, Pest control, Appliance repair, etc.
+
+  Type the number of the category you're interested in, and I'll show you the available services! 😊`
   },
 };
 

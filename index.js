@@ -107,7 +107,12 @@ app.post("/bot", async (req, res) => {
           //  request service
           // list services
           // : acknlowledge request
-          await sendTextMessage(phone, 'Ukuda kubatsira nei ? ')
+          await sendTextMessage(phone, messages.CLIENT_WELCOME_MESSAGE);
+          await setSession(phone, {
+            step: "CLIENT_WELCOME_MESSAGE",
+            message,
+            lActivity,
+          });
           console.log('Client session: ', session);
         } else {
           // : service provider
