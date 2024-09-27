@@ -1,17 +1,17 @@
 const clientModule = {
   messages: {
     WELCOME_MESSAGE: `
-🎉 Welcome to Tesha!
+🎉*Welcome to Tesha!*
 
-Tesha is a WhatsApp-based platform that connects you with service providers like handymen, maids, and more—all through WhatsApp!
+*Tesha* is a WhatsApp-based platform that connects you with service providers like handymen, maids, and more—all through WhatsApp!
 
-Key Features: • 🔧 Service Requests: Book handymen, maids, and other professionals. • 📅 Bookings: Choose based on ratings and hourly rates. • 🔔 Notifications: Get booking updates and payment alerts.
+*Key Features:* • 🔧 *Service Requests:* Book handymen, maids, and other professionals. • 📅 *Bookings:* Choose based on ratings and hourly rates. • 🔔 *Notifications:* Get booking updates and payment alerts.
 
 Please respond with: 
-✅ Yes: to accept the terms and start using Tesha. 
-❌ No: to cancel the process.
+✅ *Yes:* to accept the terms and start using Tesha. 
+❌ *No:* to cancel the process.
 
-You can also visit our website at tesha.co.zw/legal for full terms.
+You can also visit our website at ~tesha.co.zw/legal~ for full terms.
 
     `,
     WELCOME_TERMS: `
@@ -29,25 +29,25 @@ You can also visit our website at *tesha.co.zw/legal* to read the terms and cond
       "You've declined the *Terms and Conditions*. If you change your mind, feel free to reach out to us anytime. Thank you for considering Tesha! 😊",
 
     ACCEPTED_TERMS: `
-  *Fantastic!* 🎉
+*Fantastic!* 🎉
 
-  You've accepted the terms and conditions, and you're all set to explore Tesha’s services.
+You've accepted the terms and conditions, and you're all set to explore Tesha’s services.
 
-  🏠 Household services
-  🌳 Yard and outdoor maintenance
-  🛍️ Errands and deliveries
-  🛠️ Skilled tasks like plumbing and electrical work
-  🚚 Moving and hauling services
-  🐾 Pet care
-  👵 Senior care
-  🏡 Home maintenance
+🏠 Household services
+🌳 Yard and outdoor maintenance
+🛍️ Errands and deliveries
+🛠️ Skilled tasks like plumbing and electrical work
+🚚 Moving and hauling services
+🐾 Pet care
+👵 Senior care
+🏡 Home maintenance
 
-  Are you joining us as a *client* looking to hire services, or a *service provider* looking to offer your skills?
+Are you joining us as a *Client* looking to hire services, or a *Service Provider* looking to offer your skills?
 
-  *Please respond with:*
+*Please respond with:*
 
-  1️⃣ Client
-  2️⃣ Service Provider
+1️⃣ Client
+2️⃣ Service Provider
 `,
 
     PROVIDER_HOME:

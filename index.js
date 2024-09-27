@@ -83,7 +83,7 @@ app.post("/bot", async (req, res) => {
         lActivity,
       });
       // await sendTextMessage(phone, messages.WELCOME_MESSAGE);
-      return res.status(StatusCodes.OK).send(messages.WELCOME_TERMS)
+      return res.status(StatusCodes.OK).send(messages.WELCOME_MESSAGE)
     } else {
       // check session
       if (!session) {
@@ -146,9 +146,10 @@ app.post("/bot", async (req, res) => {
             );
             const services = await Service.find({ category: category._id });
             let responseMessage = `
-            *${category.name}*
-            which of the following services do you wish to hire service for?
-            ${services.map((s, index) => ` *${index + 1} ${s.title}* - ${s.description}`).join('\n')}
+*${category.name}*
+which of the following services do you wish to hire service for?
+${services.map((s, index) => ` ${index + 1}. ${s.title} + "\n" + 
+${s.description}`).join('\n')}
             `
             return res.status(StatusCodes.OK).send(responseMessage)
           }

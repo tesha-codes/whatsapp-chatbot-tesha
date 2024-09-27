@@ -16,7 +16,7 @@ const ServiceReferenceSchema = new mongoose.Schema({
     },
     serviceType: {
         type: [String],
-        enum: ['Household', 'Skilled Task', 'Yard Work', 'Moving', 'Pet Care', 'Senior Care', 'Home Maintenance'],
+        enum: ['Household', 'Skilled Task', 'Yard Work', 'Moving', 'Pet Care', 'Senior Care', 'Home Maintenance', 'Errands & Shopping'],
         required: true
     },
     unitPrice: {
