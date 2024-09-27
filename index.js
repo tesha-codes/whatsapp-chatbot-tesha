@@ -82,7 +82,7 @@ app.post("/bot", async (req, res) => {
         message,
         lActivity,
       });
-      await sendTextMessage(phone, messages.WELCOME_MESSAGE);
+      // await sendTextMessage(phone, messages.WELCOME_MESSAGE);
       return res.status(StatusCodes.OK).send(messages.WELCOME_TERMS)
     } else {
       // check session
