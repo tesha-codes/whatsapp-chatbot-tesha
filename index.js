@@ -205,7 +205,7 @@ ${s.description}`).join('\n')}
               message,
               lActivity,
             });
-            return res.status(StatusCodes.OK).send(messages.CLIENT_HOME)
+            return res.status(StatusCodes.OK).send(messages.CLIENT_WELCOME_MESSAGE)
           } else if (message.toLowerCase() === "2") {
             //Check if user has a valid profile , if not register them and then proceed to menu, else go straight to menu
             

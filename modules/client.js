@@ -5,13 +5,18 @@ const clientModule = {
 
 *Tesha* is a WhatsApp-based platform that connects you with service providers like handymen, maids, and more—all through WhatsApp!
 
-*Key Features:* • 🔧 *Service Requests:* Book handymen, maids, and other professionals. • 📅 *Bookings:* Choose based on ratings and hourly rates. • 🔔 *Notifications:* Get booking updates and payment alerts.
+*Key Features:* 
 
-Please respond with: 
-✅ *Yes:* to accept the terms and start using Tesha. 
+🔧 *Service Requests:* Book handymen, maids, and other professionals. 
+📅 *Bookings:* Choose based on ratings and hourly rates. 
+🔔 *Notifications:* Get booking updates and payment alerts.
+
+Please respond with either(Yes/No): 
+
+👍 *Yes:* to accept the terms and start using Tesha. 
 ❌ *No:* to cancel the process.
 
-You can also visit our website at ~tesha.co.zw/legal~ for full terms.
+You can also visit our website at tesha.co.zw/legal for full terms.
 
     `,
     WELCOME_TERMS: `
@@ -55,6 +60,8 @@ Are you joining us as a *Client* looking to hire services, or a *Service Provide
 
     CLIENT_HOME:
       "Welcome, valued Client! 👋 We're here to help you find the right services. How can we assist you today?",
+
+
 
     USER_OR_PROVIDER: `
 Welcome to Tesha's main menu! Please let us know who you are:
