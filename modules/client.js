@@ -1,24 +1,27 @@
 const clientModule = {
   messages: {
     WELCOME_MESSAGE: `
-*Welcome to Tesha!* 🎉
+*Introducing Tesha!* 🎉
 
-Tesha is a WhatsApp-based platform that seamlessly connects clients with service providers. Whether you're looking to book a handyman, maid, or any other professional, Tesha makes the process smooth and efficient. Our services are fully managed through WhatsApp, allowing you to interact with the platform by sending commands and bookings and managing your requests.
+Tesha is a convenient WhatsApp-based platform designed to seamlessly connect clients with service providers. Whether you need to book a handyman, maid, or any other professional, Tesha simplifies the process for you. Our services are fully accessible through WhatsApp, allowing you to interact with the platform by sending commands, making bookings, and managing your requests.
 
 Key features of Tesha:
+• *WhatsApp Bot Service:* Handles user requests, connects clients and service providers, and ensures smooth communication.
+• *Booking Service:* Allows you to book available service providers based on their ratings and hourly rates.
+• *Payment Service:* Manages all payments securely through platforms like Ecocash, releasing funds only after job completion.
+• *Notifications:* Keeps you informed with booking updates, payment notifications, and service change alerts.
 
-•	*WhatsApp Bot Service:* Handles user requests, connects clients and service providers, and ensures smooth communication.
-•	*Booking Service:* Allows you to book available service providers based on    their ratings and hourly rates.
-•	*Payment Service:* Manages all payments securely through platforms like Ecocash, releasing funds only after job completion.
-•	*Notifications:* Keeps you updated with bookings, payments, and service change alerts.
     `,
     WELCOME_TERMS: `
 We're excited to have you here! Before handling your requests, please review and accept our terms and conditions.
-•	To continue, please reply with:
 
-o	*Yes*, to accept our terms and conditions and start interacting with the platform.
-o	*No*, to decline and cancel the process.
-You can also visit our website at tesha.co.zw/legal to read the terms and conditions.
+To continue, please reply with:
+
+*Yes*, to accept our terms and conditions and start interacting with the platform.
+*No*, to decline and cancel the process.
+
+
+You can also visit our website at *tesha.co.zw/legal* to read the terms and conditions.
 `,
 
     DECLINE_TERMS:
