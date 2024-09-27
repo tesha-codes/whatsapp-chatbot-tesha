@@ -1,98 +1,43 @@
 const clientModule = {
   messages: {
-    WELCOME_TERMS: `
-Hello and welcome to TeshaBot! 🎉
-Before we proceed, please review and accept our terms and conditions to continue.
+    WELCOME_MESSAGE: `
+*Welcome to Tesha!* 🎉
 
-*Reply with:*
-*Yes* - to accept the terms and conditions. You can also *Visit* https://tesha.co.zw/legal to view the full terms.
-*No* - if you wish to decline and cancel the process.`,
+Tesha is a WhatsApp-based platform that seamlessly connects clients with service providers. Whether you're looking to book a handyman, maid, or any other professional, Tesha makes the process smooth and efficient. Our services are fully managed through WhatsApp, allowing you to interact with the platform by sending commands and bookings and managing your requests.
+
+Key features of Tesha:
+
+•	*WhatsApp Bot Service:* Handles user requests, connects clients and service providers, and ensures smooth communication.
+•	*Booking Service:* Allows you to book available service providers based on    their ratings and hourly rates.
+•	*Payment Service:* Manages all payments securely through platforms like Ecocash, releasing funds only after job completion.
+•	*Notifications:* Keeps you updated with bookings, payments, and service change alerts.
+    `,
+    WELCOME_TERMS: `
+We're excited to have you here! Before handling your requests, please review and accept our terms and conditions.
+•	To continue, please reply with:
+
+o	*Yes*, to accept our terms and conditions and start interacting with the platform.
+o	*No*, to decline and cancel the process.
+You can also visit our website at tesha.co.zw/legal to read the terms and conditions.
+`,
 
     DECLINE_TERMS:
       "You've declined the *Terms and Conditions*. If you change your mind, feel free to reach out to us anytime. Thank you for considering Tesha! 😊",
-    
-      ACCEPTED_TERMS: `Fantastic! 🎉 You've accepted the terms and conditions, and now you’re ready to explore the amazing services we offer! Here’s a quick look at what you can register for or request:
 
-*🏠 Household Services*
-1. Cleaning (one-time, regular, deep cleaning)
-2. Laundry (wash, dry, fold)
-3. Home organization (decluttering, tidying)
-4. Handyman tasks (minor repairs, furniture assembly)
-5. House sitting (overnight, pet care)
-6. Meal preparation
-7. Errands and grocery shopping
-8. Household management
+    ACCEPTED_TERMS: `
+*Fantastic!* 🎉
 
-*🌳 Yard & Outdoor*
-1. Lawn care (mowing, trimming, edging)
-2. Gardening (planting, pruning, weeding)
-3. Yard cleanup (leaf and debris removal)
-4. Pool maintenance
-5. Outdoor furniture assembly
-6. Gutter cleaning
-7. Power washing
-8. Tree trimming
-9. Landscaping
+You've accepted the terms and conditions, and you're all set to explore Tesha’s services.
 
-*🛍️ Errands & Shopping*
-1. Grocery shopping
-2. Pharmacy pickups
-3. Dog walking & pet care
-4. Household item pickups
-5. Gift shopping & event planning
-6. Travel planning
-7. Meal delivery
-8. Queue waiting
+At Tesha, we connect you with trusted professionals for a wide range of services, including:
 
-*🛠️ Skilled Tasks*
-1. Plumbing (leaks, drains)
-2. Electrical work (lighting, outlets)
-3. Painting (interior, exterior)
-4. Carpentry (woodwork, repairs)
-5. TV & electronics installation
-6. Locksmith services
-7. Appliance repair
-8. HVAC maintenance
-9. Pest control
+*Household* help like cleaning and handyman tasks
+*Yard and outdoor* maintenance
+*Errands, shopping, and deliveries*
+*Skilled tasks like plumbing, electrical work, and more.*
+We’ve got you covered for all your daily needs and more! 🚀
 
-*🚚 Moving & Hauling*
-1. Local moving & hauling
-2. Junk removal
-3. Donation pickups
-4. Heavy lifting
-5. Packing services
-6. Long-distance moving
-7. Furniture disassembly
-8. Storage unit organization
-9. Delivery services
-
-*🐾 Pet Care*
-1. Dog walking
-2. Pet feeding & grooming
-3. Pet sitting & overnight care
-4. Pet training
-5. Pet taxi & supply shopping
-
-*👵 Senior Care*
-1. Companion care
-2. Personal care
-3. Medication management
-4. Meal prep & light housekeeping
-5. Transportation & errands
-6. Home safety assessments
-
-*🏡 Home Maintenance*
-1. HVAC & plumbing maintenance
-2. Electrical repairs
-3. Pest control
-4. Roof & gutter cleaning
-5. Appliance maintenance
-
-And much more!
-
-We’re thrilled to have you on board at Tesha! 🚀 You can also *Visit* https://tesha.co.zw/services to explore all our services. 
-
-Type anything to proceed and let's get started! 🙂
+For a full list of our services, feel free to visit tesha.co.zw/services.
 `,
 
     PROVIDER_HOME:

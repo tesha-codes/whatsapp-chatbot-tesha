@@ -51,6 +51,8 @@ app.post("/bot", async (req, res) => {
     if (!user) {
       // : new user
       await createUser({ phone, username });
+
+      await sendTextMessage(phone, messages.WELCOME_MESSAGE);
       await sendTextMessage(phone, messages.WELCOME_TERMS);
       await setSession(phone, {
         step: "ACCEPT_TERMS",
@@ -176,7 +178,7 @@ app.post("/bot", async (req, res) => {
       }
     }
   }
-  // acknowledge callback requests, do not remove:)
+  // acknowledge callback requests, do not remove:);
   return res.status(StatusCodes.ACCEPTED).send("Callback received:)");
 });
 
