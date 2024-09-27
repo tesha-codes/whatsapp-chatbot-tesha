@@ -201,7 +201,7 @@ ${s.description}`).join('\n')}
             await updateUser({ phone, accountType: "Client" });
             await setSession(phone, {
               accountType: "Client",
-              step: steps.CLIENT_HOME,
+              step: steps.CLIENT_MENU_SERVICE_CATEGORIES,
               message,
               lActivity,
             });
