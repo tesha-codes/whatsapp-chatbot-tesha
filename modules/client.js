@@ -26,19 +26,25 @@ You can also visit our website at *tesha.co.zw/legal* to read the terms and cond
       "You've declined the *Terms and Conditions*. If you change your mind, feel free to reach out to us anytime. Thank you for considering Tesha! 😊",
 
     ACCEPTED_TERMS: `
-*Fantastic!* 🎉
+    *Fantastic!* 🎉
 
-You've accepted the terms and conditions, and you're all set to explore Tesha’s services.
+    You've accepted the terms and conditions, and you're all set to explore Tesha’s services.
 
-At Tesha, we connect you with trusted professionals for a wide range of services, including:
+    🏠 Household services
+    🌳 Yard and outdoor maintenance
+    🛍️ Errands and deliveries
+    🛠️ Skilled tasks like plumbing and electrical work
+    🚚 Moving and hauling services
+    🐾 Pet care
+    👵 Senior care
+    🏡 Home maintenance
 
-*Household* help like cleaning and handyman tasks
-*Yard and outdoor* maintenance
-*Errands, shopping, and deliveries*
-*Skilled tasks like plumbing, electrical work, and more.*
-We’ve got you covered for all your daily needs and more! 🚀
+    Are you joining us as a *client* looking to hire services, or a *service provider* looking to offer your skills?
 
-For a full list of our services, feel free to visit tesha.co.zw/services.
+    *Please respond with:*
+
+    1️⃣ Client
+    2️⃣ Service Provider
 `,
 
     PROVIDER_HOME:

@@ -184,15 +184,17 @@ app.post("/bot", async (req, res) => {
             return res.status(StatusCodes.OK).send(invalidMessage)
           }
 
-        } else if (session.step === steps.ACCEPTED_TERMS) {
-          await setSession(phone, {
-            step: steps.USER_OR_PROVIDER,
-            message,
-            lActivity,
-          });
-          return res.status(StatusCodes.OK).send(messages.USER_OR_PROVIDER)
+        } 
+        // else if (session.step === steps.ACCEPTED_TERMS) {
+        //   await setSession(phone, {
+        //     step: steps.USER_OR_PROVIDER,
+        //     message,
+        //     lActivity,
+        //   });
+        //   return res.status(StatusCodes.OK).send(messages.USER_OR_PROVIDER)
 
-        } else if (session.step === steps.USER_OR_PROVIDER) {
+        // } 
+        else if (session.step === steps.ACCEPTED_TERMS) {
           if (message.toLowerCase() === "1") {
 
             await updateUser({ phone, accountType: "Client" });
@@ -204,7 +206,8 @@ app.post("/bot", async (req, res) => {
             });
             return res.status(StatusCodes.OK).send(messages.CLIENT_HOME)
           } else if (message.toLowerCase() === "2") {
-
+            //Check if user has a valid profile , if not register them and then proceed to menu, else go straight to menu
+            
             await updateUser({ phone, accountType: "ServiceProvider" });
             await setSession(phone, {
               accountType: "ServiceProvider",
