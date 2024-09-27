@@ -21,12 +21,12 @@ const PORT = process.env.PORT || 3000;
 
 const steps = {
   ACCEPTED_TERMS: 'ACCEPTED_TERMS',
-  ACCEPT_TERMS:'ACCEPT_TERMS',
-  CLIENT_WELCOME_MESSAGE:'CLIENT_WELCOME_MESSAGE',
-  CLIENT_MENU_SERVICE_CATEGORIES:'CLIENT_MENU_SERVICE_CATEGORIES',
-  USER_OR_PROVIDER:'USER_OR_PROVIDER',
-  CLIENT_HOME:'CLIENT_HOME',
-  PROVIDER_HOME:'PROVIDER_HOME'
+  ACCEPT_TERMS: 'ACCEPT_TERMS',
+  CLIENT_WELCOME_MESSAGE: 'CLIENT_WELCOME_MESSAGE',
+  CLIENT_MENU_SERVICE_CATEGORIES: 'CLIENT_MENU_SERVICE_CATEGORIES',
+  USER_OR_PROVIDER: 'USER_OR_PROVIDER',
+  CLIENT_HOME: 'CLIENT_HOME',
+  PROVIDER_HOME: 'PROVIDER_HOME'
 }
 
 
@@ -96,8 +96,8 @@ app.post("/bot", async (req, res) => {
               message,
               lActivity,
             });
-     
-            return res.status(StatusCodes.OK).send( messages.CLIENT_HOME)
+
+            return res.status(StatusCodes.OK).send(messages.CLIENT_HOME)
           }
           // provider.accountType
           if (user.accountType === "ServiceProvider") {
@@ -108,7 +108,7 @@ app.post("/bot", async (req, res) => {
               lActivity,
             });
 
-            return res.status(StatusCodes.OK).send( messages.PROVIDER_HOME)
+            return res.status(StatusCodes.OK).send(messages.PROVIDER_HOME)
           }
         } else {
           // no session and no terms were accepted
@@ -118,7 +118,7 @@ app.post("/bot", async (req, res) => {
             message,
             lActivity,
           });
-          return res.status(StatusCodes.OK).send( messages.WELCOME_TERMS)
+          return res.status(StatusCodes.OK).send(messages.WELCOME_TERMS)
         }
       }
 
@@ -132,7 +132,7 @@ app.post("/bot", async (req, res) => {
           // list services
           // : acknlowledge request
           if (session.step === steps.CLIENT_WELCOME_MESSAGE) {
-    
+
             await setSession(phone, {
               step: steps.CLIENT_MENU_SERVICE_CATEGORIES,
               message,
@@ -144,7 +144,11 @@ app.post("/bot", async (req, res) => {
               { code: +message.toLowerCase() },
               { _id: 1, name: 1 }
             );
+            console.log('Selected Category', category);
+
             const services = await Service.find({ category: category._id });
+            console.log('Services', services);
+
             let responseMessage = `
 *${category.name}*
 which of the following services do you wish to hire service for?
@@ -185,7 +189,7 @@ ${s.description}`).join('\n')}
             return res.status(StatusCodes.OK).send(invalidMessage)
           }
 
-        } 
+        }
         // else if (session.step === steps.ACCEPTED_TERMS) {
         //   await setSession(phone, {
         //     step: steps.USER_OR_PROVIDER,
@@ -208,7 +212,7 @@ ${s.description}`).join('\n')}
             return res.status(StatusCodes.OK).send(messages.CLIENT_WELCOME_MESSAGE)
           } else if (message.toLowerCase() === "2") {
             //Check if user has a valid profile , if not register them and then proceed to menu, else go straight to menu
-            
+
             await updateUser({ phone, accountType: "ServiceProvider" });
             await setSession(phone, {
               accountType: "ServiceProvider",
