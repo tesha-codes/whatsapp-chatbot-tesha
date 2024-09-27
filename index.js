@@ -12,6 +12,9 @@ const {
   getUser,
 } = require("./controllers/user.controllers");
 const { messages } = require("./modules/client");
+const serviceRouter = require('./routes/service.routes');
+const Category = require("./models/category.model");
+const Service = require("./models/services.model");
 
 const app = express();
 const PORT = process.env.PORT || 3000;
@@ -25,6 +28,17 @@ app.get("/", async (request, response) => {
     .status(StatusCodes.OK)
     .json({ message: "Never stray from the way." });
 });
+
+app.use('/services', serviceRouter)
+app.post('/add/categories', async (request, response) => {
+  try {
+    const { data: categories } = request.body;
+    const result = await Category.insertMany(categories)
+    response.status(StatusCodes.CREATED).json(result)
+  } catch (error) {
+    response.status(StatusCodes.INTERNAL_SERVER_ERROR).json(error)
+  }
+})
 
 app.post("/bot", async (req, res) => {
   const userResponse = req.body.payload;
@@ -107,12 +121,29 @@ app.post("/bot", async (req, res) => {
           //  request service
           // list services
           // : acknlowledge request
-          await sendTextMessage(phone, messages.CLIENT_WELCOME_MESSAGE);
-          await setSession(phone, {
-            step: "CLIENT_WELCOME_MESSAGE",
-            message,
-            lActivity,
-          });
+          if (session.step === 'CLIENT_WELCOME_MESSAGE') {
+            await sendTextMessage(phone, messages.CLIENT_WELCOME_MESSAGE);
+            await setSession(phone, {
+              step: "CLIENT_MENU_SERVICE_CATEGORIES",
+              message,
+              lActivity,
+            });
+            return res.status(StatusCodes.ACCEPTED).json({});
+          } else if (session.step === 'CLIENT_MENU_SERVICE_CATEGORIES') {
+            const category = await Category.findOne(
+              { code: +message.toLowerCase() },
+              { _id: 1, name: 1 }
+            );
+            const services = await Service.find({ category: category._id });
+            let responseMessage = `
+            *${category.name}*
+            which of the following services do you wish to hire service for?
+            ${services.map((s, index) => ` *${index + 1} ${s.title}* - ${s.description}`).join('\n')}
+            `
+            
+            await sendTextMessage(phone, responseMessage);
+            return res.status(StatusCodes.ACCEPTED).json({});
+          }
           console.log('Client session: ', session);
         } else {
           // : service provider
