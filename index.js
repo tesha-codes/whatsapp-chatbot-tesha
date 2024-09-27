@@ -19,7 +19,18 @@ const Service = require("./models/services.model");
 const app = express();
 const PORT = process.env.PORT || 3000;
 
-app.use(morgan("combined"));
+const steps = {
+  ACCEPTED_TERMS: 'ACCEPTED_TERMS',
+  ACCEPT_TERMS:'ACCEPT_TERMS',
+  CLIENT_WELCOME_MESSAGE:'CLIENT_WELCOME_MESSAGE',
+  CLIENT_MENU_SERVICE_CATEGORIES:'CLIENT_MENU_SERVICE_CATEGORIES',
+  USER_OR_PROVIDER:'USER_OR_PROVIDER',
+  CLIENT_HOME:'CLIENT_HOME',
+  PROVIDER_HOME:'PROVIDER_HOME'
+}
+
+
+app.use(morgan("dev"));
 app.use(bodyParser.urlencoded({ extended: false }));
 app.use(express.json());
 
@@ -66,14 +77,13 @@ app.post("/bot", async (req, res) => {
       // : new user
       await createUser({ phone, username });
 
-      await sendTextMessage(phone, messages.WELCOME_MESSAGE);
-      await sendTextMessage(phone, messages.WELCOME_TERMS);
       await setSession(phone, {
-        step: "ACCEPT_TERMS",
+        step: steps.ACCEPT_TERMS,
         message,
         lActivity,
       });
-      return res.status(StatusCodes.ACCEPTED).json({});
+      await sendTextMessage(phone, messages.WELCOME_MESSAGE);
+      return res.status(StatusCodes.OK).send(messages.WELCOME_TERMS)
     } else {
       // check session
       if (!session) {
@@ -82,33 +92,33 @@ app.post("/bot", async (req, res) => {
           if (user.accountType === "Client") {
             await setSession(phone, {
               accountType: "Client",
-              step: "ACCEPTED_TERMS",
+              step: steps.ACCEPTED_TERMS,
               message,
               lActivity,
             });
-            await sendTextMessage(phone, messages.CLIENT_HOME);
-            return res.status(StatusCodes.ACCEPTED).json({});
+     
+            return res.status(StatusCodes.OK).send( messages.CLIENT_HOME)
           }
           // provider.accountType
           if (user.accountType === "ServiceProvider") {
             await setSession(phone, {
               accountType: "ServiceProvider",
-              step: "ACCEPTED_TERMS",
+              step: steps.ACCEPTED_TERMS,
               message,
               lActivity,
             });
-            await sendTextMessage(phone, messages.PROVIDER_HOME);
-            return res.status(StatusCodes.ACCEPTED).json({});
+
+            return res.status(StatusCodes.OK).send( messages.PROVIDER_HOME)
           }
         } else {
           // no session and no terms were accepted
-          await sendTextMessage(phone, messages.WELCOME_TERMS);
+
           await setSession(phone, {
-            step: "ACCEPT_TERMS",
+            step: steps.ACCEPTED_TERMS,
             message,
             lActivity,
           });
-          return res.status(StatusCodes.ACCEPTED).json({});
+          return res.status(StatusCodes.OK).send( messages.WELCOME_TERMS)
         }
       }
 
@@ -121,15 +131,15 @@ app.post("/bot", async (req, res) => {
           //  request service
           // list services
           // : acknlowledge request
-          if (session.step === 'CLIENT_WELCOME_MESSAGE') {
-            await sendTextMessage(phone, messages.CLIENT_WELCOME_MESSAGE);
+          if (session.step === steps.CLIENT_WELCOME_MESSAGE) {
+    
             await setSession(phone, {
-              step: "CLIENT_MENU_SERVICE_CATEGORIES",
+              step: steps.CLIENT_MENU_SERVICE_CATEGORIES,
               message,
               lActivity,
             });
-            return res.status(StatusCodes.ACCEPTED).json({});
-          } else if (session.step === 'CLIENT_MENU_SERVICE_CATEGORIES') {
+            return res.status(StatusCodes.OK).send(messages.CLIENT_WELCOME_MESSAGE)
+          } else if (session.step === steps.CLIENT_MENU_SERVICE_CATEGORIES) {
             const category = await Category.findOne(
               { code: +message.toLowerCase() },
               { _id: 1, name: 1 }
@@ -140,9 +150,7 @@ app.post("/bot", async (req, res) => {
             which of the following services do you wish to hire service for?
             ${services.map((s, index) => ` *${index + 1} ${s.title}* - ${s.description}`).join('\n')}
             `
-            
-            await sendTextMessage(phone, responseMessage);
-            return res.status(StatusCodes.ACCEPTED).json({});
+            return res.status(StatusCodes.OK).send(responseMessage)
           }
           console.log('Client session: ', session);
         } else {
@@ -155,69 +163,66 @@ app.post("/bot", async (req, res) => {
       } else {
         // 1 .
         // : accept terms and conditions
-        if (session.step === "ACCEPT_TERMS") {
+        if (session.step === steps.ACCEPT_TERMS) {
           if (message.toLowerCase() === "yes") {
-            await sendTextMessage(phone, messages.ACCEPTED_TERMS);
             await updateUser({ phone, termsAndConditionsAccepted: true });
             await setSession(phone, {
-              step: "ACCEPTED_TERMS",
+              step: steps.ACCEPTED_TERMS,
               message,
               lActivity,
             });
-            return res.status(StatusCodes.ACCEPTED).json({});
+            return res.status(StatusCodes.OK).send(messages.ACCEPTED_TERMS)
           } else if (message.toLowerCase() === "no") {
-            await sendTextMessage(phone, messages.DECLINE_TERMS);
             await setSession(phone, {
-              step: "ACCEPT_TERMS",
+              step: steps.ACCEPTED_TERMS,
               message,
               lActivity,
             });
-            return res.status(StatusCodes.ACCEPTED).json({});
+            return res.status(StatusCodes.OK).send(message.DECLINE_TERMS)
           } else {
             const invalidMessage = `You have provided an invalid response. Please type 'Yes' or 'No'to proceed.`;
-            await sendTextMessage(phone, invalidMessage);
-            return res.status(StatusCodes.ACCEPTED).json({});
+            return res.status(StatusCodes.OK).send(invalidMessage)
           }
-        } else if (session.step === "ACCEPTED_TERMS") {
-          await sendTextMessage(phone, messages.USER_OR_PROVIDER);
+
+        } else if (session.step === steps.ACCEPTED_TERMS) {
           await setSession(phone, {
-            step: "USER_OR_PROVIDER",
+            step: steps.USER_OR_PROVIDER,
             message,
             lActivity,
           });
-          return res.status(StatusCodes.ACCEPTED).json({});
-        } else if (session.step === "USER_OR_PROVIDER") {
+          return res.status(StatusCodes.OK).send(messages.USER_OR_PROVIDER)
+
+        } else if (session.step === steps.USER_OR_PROVIDER) {
           if (message.toLowerCase() === "1") {
-            await sendTextMessage(phone, messages.CLIENT_HOME);
+
             await updateUser({ phone, accountType: "Client" });
             await setSession(phone, {
               accountType: "Client",
-              step: "CLIENT_HOME",
+              step: steps.CLIENT_HOME,
               message,
               lActivity,
             });
-            return res.status(StatusCodes.ACCEPTED).json({});
+            return res.status(StatusCodes.OK).send(messages.CLIENT_HOME)
           } else if (message.toLowerCase() === "2") {
-            await sendTextMessage(phone, messages.PROVIDER_HOME);
+
             await updateUser({ phone, accountType: "ServiceProvider" });
             await setSession(phone, {
               accountType: "ServiceProvider",
-              step: "PROVIDER_HOME",
+              step: steps.PROVIDER_HOME,
               message,
               lActivity,
             });
-            return res.status(StatusCodes.ACCEPTED).json({});
+            return res.status(StatusCodes.OK).send(messages.PROVIDER_HOME)
           } else {
             const invalidMessage = `You have provided an invalid response. Please type '1' or '2' to proceed.`;
-            await sendTextMessage(phone, invalidMessage);
-            return res.status(StatusCodes.ACCEPTED).json({});
+            return res.status(StatusCodes.OK).send(invalidMessage)
           }
         }
       }
     }
   }
   // acknowledge callback requests, do not remove:);
-  return res.status(StatusCodes.ACCEPTED).send("Callback received:)");
+  return res.status(StatusCodes.OK).send("Callback received:)");
 });
 
 app.listen(PORT, function () {
