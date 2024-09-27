@@ -107,11 +107,13 @@ app.post("/bot", async (req, res) => {
           //  request service
           // list services
           // : acknlowledge request
+          await sendTextMessage(phone, 'Ukuda kubatsira nei ? ')
           console.log('Client session: ', session);
         } else {
           // : service provider
           // : register service
           // : continue ...
+          await sendTextMessage(phone, 'Mukuda basa here mudhara?')
           console.log('Client session: ', session);
         }
       } else {

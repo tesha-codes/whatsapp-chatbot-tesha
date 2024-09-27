@@ -8,7 +8,6 @@ Tesha is a convenient WhatsApp-based platform designed to seamlessly connect cli
 Key features of Tesha:
 • *WhatsApp Bot Service:* Handles user requests, connects clients and service providers, and ensures smooth communication.
 • *Booking Service:* Allows you to book available service providers based on their ratings and hourly rates.
-• *Payment Service:* Manages all payments securely through platforms like Ecocash, releasing funds only after job completion.
 • *Notifications:* Keeps you informed with booking updates, payment notifications, and service change alerts.
 
     `,
@@ -19,7 +18,6 @@ To continue, please reply with:
 
 *Yes*, to accept our terms and conditions and start interacting with the platform.
 *No*, to decline and cancel the process.
-
 
 You can also visit our website at *tesha.co.zw/legal* to read the terms and conditions.
 `,
