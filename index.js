@@ -3,6 +3,7 @@ const express = require("express");
 const { sendTextMessage } = require("./services/whatsappService");
 const bodyParser = require("body-parser");
 const { StatusCodes } = require("http-status-codes");
+const mongoose = require('mongoose')
 const morgan = require("morgan");
 const connectDb = require("./database/connect.database");
 const { getSession, setSession } = require("./utils/redis");
@@ -144,16 +145,14 @@ app.post("/bot", async (req, res) => {
               { code: +message.toLowerCase() },
               { _id: 1, name: 1 }
             );
-            console.log('Selected Category', category);
-
-            const services = await Service.find({ category: category._id });
+            let queryId = new mongoose.Types.ObjectId(category._id)
+            const services = await Service.find({ category: queryId });
             console.log('Services', services);
 
             let responseMessage = `
 *${category.name}*
 which of the following services do you wish to hire service for?
-${services.map((s, index) => ` ${index + 1}. ${s.title} + "\n" + 
-${s.description}`).join('\n')}
+${services.map((s, index) => ` *${index + 1}. ${s.title}* - ${s.description}`).join('\n')}
             `
             return res.status(StatusCodes.OK).send(responseMessage)
           }
