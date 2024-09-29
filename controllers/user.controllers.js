@@ -45,6 +45,8 @@ const updateUser = async (data) => {
   }
 };
 
+const onGetUserByPhone = 
+
 module.exports = {
   createUser,
   getUser,

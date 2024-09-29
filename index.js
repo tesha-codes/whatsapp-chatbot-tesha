@@ -172,7 +172,7 @@ Reply with the number of the service you'd like to hire.
               step: steps.BOOK_SERVICE,
               message,
               lActivity,
-              categoryId: "66f6c0e263d74df9d300bacc"
+              categoryId: category._id.toString()
             });
             return res.status(StatusCodes.OK).send(responseMessage)
           }
@@ -199,13 +199,13 @@ Reply with the number of the service you'd like to hire.
               step: steps.SELECT_SERVICE_PROVIDER,
               message,
               lActivity,
-              serviceId: service._id,
-              requestId: request._id
+              serviceId: service.toString(),
+              requestId: request._id.toString()
             });
 
             const responseMessage = `
 
-📃 Thank you, *${user.firstName} ${user.lastName}*! 
+📃 Thank you, *${user.username}*! 
 
 Your request for the service  has been successfully created. 
 
