@@ -160,10 +160,10 @@ app.post("/bot", async (req, res) => {
 
             let responseMessage = `
 
-* ${ category.name }* 📋
+*${ category.name }* 
 Please select a service from the list below:
 
-${ services.map((s, index) => ` ${index + 1}. *${s.title}* 🔧 - ${s.description}`).join('\n') }
+${ services.map((s, index) => `${index + 1}. *${s.title}*\n${s.description}`).join('\n\n')}
 
 Reply with the number of the service you'd like to hire.
             `
@@ -177,14 +177,18 @@ Reply with the number of the service you'd like to hire.
           }
           else if (session.step === steps.BOOK_SERVICE && session.categoryId) {
             const service = await Service.findOne({ code: +message, category: session.categoryId });
-            const user = await User.findOne({ phone }, { address: 1, firstName: 1, lastName: 1 })
-            const reqID = 'REQ' + crypto.randomBytes(3).toString('hex').toLowerCase()
+            const user = await User.findOne({ phone })
+            console.log();
+            
+            const reqID = 'REQ' + crypto.randomBytes(3).toString('hex').toUpperCase()
             const request = await ServiceRequest.create({
               _id: new mongoose.Types.ObjectId(),
               city: 'Harare',
               requester: user._id,
               service: service._id,
-              address: user.address,
+              address: {
+                physicalAddress:'801 New Prospect, Harare.'
+              },
               notes: 'Service booking is still in dev',
               id: reqID
             })
