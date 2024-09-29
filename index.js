@@ -156,7 +156,8 @@ app.post("/bot", async (req, res) => {
 
             let queryId = new mongoose.Types.ObjectId(category._id)
             const services = await Service.find({ category: queryId });
-            console.log('Services', services);
+            console.log('Services', services, category,);
+            console.log('Id for category', category._id);
 
             let responseMessage = `
 
@@ -178,7 +179,7 @@ Reply with the number of the service you'd like to hire.
           else if (session.step === steps.BOOK_SERVICE && session.categoryId) {
             const service = await Service.findOne({ code: +message, category: session.categoryId });
             const user = await User.findOne({ phone })
-            console.log();
+            console.log(user, );
             
             const reqID = 'REQ' + crypto.randomBytes(3).toString('hex').toUpperCase()
             const request = await ServiceRequest.create({
@@ -204,11 +205,14 @@ Reply with the number of the service you'd like to hire.
 
             const responseMessage = `
 
-📃 Thank you, ${user.firstName} ${user.lastName}! Your request for the service **${service.title}** has been successfully created. 📝 Your request ID is: *${reqID}*. 
-🛠️ Our team will connect you with a service provider shortly. 
+📃 Thank you, *${user.firstName} ${user.lastName}*! 
 
+Your request for the service  has been successfully created. 
+
+📝 Your request ID is: *${reqID}*. 
 📍 Location: *${request.address.physicalAddress}*
- 
+
+Our team will connect you with a service provider shortly. 
  Please wait...`
             return res.status(StatusCodes.OK).send(responseMessage)
           }
