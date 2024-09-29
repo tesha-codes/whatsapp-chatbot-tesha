@@ -96,7 +96,19 @@ Please select a category by replying with the corresponding number:
   🏡 *Home Maintenance*
   8. HVAC maintenance, Pest control, Appliance repair, etc.
 
-  Type the number of the category you're interested in, and I'll show you the available services! 😊`
+  Type the number of the category you're interested in, and I'll show you the available services! 😊`,
+
+  GET_USER_INFORMATION: `
+To proceed, we'll need a few details from you. Please provide the following information in the format below:
+
+👤 First Name: e.g., John
+👥 Last Name: e.g., Doe
+📞 Alternative Phone Number: Include country code (e.g., +263 712345678)
+🆔 National ID Number: e.g., 63-1234567-Z-63
+🏡 National Address: e.g., 123 Main Street, Harare
+    `,
+
+
   },
   
 };

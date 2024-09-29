@@ -29,14 +29,18 @@ const PORT = process.env.PORT || 3000;
 const steps = {
   ACCEPTED_TERMS: "ACCEPTED_TERMS",
   ACCEPT_TERMS: "ACCEPT_TERMS",
-  CLIENT_WELCOME_MESSAGE: "CLIENT_WELCOME_MESSAGE",
-  CLIENT_MENU_SERVICE_CATEGORIES: "CLIENT_MENU_SERVICE_CATEGORIES",
-  USER_OR_PROVIDER: "USER_OR_PROVIDER",
-  CLIENT_HOME: "CLIENT_HOME",
-  PROVIDER_HOME: "PROVIDER_HOME",
   BOOK_SERVICE: "BOOK_SERVICE",
-  SELECT_SERVICE_PROVIDER: "SELECT_SERVICE_PROVIDER",
-};
+  CLIENT_WELCOME_MESSAGE: 'CLIENT_WELCOME_MESSAGE',
+  CLIENT_MENU_SERVICE_CATEGORIES: 'CLIENT_MENU_SERVICE_CATEGORIES',
+  USER_OR_PROVIDER: 'USER_OR_PROVIDER',
+  CLIENT_HOME: 'CLIENT_HOME',
+  PROVIDER_HOME: 'PROVIDER_HOME',
+  SELECT_SERVICE_PROVIDER: 'SELECT_SERVICE_PROVIDER',
+  GET_USER_INFORMATION: 'GET_USER_INFORMATION',
+  SAVE_USER_PROFILE_INFOR: 'SAVE_USER_PROFILE_INFOR',
+  USER_DETAILS_CONFIRMATION: 'USER_DETAILS_CONFIRMATION'
+}
+
 
 app.use(morgan("dev"));
 app.use(bodyParser.urlencoded({ extended: false }));
@@ -129,6 +133,7 @@ app.post("/bot", async (req, res) => {
           });
           return res.status(StatusCodes.OK).send(messages.WELCOME_TERMS);
         }
+
       }
 
       if (session?.accountType) {
@@ -230,8 +235,8 @@ Our team will connect you with a service provider shortly.
           // : service provider
           // : register service
           // : continue ...
-          await sendTextMessage(phone, "Siyana neni");
-          console.log("Client session: ", session);
+          await sendTextMessage(phone, 'Mukuda basa here mudhara?');
+          console.log('Client session: ', session);
         }
       } else {
         // 1 .
@@ -265,22 +270,20 @@ Our team will connect you with a service provider shortly.
         //     message,
         //     lActivity,
         //   });
-        //   return res.status(StatusCodes.OK).send(messages.USER_OR_PROVIDER)
-
-        // }
+        //   return res.(StatusCodstatuses.OK).send(messages.USER_OR_PROVIDER)
+        // } 
         else if (session.step === steps.ACCEPTED_TERMS) {
           if (message.toLowerCase() === "client") {
             await updateUser({ phone, accountType: "Client" });
             await setSession(phone, {
               accountType: "Client",
-              step: steps.CLIENT_MENU_SERVICE_CATEGORIES,
+              step: steps.GET_USER_INFORMATION,
               message,
               lActivity,
             });
-            return res
-              .status(StatusCodes.OK)
-              .send(messages.CLIENT_WELCOME_MESSAGE);
-          } else if (message.toLowerCase() === "service provider") {
+
+            return res.status(StatusCodes.OK).send(messages.GET_USER_INFORMATION);
+          } else if (message.toLowerCase() === "2") {
             //Check if user has a valid profile , if not register them and then proceed to menu, else go straight to menu
             await updateUser({ phone, accountType: "ServiceProvider" });
             await setSession(phone, {
