@@ -171,7 +171,7 @@ Reply with the number of the service you'd like to hire.
               step: steps.BOOK_SERVICE,
               message,
               lActivity,
-              categoryId: queryId
+              categoryId: category._id
             });
             return res.status(StatusCodes.OK).send(responseMessage)
           }
