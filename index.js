@@ -221,7 +221,7 @@ Our team will connect you with a service provider shortly.
           // : service provider
           // : register service
           // : continue ...
-          await sendTextMessage(phone, 'Mukuda basa here mudhara?')
+          await sendTextMessage(phone, 'Siyana neni')
           console.log('Client session: ', session);
         }
       } else {
