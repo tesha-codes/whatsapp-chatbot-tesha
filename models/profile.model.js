@@ -4,7 +4,6 @@ const crypto = require("node:crypto")
 
 
 const ProfileSchema = new mongoose.Schema({
-    _id: mongoose.Types.ObjectId,
     user: {
         type: mongoose.Types.ObjectId,
         ref: "User"

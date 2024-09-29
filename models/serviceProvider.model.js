@@ -2,7 +2,6 @@ const mongoose = require('mongoose');
 const ServiceTypes = require('./../mock/ServiceTypes.mock')
 
 const ServiceProviderSchema = new mongoose.Schema({
-    _id: mongoose.Types.ObjectId,
     user: {
         type: mongoose.Types.ObjectId,
         required: true,

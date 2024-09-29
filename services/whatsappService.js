@@ -10,7 +10,7 @@ const {
 dotenv.config();
 
 const { API_KEY, APP_NAME, SOURCE_MOBILE_NUMBER } = process.env;
-//  
+//
 
 const config = {
   headers: {
@@ -116,6 +116,19 @@ const sendTemplateMessage = (
 
   return axios.post(TEMPLATE_MSG_URL, params, config);
 };
+const sendChooseAccountTypeTemplate = (userMobileNumber) => {
+  const params = getUrlEncodedData({
+    source: SOURCE_MOBILE_NUMBER,
+    destination: userMobileNumber,
+    template: {
+      id: "e1de1f14-93e6-439c-b46e-cb834aec99b3",
+      params: [],
+    },
+    message: {},
+  });
+
+  return axios.post(TEMPLATE_MSG_URL, params, config);
+};
 
 module.exports = {
   getTemplatesList,
@@ -125,4 +138,5 @@ module.exports = {
   sendMediaVideoMessage,
   sendTextMessage,
   sendTemplateMessage,
+  sendChooseAccountTypeTemplate,
 };

@@ -1,10 +1,13 @@
 require("dotenv").config();
 const express = require("express");
-const { sendTextMessage } = require("./services/whatsappService");
+const {
+  sendTextMessage,
+  sendChooseAccountTypeTemplate,
+} = require("./services/whatsappService");
 const bodyParser = require("body-parser");
 const { StatusCodes } = require("http-status-codes");
-const crypto = require('node:crypto')
-const mongoose = require('mongoose')
+const crypto = require("node:crypto");
+const mongoose = require("mongoose");
 const morgan = require("morgan");
 const connectDb = require("./database/connect.database");
 const { getSession, setSession } = require("./utils/redis");
@@ -14,7 +17,7 @@ const {
   getUser,
 } = require("./controllers/user.controllers");
 const { messages } = require("./modules/client");
-const serviceRouter = require('./routes/service.routes');
+const serviceRouter = require("./routes/service.routes");
 const Category = require("./models/category.model");
 const Service = require("./models/services.model");
 const ServiceRequest = require("./models/request.model");
@@ -24,18 +27,16 @@ const app = express();
 const PORT = process.env.PORT || 3000;
 
 const steps = {
-  ACCEPTED_TERMS: 'ACCEPTED_TERMS',
-  ACCEPT_TERMS: 'ACCEPT_TERMS',
-  CLIENT_WELCOME_MESSAGE: 'CLIENT_WELCOME_MESSAGE',
-  CLIENT_MENU_SERVICE_CATEGORIES: 'CLIENT_MENU_SERVICE_CATEGORIES',
-  USER_OR_PROVIDER: 'USER_OR_PROVIDER',
-  CLIENT_HOME: 'CLIENT_HOME',
-  PROVIDER_HOME: 'PROVIDER_HOME',
-  BOOK_SERVICE: 'BOOK_SERVICE',
-  SELECT_SERVICE_PROVIDER: 'SELECT_SERVICE_PROVIDER',
-
-}
-
+  ACCEPTED_TERMS: "ACCEPTED_TERMS",
+  ACCEPT_TERMS: "ACCEPT_TERMS",
+  CLIENT_WELCOME_MESSAGE: "CLIENT_WELCOME_MESSAGE",
+  CLIENT_MENU_SERVICE_CATEGORIES: "CLIENT_MENU_SERVICE_CATEGORIES",
+  USER_OR_PROVIDER: "USER_OR_PROVIDER",
+  CLIENT_HOME: "CLIENT_HOME",
+  PROVIDER_HOME: "PROVIDER_HOME",
+  BOOK_SERVICE: "BOOK_SERVICE",
+  SELECT_SERVICE_PROVIDER: "SELECT_SERVICE_PROVIDER",
+};
 
 app.use(morgan("dev"));
 app.use(bodyParser.urlencoded({ extended: false }));
@@ -47,16 +48,16 @@ app.get("/", async (request, response) => {
     .json({ message: "Never stray from the way." });
 });
 
-app.use('/services', serviceRouter)
-app.post('/add/categories', async (request, response) => {
+app.use("/services", serviceRouter);
+app.post("/add/categories", async (request, response) => {
   try {
     const { data: categories } = request.body;
-    const result = await Category.insertMany(categories)
-    response.status(StatusCodes.CREATED).json(result)
+    const result = await Category.insertMany(categories);
+    response.status(StatusCodes.CREATED).json(result);
   } catch (error) {
-    response.status(StatusCodes.INTERNAL_SERVER_ERROR).json(error)
+    response.status(StatusCodes.INTERNAL_SERVER_ERROR).json(error);
   }
-})
+});
 
 app.post("/bot", async (req, res) => {
   const userResponse = req.body.payload;
@@ -90,8 +91,8 @@ app.post("/bot", async (req, res) => {
         message,
         lActivity,
       });
-      // await sendTextMessage(phone, messages.WELCOME_MESSAGE);
-      return res.status(StatusCodes.OK).send(messages.WELCOME_MESSAGE)
+      //
+      return res.status(StatusCodes.OK).send(messages.WELCOME_MESSAGE);
     } else {
       // check session
       if (!session) {
@@ -105,7 +106,7 @@ app.post("/bot", async (req, res) => {
               lActivity,
             });
 
-            return res.status(StatusCodes.OK).send(messages.CLIENT_HOME)
+            return res.status(StatusCodes.OK).send(messages.CLIENT_HOME);
           }
           // provider.accountType
           if (user.accountType === "ServiceProvider") {
@@ -116,7 +117,7 @@ app.post("/bot", async (req, res) => {
               lActivity,
             });
 
-            return res.status(StatusCodes.OK).send(messages.PROVIDER_HOME)
+            return res.status(StatusCodes.OK).send(messages.PROVIDER_HOME);
           }
         } else {
           // no session and no terms were accepted
@@ -126,81 +127,89 @@ app.post("/bot", async (req, res) => {
             message,
             lActivity,
           });
-          return res.status(StatusCodes.OK).send(messages.WELCOME_TERMS)
+          return res.status(StatusCodes.OK).send(messages.WELCOME_TERMS);
         }
       }
 
       if (session?.accountType) {
         // : are already user or service provider
         // : check they user or service provider
-        console.log('The sessions here: ', session);
+        console.log("The sessions here: ", session);
         if (session.accountType === "Client") {
           // : user
           //  request service
           // list services
           // : acknlowledge request
           if (session.step === steps.CLIENT_WELCOME_MESSAGE) {
-
             await setSession(phone, {
               step: steps.CLIENT_MENU_SERVICE_CATEGORIES,
               message,
               lActivity,
             });
-            return res.status(StatusCodes.OK).send(messages.CLIENT_WELCOME_MESSAGE)
+            return res
+              .status(StatusCodes.OK)
+              .send(messages.CLIENT_WELCOME_MESSAGE);
           } else if (session.step === steps.CLIENT_MENU_SERVICE_CATEGORIES) {
-
             const category = await Category.findOne(
               { code: +message.toLowerCase() },
               { _id: 1, name: 1 }
             );
 
-            let queryId = new mongoose.Types.ObjectId(category._id)
+            let queryId = new mongoose.Types.ObjectId(category._id);
             const services = await Service.find({ category: queryId });
-            console.log('Services', services, category,);
-            console.log('Id for category', category._id);
+            console.log("Services", services, category);
+            console.log("Id for category", category._id);
 
             let responseMessage = `
 
-*${ category.name }* 
+*${category.name}* 
 Please select a service from the list below:
 
-${ services.map((s, index) => `${index + 1}. *${s.title}*\n${s.description}`).join('\n\n')}
+${services
+  .map((s, index) => `${index + 1}. *${s.title}*\n${s.description}`)
+  .join("\n\n")}
 
 Reply with the number of the service you'd like to hire.
-            `
+            `;
             await setSession(phone, {
               step: steps.BOOK_SERVICE,
               message,
               lActivity,
-              categoryId: category._id.toString()
+              categoryId: category._id.toString(),
             });
-            return res.status(StatusCodes.OK).send(responseMessage)
-          }
-          else if (session.step === steps.BOOK_SERVICE && session.categoryId) {
-            const service = await Service.findOne({ code: +message, category: session.categoryId });
-            const user = await User.findOne({ phone })
-            console.log(user, );
-            
-            const reqID = 'REQ' + crypto.randomBytes(3).toString('hex').toUpperCase()
+            return res.status(StatusCodes.OK).send(responseMessage);
+          } else if (
+            session.step === steps.BOOK_SERVICE &&
+            session.categoryId
+          ) {
+            const service = await Service.findOne({
+              code: +message,
+              category: session.categoryId,
+            });
+            const user = await User.findOne({ phone });
+            console.log(user);
+
+            const reqID =
+              "REQ" + crypto.randomBytes(3).toString("hex").toUpperCase();
             const request = await ServiceRequest.create({
               _id: new mongoose.Types.ObjectId(),
-              city: 'Harare',
+              city: "Harare",
               requester: user._id,
               service: service._id,
               address: {
-                physicalAddress:'801 New Prospect, Harare.'
+                physicalAddress: "801 New Prospect, Harare.",
               },
-              notes: 'Service booking is still in dev',
-              id: reqID
-            })
+              notes: "Service booking is still in dev",
+              id: reqID,
+            });
 
-            await request.save()
+            await request.save();
             setSession(phone, {
               step: steps.SELECT_SERVICE_PROVIDER,
               message,
               lActivity,
               serviceId: service.toString(),
-              requestId: request._id.toString()
+              requestId: request._id.toString(),
             });
 
             const responseMessage = `
@@ -213,16 +222,16 @@ Your request for the service  has been successfully created.
 📍 Location: *${request.address.physicalAddress}*
 
 Our team will connect you with a service provider shortly. 
- Please wait...`
-            return res.status(StatusCodes.OK).send(responseMessage)
+ Please wait...`;
+            return res.status(StatusCodes.OK).send(responseMessage);
           }
-          console.log('Client session: ', session);
+          console.log("Client session: ", session);
         } else {
           // : service provider
           // : register service
           // : continue ...
-          await sendTextMessage(phone, 'Siyana neni')
-          console.log('Client session: ', session);
+          await sendTextMessage(phone, "Siyana neni");
+          console.log("Client session: ", session);
         }
       } else {
         // 1 .
@@ -235,19 +244,20 @@ Our team will connect you with a service provider shortly.
               message,
               lActivity,
             });
-            return res.status(StatusCodes.OK).send(messages.ACCEPTED_TERMS)
+            // send choose account type template
+            await sendChooseAccountTypeTemplate(phone);
+            return res.status(StatusCodes.OK).send("");
           } else if (message.toLowerCase() === "no") {
             await setSession(phone, {
               step: steps.ACCEPTED_TERMS,
               message,
               lActivity,
             });
-            return res.status(StatusCodes.OK).send(message.DECLINE_TERMS)
+            return res.status(StatusCodes.OK).send(message.DECLINE_TERMS);
           } else {
             const invalidMessage = `You have provided an invalid response. Please type 'Yes' or 'No'to proceed.`;
-            return res.status(StatusCodes.OK).send(invalidMessage)
+            return res.status(StatusCodes.OK).send(invalidMessage);
           }
-
         }
         // else if (session.step === steps.ACCEPTED_TERMS) {
         //   await setSession(phone, {
@@ -257,10 +267,9 @@ Our team will connect you with a service provider shortly.
         //   });
         //   return res.status(StatusCodes.OK).send(messages.USER_OR_PROVIDER)
 
-        // } 
+        // }
         else if (session.step === steps.ACCEPTED_TERMS) {
-          if (message.toLowerCase() === "1") {
-
+          if (message.toLowerCase() === "client") {
             await updateUser({ phone, accountType: "Client" });
             await setSession(phone, {
               accountType: "Client",
@@ -268,10 +277,11 @@ Our team will connect you with a service provider shortly.
               message,
               lActivity,
             });
-            return res.status(StatusCodes.OK).send(messages.CLIENT_WELCOME_MESSAGE)
-          } else if (message.toLowerCase() === "2") {
+            return res
+              .status(StatusCodes.OK)
+              .send(messages.CLIENT_WELCOME_MESSAGE);
+          } else if (message.toLowerCase() === "service provider") {
             //Check if user has a valid profile , if not register them and then proceed to menu, else go straight to menu
-
             await updateUser({ phone, accountType: "ServiceProvider" });
             await setSession(phone, {
               accountType: "ServiceProvider",
@@ -279,10 +289,10 @@ Our team will connect you with a service provider shortly.
               message,
               lActivity,
             });
-            return res.status(StatusCodes.OK).send(messages.PROVIDER_HOME)
+            return res.status(StatusCodes.OK).send(messages.PROVIDER_HOME);
           } else {
-            const invalidMessage = `You have provided an invalid response. Please type '1' or '2' to proceed.`;
-            return res.status(StatusCodes.OK).send(invalidMessage)
+            const invalidMessage = `You have provided an invalid response. Please reply with 'Client' or 'Service Provider' to proceed.`;
+            return res.status(StatusCodes.OK).send(invalidMessage);
           }
         }
       }
