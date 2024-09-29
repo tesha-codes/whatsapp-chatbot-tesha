@@ -98,6 +98,7 @@ Please select a category by replying with the corresponding number:
 
   Type the number of the category you're interested in, and I'll show you the available services! 😊`
   },
+  
 };
 
 module.exports = clientModule;

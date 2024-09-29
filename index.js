@@ -3,6 +3,7 @@ const express = require("express");
 const { sendTextMessage } = require("./services/whatsappService");
 const bodyParser = require("body-parser");
 const { StatusCodes } = require("http-status-codes");
+const crypto = require('node:crypto')
 const mongoose = require('mongoose')
 const morgan = require("morgan");
 const connectDb = require("./database/connect.database");
@@ -16,6 +17,8 @@ const { messages } = require("./modules/client");
 const serviceRouter = require('./routes/service.routes');
 const Category = require("./models/category.model");
 const Service = require("./models/services.model");
+const ServiceRequest = require("./models/request.model");
+const User = require("./models/user.model");
 
 const app = express();
 const PORT = process.env.PORT || 3000;
@@ -27,7 +30,10 @@ const steps = {
   CLIENT_MENU_SERVICE_CATEGORIES: 'CLIENT_MENU_SERVICE_CATEGORIES',
   USER_OR_PROVIDER: 'USER_OR_PROVIDER',
   CLIENT_HOME: 'CLIENT_HOME',
-  PROVIDER_HOME: 'PROVIDER_HOME'
+  PROVIDER_HOME: 'PROVIDER_HOME',
+  BOOK_SERVICE: 'BOOK_SERVICE',
+  SELECT_SERVICE_PROVIDER: 'SELECT_SERVICE_PROVIDER',
+
 }
 
 
@@ -69,6 +75,7 @@ app.post("/bot", async (req, res) => {
     // };
 
     const session = await getSession(phone);
+
     console.log("session: ", session);
 
     const user = await getUser(phone);
@@ -141,19 +148,64 @@ app.post("/bot", async (req, res) => {
             });
             return res.status(StatusCodes.OK).send(messages.CLIENT_WELCOME_MESSAGE)
           } else if (session.step === steps.CLIENT_MENU_SERVICE_CATEGORIES) {
+
             const category = await Category.findOne(
               { code: +message.toLowerCase() },
               { _id: 1, name: 1 }
             );
+
             let queryId = new mongoose.Types.ObjectId(category._id)
             const services = await Service.find({ category: queryId });
             console.log('Services', services);
 
             let responseMessage = `
-*${category.name}*
-which of the following services do you wish to hire service for?
-${services.map((s, index) => ` *${index + 1}. ${s.title}* - ${s.description}`).join('\n')}
+
+* ${ category.name }* 📋
+Please select a service from the list below:
+
+${ services.map((s, index) => ` ${index + 1}. *${s.title}* 🔧 - ${s.description}`).join('\n') }
+
+Reply with the number of the service you'd like to hire.
             `
+            await setSession(phone, {
+              step: steps.BOOK_SERVICE,
+              message,
+              lActivity,
+              categoryId: queryId
+            });
+            return res.status(StatusCodes.OK).send(responseMessage)
+          }
+          else if (session.step === steps.BOOK_SERVICE && session.categoryId) {
+            const service = await Service.findOne({ code: +message, category: session.categoryId });
+            const user = await User.findOne({ phone }, { address: 1, firstName: 1, lastName: 1 })
+            const reqID = 'REQ' + crypto.randomBytes(3).toString('hex').toLowerCase()
+            const request = await ServiceRequest.create({
+              _id: new mongoose.Types.ObjectId(),
+              city: 'Harare',
+              requester: user._id,
+              service: service._id,
+              address: user.address,
+              notes: 'Service booking is still in dev',
+              id: reqID
+            })
+
+            await request.save()
+            setSession(phone, {
+              step: steps.SELECT_SERVICE_PROVIDER,
+              message,
+              lActivity,
+              serviceId: service._id,
+              requestId: request._id
+            });
+
+            const responseMessage = `
+
+📃 Thank you, ${user.firstName} ${user.lastName}! Your request for the service **${service.title}** has been successfully created. 📝 Your request ID is: *${reqID}*. 
+🛠️ Our team will connect you with a service provider shortly. 
+
+📍 Location: *${request.address.physicalAddress}*
+ 
+ Please wait...`
             return res.status(StatusCodes.OK).send(responseMessage)
           }
           console.log('Client session: ', session);
