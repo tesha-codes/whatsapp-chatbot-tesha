@@ -145,12 +145,14 @@ app.post("/bot", async (req, res) => {
           //  request service
           // list services
           // : acknlowledge request
-          if (session.step === steps.CLIENT_WELCOME_MESSAGE) {
+          if (session.step === steps.GET_USER_INFORMATION) {
             await setSession(phone, {
               step: steps.CLIENT_MENU_SERVICE_CATEGORIES,
               message,
               lActivity,
             });
+
+            await sendTextMessage(phone, messages.CLIENT_HOME)
             return res
               .status(StatusCodes.OK)
               .send(messages.CLIENT_WELCOME_MESSAGE);
