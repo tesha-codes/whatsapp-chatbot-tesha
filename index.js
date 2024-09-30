@@ -42,6 +42,7 @@ const steps = {
   COLLECT_USER_FULL_NAME: 'COLLECT_USER_FULL_NAME',
   COLLECT_USER_ID: 'COLLECT_USER_ID',
   COLLECT_USER_ADDRESS: 'COLLECT_USER_ADDRESS',
+  SELECT_SERVICE_CATEGORY:'SELECT_SERVICE_CATEGORY'
 }
 
 
@@ -191,14 +192,13 @@ Youâ€™re all set! If you need any further assistance, feel free to reach out. ðŸ
           }
           else if (session.step === steps.CLIENT_MENU_SERVICE_CATEGORIES) {
             await setSession(phone, {
-              step: steps.CLIENT_MENU_SERVICE_CATEGORIES,
+              step: steps.SELECT_SERVICE_CATEGORY,
               message,
               lActivity,
             });
 
             setTimeout(async () => {
               await sendTextMessage(phone, messages.CLIENT_WELCOME_MESSAGE)
-
             }, 0);
 
             return res
@@ -206,7 +206,7 @@ Youâ€™re all set! If you need any further assistance, feel free to reach out. ðŸ
               .send(messages.CLIENT_HOME);
 
           }
-          else if (session.step === steps.CLIENT_MENU_SERVICE_CATEGORIES) {
+          else if (session.step === steps.SELECT_SERVICE_CATEGORY) {
             const category = await Category.findOne(
               { code: +message.toLowerCase() },
               { _id: 1, name: 1 }

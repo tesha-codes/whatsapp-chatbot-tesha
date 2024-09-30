@@ -109,22 +109,17 @@ To proceed, we'll need a few details from you. Please provide the following info
     `,
 
     GET_FULL_NAME: `
-*Request Full Name*
-
-📋 Please enter your full name:
+*📋 Please enter your full name*
 Make sure to provide your first name first and surname second.
 Example: John Doe`,
 
     GET_NATIONAL_ID: `
-*Request National ID Number*
-
-🆔 Please enter your National ID number:
+*🆔 Please enter your National ID number*
 Example: 63-1234567-Z-63`,
     GET_ADDRESS: `
-*Request Address*
 
-🏡 Please enter your full residential address:
-Example: 123 Main Street, Harare*`
+*🏡 Please enter your full residential address*
+Example: 123 Main Street, Harare`
   },
 
 
