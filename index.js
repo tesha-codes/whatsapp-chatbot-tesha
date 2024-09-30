@@ -205,9 +205,13 @@ app.post("/bot", async (req, res) => {
 ✅ Thank you! Your profile has been successfully set up.
 You’re all set! If you need any further assistance, feel free to reach out. 😊
 `;
-            setTimeout(async () => {
-              await clientMainMenuTemplate(phone, username); // NOTE:  you can pull the actual name of the client here NOT the whatsapp username used
-            }, 0);
+
+            // NOTE:  you can pull the actual name of the client here NOT the whatsapp username used
+            // NOTE: Used SetImmediate test
+            setImmediate(
+              async () => await clientMainMenuTemplate(phone, username)
+            );
+
             return res.status(StatusCodes.OK).send(confirmation);
             //
           }
