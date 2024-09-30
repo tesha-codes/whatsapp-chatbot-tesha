@@ -215,7 +215,7 @@ Youâ€™re all set! If you need any further assistance, feel free to reach out. ðŸ
             return res.status(StatusCodes.OK).send(confirmation);
             //
           }
-          // NOTE: Killed profile confirmation
+          // NOTE: Received service request
           else if (
             session.step === steps.SELECT_SERVICE_CATEGORY &&
             message.toString().toLowerCase() === "request service"
