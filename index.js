@@ -181,18 +181,6 @@ app.post("/bot", async (req, res) => {
             }
 
           }
-
-          else if (session.step === steps.COLLECT_USER_ID) {
-            await setSession(phone, {
-              step: steps.COLLECT_USER_ADDRESS,
-              message,
-              lActivity,
-            });
-            return res
-              .status(StatusCodes.OK)
-              .send(messages.GET_NATIONAL_ID);
-
-          }
           else if (session.step === steps.COLLECT_USER_FULL_NAME) {
             await setSession(phone, {
               step: steps.COLLECT_USER_ID,
