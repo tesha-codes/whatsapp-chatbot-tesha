@@ -196,10 +196,14 @@ Youâ€™re all set! If you need any further assistance, feel free to reach out. ðŸ
               lActivity,
             });
 
-            await sendTextMessage(phone, messages.CLIENT_HOME)
+            setTimeout(async () => {
+              await sendTextMessage(phone, messages.CLIENT_WELCOME_MESSAGE)
+
+            }, 0);
+
             return res
               .status(StatusCodes.OK)
-              .send(messages.CLIENT_WELCOME_MESSAGE);
+              .send(messages.CLIENT_HOME);
 
           }
           else if (session.step === steps.CLIENT_MENU_SERVICE_CATEGORIES) {
@@ -217,9 +221,7 @@ Youâ€™re all set! If you need any further assistance, feel free to reach out. ðŸ
 
 *${category.name}* 
 Please select a service from the list below:
-
-${services
-                .map((s, index) => `${index + 1}. *${s.title}*\n${s.description}`)
+${services.map((s, index) => `${index + 1}. *${s.title}*\n${s.description}`)
                 .join("\n\n")}
 
 Reply with the number of the service you'd like to hire.
@@ -329,8 +331,10 @@ Our team will connect you with a service provider shortly.
               message,
               lActivity,
             });
-            await sendTextMessage(phone, messages.GET_USER_INFORMATION)
-            return res.status(StatusCodes.OK).send(messages.GET_FULL_NAME);
+            setTimeout(async () => {
+              await sendTextMessage(phone, messages.GET_FULL_NAME)
+            }, 0);
+            return res.status(StatusCodes.OK).send(messages.GET_USER_INFORMATION);
           } else if (message.toLowerCase() === "2") {
             //Check if user has a valid profile , if not register them and then proceed to menu, else go straight to menu
             await updateUser({ phone, accountType: "ServiceProvider" });
