@@ -240,7 +240,7 @@ Youâ€™re all set! If you need any further assistance, feel free to reach out. ðŸ
 `
 
             setTimeout(async () => {
-              await clientMainMenuTemplate(phone);
+              await clientMainMenuTemplate(phone, username); // NOTE:  you can pull the actual name of the client here NOT the whatsapp username used
             }, 0);
             return res
               .status(StatusCodes.OK)

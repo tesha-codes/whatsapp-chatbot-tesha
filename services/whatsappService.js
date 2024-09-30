@@ -130,13 +130,13 @@ const sendChooseAccountTypeTemplate = (userMobileNumber) => {
 
   return axios.post(TEMPLATE_MSG_URL, params, config);
 };
-const clientMainMenuTemplate = (userMobileNumber) => {
+const clientMainMenuTemplate = (userMobileNumber, name) => {
   const params = getUrlEncodedData({
     source: SOURCE_MOBILE_NUMBER,
     destination: userMobileNumber,
     template: {
       id: "d792b702-b2da-454c-927e-4d3bd826698d",
-      params: [],
+      params: [name],
     },
     message: {},
   });
@@ -183,5 +183,5 @@ module.exports = {
   sendChooseAccountTypeTemplate,
   clientMainMenuTemplate,
   registerClientTemplate,
-  welcomeMessageTemplate
+  welcomeMessageTemplate,
 };
