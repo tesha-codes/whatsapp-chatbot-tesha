@@ -3,6 +3,8 @@ const express = require("express");
 const {
   sendTextMessage,
   sendChooseAccountTypeTemplate,
+  registerClientTemplate,
+  clientMainMenuTemplate
 } = require("./services/whatsappService");
 const bodyParser = require("body-parser");
 const { StatusCodes } = require("http-status-codes");
@@ -42,7 +44,13 @@ const steps = {
   COLLECT_USER_FULL_NAME: 'COLLECT_USER_FULL_NAME',
   COLLECT_USER_ID: 'COLLECT_USER_ID',
   COLLECT_USER_ADDRESS: 'COLLECT_USER_ADDRESS',
-  SELECT_SERVICE_CATEGORY:'SELECT_SERVICE_CATEGORY'
+  SELECT_SERVICE_CATEGORY: 'SELECT_SERVICE_CATEGORY',
+  PROFILE_CONFIRMATION: 'PROFILE_CONFIRMATION',
+  SELECT_MENU_ACTION: 'SELECT_MENU_ACTION',
+  SETUP_CLIENT_PROFILE:'SETUP_CLIENT_PROFILE',
+  DEFAULT_CLIENT_STATE:"DEFAULT_CLIENT_STATE",
+  SELECT_SERVICE:"SELECT_SERVICE",
+
 }
 
 
@@ -149,13 +157,46 @@ app.post("/bot", async (req, res) => {
           //  request service
           // list services
           // : acknlowledge request
-          if (session.step === steps.COLLECT_USER_FULL_NAME) {
+          if (session.step === steps.SETUP_CLIENT_PROFILE) {
+            if (message.toString().toLowerCase() === 'create account') {
+              await setSession(phone, {
+                step: steps.COLLECT_USER_FULL_NAME,
+                message,
+                lActivity,
+              });
+              return res
+                .status(StatusCodes.OK)
+                .send(messages.GET_FULL_NAME);
+            }else{
+              await setSession(phone, {
+                step: steps.DEFAULT_CLIENT_STATE,
+                message,
+                lActivity,
+              });
+              return res
+                .status(StatusCodes.OK)
+                .send("❌ You have cancelled creating profile. You need to have a profile to be able to request services. ");
+            }
+
+          }
+
+          else if (session.step === steps.COLLECT_USER_ID) {
+            await setSession(phone, {
+              step: steps.COLLECT_USER_ADDRESS,
+              message,
+              lActivity,
+            });
+            return res
+              .status(StatusCodes.OK)
+              .send(messages.GET_NATIONAL_ID);
+
+          }
+          else if (session.step === steps.COLLECT_USER_FULL_NAME) {
             await setSession(phone, {
               step: steps.COLLECT_USER_ID,
               message,
               lActivity,
             });
-
             return res
               .status(StatusCodes.OK)
               .send(messages.GET_NATIONAL_ID);
@@ -174,7 +215,18 @@ app.post("/bot", async (req, res) => {
           }
           else if (session.step === steps.COLLECT_USER_ADDRESS) {
             await setSession(phone, {
-              step: steps.CLIENT_MENU_SERVICE_CATEGORIES,
+              step: steps.PROFILE_CONFIRMATION,
+              message,
+              lActivity,
+            });
+            return res
+              .status(StatusCodes.OK)
+              .send(messages.GET_ADDRESS);
+
+          }
+          else if (session.step === steps.PROFILE_CONFIRMATION) {
+            await setSession(phone, {
+              step: steps.SELECT_SERVICE_CATEGORY,
               message,
               lActivity,
             });
@@ -183,30 +235,29 @@ app.post("/bot", async (req, res) => {
 
 ✅ Thank you! Your profile has been successfully set up.
 You’re all set! If you need any further assistance, feel free to reach out. 😊
-
 `
+
+            setTimeout(async () => {
+              await clientMainMenuTemplate(phone);
+            }, 0);
             return res
               .status(StatusCodes.OK)
               .send(confirmation);
 
           }
-          else if (session.step === steps.CLIENT_MENU_SERVICE_CATEGORIES) {
+          else if (session.step === steps.SELECT_SERVICE_CATEGORY && message.toString().toLowerCase() === 'request service') {
             await setSession(phone, {
-              step: steps.SELECT_SERVICE_CATEGORY,
+              step: steps.SELECT_SERVICE,
               message,
               lActivity,
             });
 
-            setTimeout(async () => {
-              await sendTextMessage(phone, messages.CLIENT_WELCOME_MESSAGE)
-            }, 0);
-
             return res
               .status(StatusCodes.OK)
-              .send(messages.CLIENT_HOME);
+              .send(messages.CLIENT_WELCOME_MESSAGE);
 
           }
-          else if (session.step === steps.SELECT_SERVICE_CATEGORY) {
+          else if (session.step === steps.SELECT_SERVICE) {
             const category = await Category.findOne(
               { code: +message.toLowerCase() },
               { _id: 1, name: 1 }
@@ -214,8 +265,7 @@ You’re all set! If you need any further assistance, feel free to reach out. �
 
             let queryId = new mongoose.Types.ObjectId(category._id);
             const services = await Service.find({ category: queryId });
-            console.log("Services", services, category);
-            console.log("Id for category", category._id);
+
 
             let responseMessage = `
 
@@ -327,14 +377,12 @@ Our team will connect you with a service provider shortly.
             await updateUser({ phone, accountType: "Client" });
             await setSession(phone, {
               accountType: "Client",
-              step: steps.COLLECT_USER_FULL_NAME,
+              step: steps.SETUP_CLIENT_PROFILE,
               message,
               lActivity,
             });
-            setTimeout(async () => {
-              await sendTextMessage(phone, messages.GET_FULL_NAME)
-            }, 0);
-            return res.status(StatusCodes.OK).send(messages.GET_USER_INFORMATION);
+            await registerClientTemplate(phone)
+            return res.status(StatusCodes.OK).send("");
           } else if (message.toLowerCase() === "2") {
             //Check if user has a valid profile , if not register them and then proceed to menu, else go straight to menu
             await updateUser({ phone, accountType: "ServiceProvider" });

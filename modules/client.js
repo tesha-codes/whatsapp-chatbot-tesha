@@ -61,8 +61,6 @@ Are you joining us as a *Client* looking to hire services, or a *Service Provide
     CLIENT_HOME:
       "Welcome, valued Client! 👋 We're here to help you find the right services. How can we assist you today?",
 
-
-
     USER_OR_PROVIDER: `
 Welcome to Tesha's main menu! Please let us know who you are:
 1. Client - Looking for services

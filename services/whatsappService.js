@@ -116,12 +116,40 @@ const sendTemplateMessage = (
 
   return axios.post(TEMPLATE_MSG_URL, params, config);
 };
+
 const sendChooseAccountTypeTemplate = (userMobileNumber) => {
   const params = getUrlEncodedData({
     source: SOURCE_MOBILE_NUMBER,
     destination: userMobileNumber,
     template: {
       id: "e1de1f14-93e6-439c-b46e-cb834aec99b3",
+      params: [],
+    },
+    message: {},
+  });
+
+  return axios.post(TEMPLATE_MSG_URL, params, config);
+};
+const clientMainMenuTemplate = (userMobileNumber) => {
+  const params = getUrlEncodedData({
+    source: SOURCE_MOBILE_NUMBER,
+    destination: userMobileNumber,
+    template: {
+      id: "d792b702-b2da-454c-927e-4d3bd826698d",
+      params: [],
+    },
+    message: {},
+  });
+
+  return axios.post(TEMPLATE_MSG_URL, params, config);
+};
+
+const registerClientTemplate = (userMobileNumber) => {
+  const params = getUrlEncodedData({
+    source: SOURCE_MOBILE_NUMBER,
+    destination: userMobileNumber,
+    template: {
+      id: "aaf19ff4-ea9f-450f-a631-602ed5bdb5ea",
       params: [],
     },
     message: {},
@@ -139,4 +167,6 @@ module.exports = {
   sendTextMessage,
   sendTemplateMessage,
   sendChooseAccountTypeTemplate,
+  clientMainMenuTemplate,
+  registerClientTemplate
 };
