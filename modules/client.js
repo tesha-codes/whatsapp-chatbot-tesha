@@ -103,30 +103,30 @@ Please select a category by replying with the corresponding number:
 
 To proceed, we'll need a few details from you. Please provide the following information.
 
--*First Name:* e.g., John
--*Last Name:* e.g., Doe
--*Alternative Phone Number:* Include country code (e.g., +263 712345678)
+-*Full Name:* e.g., John Doe 
 -*National ID Number:* e.g., 63-1234567-Z-63
 -*National Address:* e.g., 123 Main Street, Harare
     `,
+
     GET_FULL_NAME: `
 *Request Full Name*
 
 📋 Please enter your full name:
 Make sure to provide your first name first and surname second.
-Example: John Doe`
+Example: John Doe`,
 
-  },
-  GET_NATIONAL_ID:`
+    GET_NATIONAL_ID: `
 *Request National ID Number*
 
 🆔 Please enter your National ID number:
 Example: 63-1234567-Z-63`,
-GET_ADDRESS:`
+    GET_ADDRESS: `
 *Request Address*
 
 🏡 Please enter your full residential address:
 Example: 123 Main Street, Harare*`
+  },
+
 
 };
 
