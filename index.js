@@ -5,7 +5,7 @@ const {
   sendChooseAccountTypeTemplate,
   registerClientTemplate,
   clientMainMenuTemplate,
-  welcomeMessageTemplate
+  welcomeMessageTemplate,
 } = require("./services/whatsappService");
 const bodyParser = require("body-parser");
 const { StatusCodes } = require("http-status-codes");
@@ -33,27 +33,25 @@ const steps = {
   ACCEPTED_TERMS: "ACCEPTED_TERMS",
   ACCEPT_TERMS: "ACCEPT_TERMS",
   BOOK_SERVICE: "BOOK_SERVICE",
-  CLIENT_WELCOME_MESSAGE: 'CLIENT_WELCOME_MESSAGE',
-  CLIENT_MENU_SERVICE_CATEGORIES: 'CLIENT_MENU_SERVICE_CATEGORIES',
-  USER_OR_PROVIDER: 'USER_OR_PROVIDER',
-  CLIENT_HOME: 'CLIENT_HOME',
-  PROVIDER_HOME: 'PROVIDER_HOME',
-  SELECT_SERVICE_PROVIDER: 'SELECT_SERVICE_PROVIDER',
-  GET_USER_INFORMATION: 'GET_USER_INFORMATION',
-  SAVE_USER_PROFILE_INFOR: 'SAVE_USER_PROFILE_INFOR',
-  USER_DETAILS_CONFIRMATION: 'USER_DETAILS_CONFIRMATION',
-  COLLECT_USER_FULL_NAME: 'COLLECT_USER_FULL_NAME',
-  COLLECT_USER_ID: 'COLLECT_USER_ID',
-  COLLECT_USER_ADDRESS: 'COLLECT_USER_ADDRESS',
-  SELECT_SERVICE_CATEGORY: 'SELECT_SERVICE_CATEGORY',
-  PROFILE_CONFIRMATION: 'PROFILE_CONFIRMATION',
-  SELECT_MENU_ACTION: 'SELECT_MENU_ACTION',
-  SETUP_CLIENT_PROFILE:'SETUP_CLIENT_PROFILE',
-  DEFAULT_CLIENT_STATE:"DEFAULT_CLIENT_STATE",
-  SELECT_SERVICE:"SELECT_SERVICE",
-
-}
-
+  CLIENT_WELCOME_MESSAGE: "CLIENT_WELCOME_MESSAGE",
+  CLIENT_MENU_SERVICE_CATEGORIES: "CLIENT_MENU_SERVICE_CATEGORIES",
+  USER_OR_PROVIDER: "USER_OR_PROVIDER",
+  CLIENT_HOME: "CLIENT_HOME",
+  PROVIDER_HOME: "PROVIDER_HOME",
+  SELECT_SERVICE_PROVIDER: "SELECT_SERVICE_PROVIDER",
+  GET_USER_INFORMATION: "GET_USER_INFORMATION",
+  SAVE_USER_PROFILE_INFOR: "SAVE_USER_PROFILE_INFOR",
+  USER_DETAILS_CONFIRMATION: "USER_DETAILS_CONFIRMATION",
+  COLLECT_USER_FULL_NAME: "COLLECT_USER_FULL_NAME",
+  COLLECT_USER_ID: "COLLECT_USER_ID",
+  COLLECT_USER_ADDRESS: "COLLECT_USER_ADDRESS",
+  SELECT_SERVICE_CATEGORY: "SELECT_SERVICE_CATEGORY",
+  PROFILE_CONFIRMATION: "PROFILE_CONFIRMATION",
+  SELECT_MENU_ACTION: "SELECT_MENU_ACTION",
+  SETUP_CLIENT_PROFILE: "SETUP_CLIENT_PROFILE",
+  DEFAULT_CLIENT_STATE: "DEFAULT_CLIENT_STATE",
+  SELECT_SERVICE: "SELECT_SERVICE",
+};
 
 app.use(morgan("dev"));
 app.use(bodyParser.urlencoded({ extended: false }));
@@ -109,7 +107,7 @@ app.post("/bot", async (req, res) => {
         lActivity,
       });
       //
-      await welcomeMessageTemplate(phone)
+      await welcomeMessageTemplate(phone);
       return res.status(StatusCodes.OK).send("");
     } else {
       // check session
@@ -147,7 +145,6 @@ app.post("/bot", async (req, res) => {
           });
           return res.status(StatusCodes.OK).send(messages.WELCOME_TERMS);
         }
-
       }
 
       if (session?.accountType) {
@@ -160,16 +157,14 @@ app.post("/bot", async (req, res) => {
           // list services
           // : acknlowledge request
           if (session.step === steps.SETUP_CLIENT_PROFILE) {
-            if (message.toString().toLowerCase() === 'create account') {
+            if (message.toString().toLowerCase() === "create account") {
               await setSession(phone, {
                 step: steps.COLLECT_USER_FULL_NAME,
                 message,
                 lActivity,
               });
-              return res
-                .status(StatusCodes.OK)
-                .send(messages.GET_FULL_NAME);
-            }else{
+              return res.status(StatusCodes.OK).send(messages.GET_FULL_NAME);
+            } else {
               await setSession(phone, {
                 step: steps.DEFAULT_CLIENT_STATE,
                 message,
@@ -177,65 +172,50 @@ app.post("/bot", async (req, res) => {
               });
               return res
                 .status(StatusCodes.OK)
-                .send("❌ You have cancelled creating profile. You need to have a profile to be able to request services. ");
+                .send(
+                  "❌ You have cancelled creating profile. You need to have a profile to be able to request services. "
+                );
             }
-
-          }
-          else if (session.step === steps.COLLECT_USER_FULL_NAME) {
+            // NOTE: Collect full name here
+          } else if (session.step === steps.COLLECT_USER_FULL_NAME) {
             await setSession(phone, {
               step: steps.COLLECT_USER_ID,
               message,
               lActivity,
             });
-            return res
-              .status(StatusCodes.OK)
-              .send(messages.GET_NATIONAL_ID);
-
-          }
-          else if (session.step === steps.COLLECT_USER_ID) {
+            return res.status(StatusCodes.OK).send(messages.GET_NATIONAL_ID);
+            // NOTE: Collect national id
+          } else if (session.step === steps.COLLECT_USER_ID) {
             await setSession(phone, {
               step: steps.COLLECT_USER_ADDRESS,
               message,
               lActivity,
             });
-            return res
-              .status(StatusCodes.OK)
-              .send(messages.GET_ADDRESS);
-
-          }
-          else if (session.step === steps.COLLECT_USER_ADDRESS) {
-            await setSession(phone, {
-              step: steps.PROFILE_CONFIRMATION,
-              message,
-              lActivity,
-            });
-            return res
-              .status(StatusCodes.OK)
-              .send(messages.GET_ADDRESS);
-
-          }
-          else if (session.step === steps.PROFILE_CONFIRMATION) {
+            return res.status(StatusCodes.OK).send(messages.GET_ADDRESS);
+            // NOTE: Collect address
+          } else if (session.step === steps.COLLECT_USER_ADDRESS) {
             await setSession(phone, {
               step: steps.SELECT_SERVICE_CATEGORY,
               message,
               lActivity,
             });
-            let confirmation = `
+            const confirmation = `
 *Profile Setup Confirmation*
 
 ✅ Thank you! Your profile has been successfully set up.
 You’re all set! If you need any further assistance, feel free to reach out. 😊
-`
-
+`;
             setTimeout(async () => {
               await clientMainMenuTemplate(phone, username); // NOTE:  you can pull the actual name of the client here NOT the whatsapp username used
             }, 0);
-            return res
-              .status(StatusCodes.OK)
-              .send(confirmation);
-
+            return res.status(StatusCodes.OK).send(confirmation);
+            //
           }
-          else if (session.step === steps.SELECT_SERVICE_CATEGORY && message.toString().toLowerCase() === 'request service') {
+          // NOTE: Killed profile confirmation
+          else if (
+            session.step === steps.SELECT_SERVICE_CATEGORY &&
+            message.toString().toLowerCase() === "request service"
+          ) {
             await setSession(phone, {
               step: steps.SELECT_SERVICE,
               message,
@@ -245,9 +225,7 @@ You’re all set! If you need any further assistance, feel free to reach out. �
             return res
               .status(StatusCodes.OK)
               .send(messages.CLIENT_WELCOME_MESSAGE);
-
-          }
-          else if (session.step === steps.SELECT_SERVICE) {
+          } else if (session.step === steps.SELECT_SERVICE) {
             const category = await Category.findOne(
               { code: +message.toLowerCase() },
               { _id: 1, name: 1 }
@@ -256,13 +234,13 @@ You’re all set! If you need any further assistance, feel free to reach out. �
             let queryId = new mongoose.Types.ObjectId(category._id);
             const services = await Service.find({ category: queryId });
 
-
             let responseMessage = `
 
 *${category.name}* 
 Please select a service from the list below:
-${services.map((s, index) => `${index + 1}. *${s.title}*\n${s.description}`)
-                .join("\n\n")}
+${services
+  .map((s, index) => `${index + 1}. *${s.title}*\n${s.description}`)
+  .join("\n\n")}
 
 Reply with the number of the service you'd like to hire.
             `;
@@ -325,8 +303,8 @@ Our team will connect you with a service provider shortly.
           // : service provider
           // : register service
           // : continue ...
-          await sendTextMessage(phone, 'Mukuda basa here mudhara?');
-          console.log('Client session: ', session);
+          await sendTextMessage(phone, "Mukuda basa here mudhara?");
+          console.log("Client session: ", session);
         }
       } else {
         // 1 .
@@ -361,7 +339,7 @@ Our team will connect you with a service provider shortly.
         //     lActivity,
         //   });
         //   return res.(StatusCodstatuses.OK).send(messages.USER_OR_PROVIDER)
-        // } 
+        // }
         else if (session.step === steps.ACCEPTED_TERMS) {
           if (message.toLowerCase() === "client") {
             await updateUser({ phone, accountType: "Client" });
@@ -371,7 +349,7 @@ Our team will connect you with a service provider shortly.
               message,
               lActivity,
             });
-            await registerClientTemplate(phone)
+            await registerClientTemplate(phone);
             return res.status(StatusCodes.OK).send("");
           } else if (message.toLowerCase() === "2") {
             //Check if user has a valid profile , if not register them and then proceed to menu, else go straight to menu
