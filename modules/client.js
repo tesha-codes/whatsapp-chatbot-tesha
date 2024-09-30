@@ -67,7 +67,7 @@ Are you joining us as a *Client* looking to hire services, or a *Service Provide
 Welcome to Tesha's main menu! Please let us know who you are:
 1. Client - Looking for services
 2. Service Provider - Offering services`,
-CLIENT_WELCOME_MESSAGE:` 
+    CLIENT_WELCOME_MESSAGE: ` 
 *What can we help you with today?*
 
 Please select a category by replying with the corresponding number:
@@ -98,19 +98,36 @@ Please select a category by replying with the corresponding number:
 
   Type the number of the category you're interested in, and I'll show you the available services! 😊`,
 
-  GET_USER_INFORMATION: `
-To proceed, we'll need a few details from you. Please provide the following information in the format below:
+    GET_USER_INFORMATION: `
+📃*Personal Information*
 
-👤 First Name: e.g., John
-👥 Last Name: e.g., Doe
-📞 Alternative Phone Number: Include country code (e.g., +263 712345678)
-🆔 National ID Number: e.g., 63-1234567-Z-63
-🏡 National Address: e.g., 123 Main Street, Harare
+To proceed, we'll need a few details from you. Please provide the following information.
+
+-*First Name:* e.g., John
+-*Last Name:* e.g., Doe
+-*Alternative Phone Number:* Include country code (e.g., +263 712345678)
+-*National ID Number:* e.g., 63-1234567-Z-63
+-*National Address:* e.g., 123 Main Street, Harare
     `,
+    GET_FULL_NAME: `
+*Request Full Name*
 
+📋 Please enter your full name:
+Make sure to provide your first name first and surname second.
+Example: John Doe`
 
   },
-  
+  GET_NATIONAL_ID:`
+*Request National ID Number*
+
+🆔 Please enter your National ID number:
+Example: 63-1234567-Z-63`,
+GET_ADDRESS:`
+*Request Address*
+
+🏡 Please enter your full residential address:
+Example: 123 Main Street, Harare*`
+
 };
 
 module.exports = clientModule;

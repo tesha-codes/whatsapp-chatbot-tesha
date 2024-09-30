@@ -38,7 +38,10 @@ const steps = {
   SELECT_SERVICE_PROVIDER: 'SELECT_SERVICE_PROVIDER',
   GET_USER_INFORMATION: 'GET_USER_INFORMATION',
   SAVE_USER_PROFILE_INFOR: 'SAVE_USER_PROFILE_INFOR',
-  USER_DETAILS_CONFIRMATION: 'USER_DETAILS_CONFIRMATION'
+  USER_DETAILS_CONFIRMATION: 'USER_DETAILS_CONFIRMATION',
+  COLLECT_USER_FULL_NAME: 'COLLECT_USER_FULL_NAME',
+  COLLECT_USER_ID: 'COLLECT_USER_ID',
+  COLLECT_USER_ADDRESS: 'COLLECT_USER_ADDRESS',
 }
 
 
@@ -145,7 +148,48 @@ app.post("/bot", async (req, res) => {
           //  request service
           // list services
           // : acknlowledge request
-          if (session.step === steps.GET_USER_INFORMATION) {
+          if (session.step === steps.COLLECT_USER_FULL_NAME) {
+            await setSession(phone, {
+              step: steps.COLLECT_USER_ID,
+              message,
+              lActivity,
+            });
+
+            return res
+              .status(StatusCodes.OK)
+              .send(messages.GET_NATIONAL_ID);
+
+          }
+          else if (session.step === steps.COLLECT_USER_ID) {
+            await setSession(phone, {
+              step: steps.COLLECT_USER_ADDRESS,
+              message,
+              lActivity,
+            });
+            return res
+              .status(StatusCodes.OK)
+              .send(messages.GET_ADDRESS);
+
+          }
+          else if (session.step === steps.COLLECT_USER_ADDRESS) {
+            await setSession(phone, {
+              step: steps.CLIENT_MENU_SERVICE_CATEGORIES,
+              message,
+              lActivity,
+            });
+            let confirmation = `
+*Profile Setup Confirmation*
+
+✅ Thank you! Your profile has been successfully set up.
+You’re all set! If you need any further assistance, feel free to reach out. 😊
+
+`
+            return res
+              .status(StatusCodes.OK)
+              .send(confirmation);
+
+          }
+          else if (session.step === steps.CLIENT_MENU_SERVICE_CATEGORIES) {
             await setSession(phone, {
               step: steps.CLIENT_MENU_SERVICE_CATEGORIES,
               message,
@@ -156,7 +200,9 @@ app.post("/bot", async (req, res) => {
             return res
               .status(StatusCodes.OK)
               .send(messages.CLIENT_WELCOME_MESSAGE);
-          } else if (session.step === steps.CLIENT_MENU_SERVICE_CATEGORIES) {
+
+          }
+          else if (session.step === steps.CLIENT_MENU_SERVICE_CATEGORIES) {
             const category = await Category.findOne(
               { code: +message.toLowerCase() },
               { _id: 1, name: 1 }
@@ -173,8 +219,8 @@ app.post("/bot", async (req, res) => {
 Please select a service from the list below:
 
 ${services
-  .map((s, index) => `${index + 1}. *${s.title}*\n${s.description}`)
-  .join("\n\n")}
+                .map((s, index) => `${index + 1}. *${s.title}*\n${s.description}`)
+                .join("\n\n")}
 
 Reply with the number of the service you'd like to hire.
             `;
@@ -279,12 +325,12 @@ Our team will connect you with a service provider shortly.
             await updateUser({ phone, accountType: "Client" });
             await setSession(phone, {
               accountType: "Client",
-              step: steps.GET_USER_INFORMATION,
+              step: steps.COLLECT_USER_FULL_NAME,
               message,
               lActivity,
             });
-
-            return res.status(StatusCodes.OK).send(messages.GET_USER_INFORMATION);
+            await sendTextMessage(phone, messages.GET_USER_INFORMATION)
+            return res.status(StatusCodes.OK).send(messages.GET_FULL_NAME);
           } else if (message.toLowerCase() === "2") {
             //Check if user has a valid profile , if not register them and then proceed to menu, else go straight to menu
             await updateUser({ phone, accountType: "ServiceProvider" });
