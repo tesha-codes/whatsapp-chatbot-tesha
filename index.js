@@ -176,7 +176,7 @@ app.post("/bot", async (req, res) => {
                   "❌ You have cancelled creating profile. You need to have a profile to be able to request services. "
                 );
             }
-            // NOTE: Collect full name here
+            // NOTE: Collected full name here, now collect national id
           } else if (session.step === steps.COLLECT_USER_FULL_NAME) {
             await setSession(phone, {
               step: steps.COLLECT_USER_ID,
@@ -184,7 +184,7 @@ app.post("/bot", async (req, res) => {
               lActivity,
             });
             return res.status(StatusCodes.OK).send(messages.GET_NATIONAL_ID);
-            // NOTE: Collect national id
+            // NOTE: Collected national id, now collect address
           } else if (session.step === steps.COLLECT_USER_ID) {
             await setSession(phone, {
               step: steps.COLLECT_USER_ADDRESS,
@@ -192,7 +192,7 @@ app.post("/bot", async (req, res) => {
               lActivity,
             });
             return res.status(StatusCodes.OK).send(messages.GET_ADDRESS);
-            // NOTE: Collect address
+            // NOTE: Collected address, sent confirmation and main menu
           } else if (session.step === steps.COLLECT_USER_ADDRESS) {
             await setSession(phone, {
               step: steps.SELECT_SERVICE_CATEGORY,
@@ -207,7 +207,7 @@ You’re all set! If you need any further assistance, feel free to reach out. �
 `;
 
             // NOTE:  you can pull the actual name of the client here NOT the whatsapp username used
-            // NOTE: Used SetImmediate test
+            // NOTE: Used SetImmediate in place of setTimeout Only for testing
             setImmediate(
               async () => await clientMainMenuTemplate(phone, username)
             );
