@@ -207,7 +207,7 @@ Youâ€™re all set! If you need any further assistance, feel free to reach out. ğŸ
 `;
 
             // NOTE:  you can pull the actual name of the client here NOT the whatsapp username used
-            // NOTE: Used SetImmediate in place of setTimeout Only for testing
+            // NOTE: Used SetImmediate in place of setTimeout O Only for testing. I believe it could be efficient or it could be inefficient
             setImmediate(
               async () => await clientMainMenuTemplate(phone, username)
             );
