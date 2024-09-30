@@ -51,6 +51,10 @@ const UserSchema = new mongoose.Schema(
       type: Boolean,
       default: false,
     },
+    nationalId: {
+      type: String,
+      default: ''
+    }
   },
   { timestamps: true }
 );
