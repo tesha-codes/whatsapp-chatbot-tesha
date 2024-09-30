@@ -158,6 +158,20 @@ const registerClientTemplate = (userMobileNumber) => {
   return axios.post(TEMPLATE_MSG_URL, params, config);
 };
 
+const welcomeMessageTemplate = (userMobileNumber) => {
+  const params = getUrlEncodedData({
+    source: SOURCE_MOBILE_NUMBER,
+    destination: userMobileNumber,
+    template: {
+      id: "9ffdc87e-5f22-4994-a56f-a29c84fcd3a5",
+      params: [],
+    },
+    message: {},
+  });
+
+  return axios.post(TEMPLATE_MSG_URL, params, config);
+};
+
 module.exports = {
   getTemplatesList,
   markBulkOptIn,
@@ -168,5 +182,6 @@ module.exports = {
   sendTemplateMessage,
   sendChooseAccountTypeTemplate,
   clientMainMenuTemplate,
-  registerClientTemplate
+  registerClientTemplate,
+  welcomeMessageTemplate
 };

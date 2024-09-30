@@ -4,7 +4,8 @@ const {
   sendTextMessage,
   sendChooseAccountTypeTemplate,
   registerClientTemplate,
-  clientMainMenuTemplate
+  clientMainMenuTemplate,
+  welcomeMessageTemplate
 } = require("./services/whatsappService");
 const bodyParser = require("body-parser");
 const { StatusCodes } = require("http-status-codes");
@@ -108,7 +109,8 @@ app.post("/bot", async (req, res) => {
         lActivity,
       });
       //
-      return res.status(StatusCodes.OK).send(messages.WELCOME_MESSAGE);
+      await welcomeMessageTemplate(phone)
+      return res.status(StatusCodes.OK).send("");
     } else {
       // check session
       if (!session) {
@@ -342,7 +344,7 @@ Our team will connect you with a service provider shortly.
         // 1 .
         // : accept terms and conditions
         if (session.step === steps.ACCEPT_TERMS) {
-          if (message.toLowerCase() === "yes") {
+          if (message.toLowerCase() === "accept terms") {
             await updateUser({ phone, termsAndConditionsAccepted: true });
             await setSession(phone, {
               step: steps.ACCEPTED_TERMS,
@@ -352,7 +354,7 @@ Our team will connect you with a service provider shortly.
             // send choose account type template
             await sendChooseAccountTypeTemplate(phone);
             return res.status(StatusCodes.OK).send("");
-          } else if (message.toLowerCase() === "no") {
+          } else if (message.toLowerCase() === "decline terms") {
             await setSession(phone, {
               step: steps.ACCEPTED_TERMS,
               message,
