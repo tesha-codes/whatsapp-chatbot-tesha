@@ -1,6 +1,7 @@
 const { StatusCodes } = require("http-status-codes");
 const { setSession } = require("../utils/redis");
 const { createUser, updateUser } = require("../controllers/user.controllers");
+const { formatDateTime } = require("../utils/dateUtil");
 const {
   sendChooseAccountTypeTemplate,
   registerClientTemplate,
@@ -15,7 +16,7 @@ class Onboarding {
     this.user = user;
     this.steps = steps;
     this.messages = messages;
-    this.lActivity = Date.now();
+    this.lActivity = formatDateTime();
     this.setupCommonVariables();
   }
 

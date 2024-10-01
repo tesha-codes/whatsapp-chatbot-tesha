@@ -1,4 +1,5 @@
 const { StatusCodes } = require("http-status-codes");
+const { formatDateTime } = require("../utils/dateUtil");
 
 class ServiceProvider {
   constructor(res, userResponse, session, user, steps, messages) {
@@ -8,7 +9,7 @@ class ServiceProvider {
     this.user = user;
     this.steps = steps;
     this.messages = messages;
-    this.lActivity = Date.now();
+    this.lActivity = formatDateTime();
     this.setupCommonVariables();
   }
 
@@ -19,7 +20,7 @@ class ServiceProvider {
     this.message = userResponse.payload?.text || "";
     this.username = userResponse.sender.name;
   }
-  // important set session to expire 24 hours after last activity 
+  // important set session to expire 24 hours after last activity
   // check user if new or existing
   // NEW
   // send create account templates -> get user full name/business name, phone number, national id, buinesss category,
@@ -27,21 +28,21 @@ class ServiceProvider {
   //
   // existing send exiting template
   // view tasks -> get user tasks
-  // edit profile  
+  // edit profile
   // delete profile
 
   async mainEntry() {
-   const {
-     res,
-     session,
-     user,
-     steps,
-     messages,
-     lActivity,
-     phone,
-     username,
-     message,
-   } = this;
+    const {
+      res,
+      session,
+      user,
+      steps,
+      messages,
+      lActivity,
+      phone,
+      username,
+      message,
+    } = this;
     // : do the dirty work here
     // :
     return res.status(StatusCodes.OK).send("Oh, ndikuda basa here mudhara?");
