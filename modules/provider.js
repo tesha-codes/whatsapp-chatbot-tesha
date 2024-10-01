@@ -1,15 +1,16 @@
 const { StatusCodes } = require("http-status-codes");
 
 class ServiceProvider {
-  constructor(res, userResponse, session, steps) {
+  constructor(res, userResponse, session, user, steps) {
     this.res = res;
     this.userResponse = userResponse;
     this.session = session;
+    this.user = user;
     this.steps = steps;
   }
 
   async mainEntry() {
-    const { userResponse, res, session, steps } = this;
+    const { userResponse, res, session, user, steps } = this;
     const phone = userResponse.sender.phone;
     const message = userResponse.payload?.text || "";
     const username = userResponse.sender.name;

@@ -335,11 +335,12 @@ Our team will connect you with a service provider shortly.
           }
           console.log("Client session: ", session);
         } else {
-          //  NOTE : MAIN GATE FOR SERVICE PROVIDERS
+          //  MAIN GATE FOR SERVICE PROVIDERS
           const provider = new ServiceProvider(
             res,
             userResponse,
             session,
+            user,
             steps
           );
           return await provider.mainEntry();
