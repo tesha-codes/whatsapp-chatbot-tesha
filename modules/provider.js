@@ -19,6 +19,16 @@ class ServiceProvider {
     this.message = userResponse.payload?.text || "";
     this.username = userResponse.sender.name;
   }
+  // important set session to expire 24 hours after last activity 
+  // check user if new or existing
+  // NEW
+  // send create account templates -> get user full name/business name, phone number, national id, buinesss category,
+  // -> actual service,  city/town, business address, national id image, buinesss hours, any other desctriptions
+  //
+  // existing send exiting template
+  // view tasks -> get user tasks
+  // edit profile  
+  // delete profile
 
   async mainEntry() {
    const {
