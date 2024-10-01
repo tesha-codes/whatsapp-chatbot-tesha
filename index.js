@@ -25,6 +25,7 @@ const Category = require("./models/category.model");
 const Service = require("./models/services.model");
 const ServiceRequest = require("./models/request.model");
 const User = require("./models/user.model");
+const ServiceProvider = require("./modules/provider");
 
 const app = express();
 const PORT = process.env.PORT || 3000;
@@ -137,7 +138,7 @@ app.post("/bot", async (req, res) => {
           }
         } else {
           // no session and no terms were accepted
-          
+
           await setSession(phone, {
             step: steps.ACCEPTED_TERMS,
             message,
@@ -179,13 +180,17 @@ app.post("/bot", async (req, res) => {
             // NOTE: Collected full name here, now collect national id
           } else if (session.step === steps.COLLECT_USER_FULL_NAME) {
             if (message.toString().length > 16) {
-              return res.status(StatusCodes.OK).send('❌ Name and surname provided is too shot.Please re-enter your full name, name(s) first and then surname second.')
+              return res
+                .status(StatusCodes.OK)
+                .send(
+                  "❌ Name and surname provided is too shot.Please re-enter your full name, name(s) first and then surname second."
+                );
             }
-            const userNames = message.toString().split(' ');
-            const lastName = userNames[userNames.length - 1]
-            const firstName = message.toString().replace(lastName, ' ').trim()
+            const userNames = message.toString().split(" ");
+            const lastName = userNames[userNames.length - 1];
+            const firstName = message.toString().replace(lastName, " ").trim();
 
-            await updateUser({ phone, firstName, lastName })
+            await updateUser({ phone, firstName, lastName });
             await setSession(phone, {
               step: steps.COLLECT_USER_ID,
               message,
@@ -193,11 +198,14 @@ app.post("/bot", async (req, res) => {
             });
             return res.status(StatusCodes.OK).send(messages.GET_NATIONAL_ID);
             // NOTE: Collected national id, now collect address
-
           } else if (session.step === steps.COLLECT_USER_ID) {
             const pattern = /^(\d{2})-(\d{7})-([A-Z])-(\d{2})$/;
             if (!pattern.test(message.toString())) {
-              return res.status(StatusCodes.OK).send('❌ Invalid National Id format , please provide id in the format specified in the example.')
+              return res
+                .status(StatusCodes.OK)
+                .send(
+                  "❌ Invalid National Id format , please provide id in the format specified in the example."
+                );
             }
 
             const nationalId = message.toString();
@@ -210,13 +218,13 @@ app.post("/bot", async (req, res) => {
             return res.status(StatusCodes.OK).send(messages.GET_ADDRESS);
             // NOTE: Collected address, sent confirmation and main menu
           } else if (session.step === steps.COLLECT_USER_ADDRESS) {
-
             const street = message.toString();
             await updateUser({
-              phone, address: {
-                physicalAddress: street
-              }
-            })
+              phone,
+              address: {
+                physicalAddress: street,
+              },
+            });
             await setSession(phone, {
               step: steps.SELECT_SERVICE_CATEGORY,
               message,
@@ -230,7 +238,7 @@ You’re all set! If you need any further assistance, feel free to reach out. �
 `;
 
             // NOTE:  you can pull the actual name of the client here NOT the whatsapp username used
-            // NOTE: Used SetImmediate in place of setTimeout O Only for testing. I believe it could be efficient or it could be 
+            // NOTE: Used SetImmediate in place of setTimeout O Only for testing. I believe it could be efficient or it could be
             const user = await getUser(phone);
             setImmediate(
               async () => await clientMainMenuTemplate(phone, user.firstName)
@@ -266,8 +274,8 @@ You’re all set! If you need any further assistance, feel free to reach out. �
 *${category.name}* 
 Please select a service from the list below:
 ${services
-                .map((s, index) => `${index + 1}. *${s.title}*\n${s.description}`)
-                .join("\n\n")}
+  .map((s, index) => `${index + 1}. *${s.title}*\n${s.description}`)
+  .join("\n\n")}
 
 Reply with the number of the service you'd like to hire.
             `;
@@ -327,11 +335,14 @@ Our team will connect you with a service provider shortly.
           }
           console.log("Client session: ", session);
         } else {
-          // : service provider
-          // : register service
-          // : continue ...
-          await sendTextMessage(phone, "Mukuda basa here mudhara?");
-          console.log("Client session: ", session);
+          //  NOTE : MAIN GATE FOR SERVICE PROVIDERS
+          const provider = new ServiceProvider(
+            res,
+            userResponse,
+            session,
+            steps
+          );
+          return await provider.mainEntry();
         }
       } else {
         // 1 .
