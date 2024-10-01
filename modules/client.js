@@ -123,9 +123,9 @@ Example: 123 Main Street, Harare`,
       "📍 Please send your current location. You can use the 'Share Location' feature in your messaging app.",
     GET_CITY: "🏙️ Please enter the name of your city or town.",
     CHOOSE_CATEGORY:
-      "🗂️ Please choose a business category from the following options: \n1. Home Services\n2. Professional Services\n3. Personal Care\n4. Education\n5. Other\nReply with the number of your choice.",
+      "🗂️ Please choose a business category from the following options:",
     CHOOSE_SERVICE:
-      "🛠️ Based on your category, please choose a specific service: \n[Dynamic list of services based on chosen category]\nReply with the number of your choice.",
+      "🛠️ Based on your category, please choose a specific service:",
     GET_DESCRIPTION:
       "📝 Please provide a brief description of your services (maximum 200 characters).",
     CHOOSE_SUBSCRIPTION:
