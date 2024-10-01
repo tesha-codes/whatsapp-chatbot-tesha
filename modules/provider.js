@@ -7,6 +7,7 @@ class ServiceProvider {
     this.session = session;
     this.user = user;
     this.steps = steps;
+    this.lActivity = Date.now();
   }
 
   async mainEntry() {

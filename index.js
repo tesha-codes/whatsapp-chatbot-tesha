@@ -26,6 +26,7 @@ const Service = require("./models/services.model");
 const ServiceRequest = require("./models/request.model");
 const User = require("./models/user.model");
 const ServiceProvider = require("./modules/provider");
+const Onboarding = require("./modules/onboarding");
 
 const app = express();
 const PORT = process.env.PORT || 3000;
@@ -97,55 +98,23 @@ app.post("/bot", async (req, res) => {
 
     const user = await getUser(phone);
     const lActivity = Date.now();
-
+    // : create onboarding instance
+    const onboard = new Onboarding(
+      res,
+      userResponse,
+      session,
+      user,
+      steps,
+      messages
+    );
     if (!user) {
-      // : new user
-      await createUser({ phone, username });
-
-      await setSession(phone, {
-        step: steps.ACCEPT_TERMS,
-        message,
-        lActivity,
-      });
-      //
-      await welcomeMessageTemplate(phone);
-      return res.status(StatusCodes.OK).send("");
+      // : create new user
+      return await onboard.createNewUser();
     } else {
       // check session
       if (!session) {
-        if (user.termsAndConditionsAccepted && user.accountType) {
-          // client.accountType
-          if (user.accountType === "Client") {
-            await setSession(phone, {
-              accountType: "Client",
-              step: steps.ACCEPTED_TERMS,
-              message,
-              lActivity,
-            });
-
-            return res.status(StatusCodes.OK).send(messages.CLIENT_HOME);
-          }
-          // provider.accountType
-          if (user.accountType === "ServiceProvider") {
-            await setSession(phone, {
-              accountType: "ServiceProvider",
-              step: steps.ACCEPTED_TERMS,
-              message,
-              lActivity,
-            });
-
-            return res.status(StatusCodes.OK).send(messages.PROVIDER_HOME);
-          }
-        } else {
-          // no session and no terms were accepted
-
-          await setSession(phone, {
-            step: steps.ACCEPTED_TERMS,
-            message,
-            lActivity,
-          });
-          return res.status(StatusCodes.OK).send(messages.WELCOME_TERMS);
-        }
+        // : existing users without session
+        return await onboard.existingUserWithoutSession();
       }
 
       if (session?.accountType) {
@@ -346,56 +315,8 @@ Our team will connect you with a service provider shortly.
           return await provider.mainEntry();
         }
       } else {
-        // 1 .
-        // : accept terms and conditions
-        if (session.step === steps.ACCEPT_TERMS) {
-          if (message.toLowerCase() === "accept terms") {
-            await updateUser({ phone, termsAndConditionsAccepted: true });
-            await setSession(phone, {
-              step: steps.ACCEPTED_TERMS,
-              message,
-              lActivity,
-            });
-            // send choose account type template
-            await sendChooseAccountTypeTemplate(phone);
-            return res.status(StatusCodes.OK).send("");
-          } else if (message.toLowerCase() === "decline terms") {
-            await setSession(phone, {
-              step: steps.ACCEPTED_TERMS,
-              message,
-              lActivity,
-            });
-            return res.status(StatusCodes.OK).send(message.DECLINE_TERMS);
-          } else {
-            const invalidMessage = "You have provided an invalid response. Please type 'Accept Terms' or 'Decline'to proceed.";
-            return res.status(StatusCodes.OK).send(invalidMessage);
-          }
-        }
-        else if (session.step === steps.ACCEPTED_TERMS) {
-          if (message.toLowerCase() === "client") {
-            await updateUser({ phone, accountType: "Client" });
-            await setSession(phone, {
-              accountType: "Client",
-              step: steps.SETUP_CLIENT_PROFILE,
-              message,
-              lActivity,
-            });
-            await registerClientTemplate(phone);
-            return res.status(StatusCodes.OK).send("");
-          } else if (message.toLowerCase() === "service provider") {
-            await updateUser({ phone, accountType: "ServiceProvider" });
-            await setSession(phone, {
-              accountType: "ServiceProvider",
-              step: steps.PROVIDER_HOME,
-              message,
-              lActivity,
-            });
-            return res.status(StatusCodes.OK).send(messages.PROVIDER_HOME);
-          } else {
-            const invalidMessage = "You have provided an invalid response. Please reply with 'Client' or 'Service Provider' to proceed.";
-            return res.status(StatusCodes.OK).send(invalidMessage);
-          }
-        }
+        // newly create user - accept terms and conditions and choose account type
+        return await onboard.acceptTermsAndChooseAccountType();
       }
     }
   }
