@@ -367,18 +367,10 @@ Our team will connect you with a service provider shortly.
             });
             return res.status(StatusCodes.OK).send(message.DECLINE_TERMS);
           } else {
-            const invalidMessage = `You have provided an invalid response. Please type 'Yes' or 'No'to proceed.`;
+            const invalidMessage = "You have provided an invalid response. Please type 'Accept Terms' or 'Decline'to proceed.";
             return res.status(StatusCodes.OK).send(invalidMessage);
           }
         }
-        // else if (session.step === steps.ACCEPTED_TERMS) {
-        //   await setSession(phone, {
-        //     step: steps.USER_OR_PROVIDER,
-        //     message,
-        //     lActivity,
-        //   });
-        //   return res.(StatusCodstatuses.OK).send(messages.USER_OR_PROVIDER)
-        // }
         else if (session.step === steps.ACCEPTED_TERMS) {
           if (message.toLowerCase() === "client") {
             await updateUser({ phone, accountType: "Client" });
@@ -390,8 +382,7 @@ Our team will connect you with a service provider shortly.
             });
             await registerClientTemplate(phone);
             return res.status(StatusCodes.OK).send("");
-          } else if (message.toLowerCase() === "2") {
-            //Check if user has a valid profile , if not register them and then proceed to menu, else go straight to menu
+          } else if (message.toLowerCase() === "service provider") {
             await updateUser({ phone, accountType: "ServiceProvider" });
             await setSession(phone, {
               accountType: "ServiceProvider",
@@ -401,7 +392,7 @@ Our team will connect you with a service provider shortly.
             });
             return res.status(StatusCodes.OK).send(messages.PROVIDER_HOME);
           } else {
-            const invalidMessage = `You have provided an invalid response. Please reply with 'Client' or 'Service Provider' to proceed.`;
+            const invalidMessage = "You have provided an invalid response. Please reply with 'Client' or 'Service Provider' to proceed.";
             return res.status(StatusCodes.OK).send(invalidMessage);
           }
         }
