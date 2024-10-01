@@ -26,6 +26,10 @@ class Onboarding {
     this.message = userResponse.payload?.text || "";
     this.username = userResponse.sender.name;
   }
+
+  // variables usage destructured example
+  // const { res, session, user, steps, messages, lActivity, phone, username, message} = this;
+
   //  create new new user
   async createNewUser() {
     const { res, steps, lActivity, phone, message, username } = this;
@@ -44,7 +48,7 @@ class Onboarding {
 
   // existing user without session
   async existingUserWithoutSession() {
-    const { res, steps, messages, lActivity, phone, message } = this;
+    const { res, user, steps, messages, lActivity, phone, message } = this;
 
     if (user.termsAndConditionsAccepted && user.accountType) {
       // client.accountType
@@ -82,7 +86,7 @@ class Onboarding {
 
   // nelwy created users accept terms and conditions and choose account types
   async acceptTermsAndChooseAccountType() {
-    const { res, steps, messages, lActivity, phone, message } = this;
+    const { res, session, steps, messages, lActivity, phone, message } = this;
     // : accept terms and conditions
     if (session.step === steps.ACCEPT_TERMS) {
       if (message.toLowerCase() === "accept terms") {
