@@ -1,14 +1,9 @@
 const { StatusCodes } = require("http-status-codes");
-const { getSession, setSession } = require("../utils/redis");
-const {
-  createUser,
-  updateUser,
-  getUser,
-} = require("../controllers/user.controllers");
+const { setSession } = require("../utils/redis");
+const { createUser, updateUser } = require("../controllers/user.controllers");
 const {
   sendChooseAccountTypeTemplate,
   registerClientTemplate,
-  clientMainMenuTemplate,
   welcomeMessageTemplate,
 } = require("../services/whatsappService");
 
@@ -24,7 +19,7 @@ class Onboarding {
     this.setupCommonVariables();
   }
 
-//   setup common variables
+  //   setup common variables
   setupCommonVariables() {
     const { userResponse } = this;
     this.phone = userResponse.sender.phone;
