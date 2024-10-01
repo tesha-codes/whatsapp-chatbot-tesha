@@ -1,53 +1,46 @@
-const mongoose = require('mongoose');
-const ServiceTypes = require('./../mock/ServiceTypes.mock')
+const mongoose = require("mongoose");
 
-const ServiceProviderSchema = new mongoose.Schema({
+const ServiceProviderSchema = new mongoose.Schema(
+  {
     user: {
-        type: mongoose.Types.ObjectId,
-        required: true,
-        ref: 'User'
+      type: mongoose.Types.ObjectId,
+      ref: "User",
     },
-    providerType: {
-        type: [String],
-        required: true,
-        default: [],
-        enum: ServiceTypes
+    category: {
+      type: mongoose.Types.ObjectId,
+      ref: "Category",
     },
-    available: {
-        type: Boolean,
-        default: false
+    service: {
+      type: mongoose.Types.ObjectId,
+      ref: "Service",
     },
-    jobs: {
-        type: [mongoose.Types.ObjectId],
-        default: []
+    city: {
+      type: String,
+      trim: true,
     },
-    rating: {
-        type: String,
-        default: "0.0"
+    nationalIdImage: {
+      type: String,
     },
-    preferredJobs: {
-        type: [String],
-        default: [],
-        enum: ServiceTypes
+    description: {
+      type: String,
+      trim: true,
     },
     ecocashNumber: {
-        type: String,
-        required: true,
-        trim: true
-    },
-    basicHourlyRate: {
-        type: Number,
-        required: true,
-        default: 2
+      type: String,
+      required: true,
     },
     subscription: {
-        types: [mongoose.Types.ObjectId],
-        required: true,
-        ref: 'Subscription'
-    }
-}, { timestamps: true }).index({
-    "providerType": "text",
-    "preferredJobs": "text"
-});
+      types: [mongoose.Types.ObjectId],
+      required: true,
+      ref: "Subscription",
+    },
+  },
+  { timestamps: true }
+);
 
-module.exports = mongoose.model('ServiceProvider', ServiceProviderSchema)
+ServiceProviderSchema.index({ user: 1 });
+ServiceProviderSchema.index({ category: 1 });
+ServiceProviderSchema.index({ service: 1 });
+ServiceProviderSchema.index({ city: 1 });
+
+module.exports = mongoose.model("ServiceProvider", ServiceProviderSchema);
