@@ -117,10 +117,24 @@ Example: 63-1234567-Z-63`,
     GET_ADDRESS: `
 
 *🏡 Please enter your full residential address*
-Example: 123 Main Street, Harare`
+Example: 123 Main Street, Harare`,
+
+    GET_LOCATION:
+      "📍 Please send your current location. You can use the 'Share Location' feature in your messaging app.",
+    GET_CITY: "🏙️ Please enter the name of your city or town.",
+    CHOOSE_CATEGORY:
+      "🗂️ Please choose a business category from the following options: \n1. Home Services\n2. Professional Services\n3. Personal Care\n4. Education\n5. Other\nReply with the number of your choice.",
+    CHOOSE_SERVICE:
+      "🛠️ Based on your category, please choose a specific service: \n[Dynamic list of services based on chosen category]\nReply with the number of your choice.",
+    GET_DESCRIPTION:
+      "📝 Please provide a brief description of your services (maximum 200 characters).",
+    CHOOSE_SUBSCRIPTION:
+      "🎉 Good news! You're eligible for a free 3-month subscription. Choose your plan:\n1. Basic\n2. Standard\n3. Premium\nReply with the number of your choice.",
+    UPLOAD_ID_IMAGE:
+      "📸 Please upload a clear image of your National ID. This will be used for verification purposes.",
+    PROFILE_COMPLETE:
+      "✅ Congratulations! Your profile is now complete. Your account will be active for 3 months and you'll start receiving tasks once verified. Thank you for joining our platform! 🎊",
   },
-
-
 };
 
 module.exports = clientModule;
