@@ -27,12 +27,14 @@ const ServiceProviderSchema = new mongoose.Schema(
     },
     ecocashNumber: {
       type: String,
-      required: true,
     },
     subscription: {
-      types: [mongoose.Types.ObjectId],
-      required: true,
+      type: mongoose.Types.ObjectId,
       ref: "Subscription",
+    },
+    isProfileCompleted: {
+      type: Boolean,
+      default: false,
     },
   },
   { timestamps: true }

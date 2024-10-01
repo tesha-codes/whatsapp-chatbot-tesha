@@ -6,6 +6,7 @@ const {
   sendChooseAccountTypeTemplate,
   registerClientTemplate,
   welcomeMessageTemplate,
+  registerServiceProviderTemplate,
 } = require("../services/whatsappService");
 
 class Onboarding {
@@ -127,11 +128,12 @@ class Onboarding {
         await updateUser({ phone, accountType: "ServiceProvider" });
         await setSession(phone, {
           accountType: "ServiceProvider",
-          step: steps.PROVIDER_HOME,
+          step: steps.PROVIDER_PROMPT_ACCOUNT,
           message,
           lActivity,
         });
-        return res.status(StatusCodes.OK).send(messages.PROVIDER_HOME);
+        await registerServiceProviderTemplate(phone);
+        return res.status(StatusCodes.OK).send("");
       } else {
         const invalidMessage =
           "You have provided an invalid response. Please reply with 'Client' or 'Service Provider' to proceed.";
