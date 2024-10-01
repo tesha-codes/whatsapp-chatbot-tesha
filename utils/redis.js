@@ -15,11 +15,16 @@ client.on("connect", () => console.log("Connected to Redis🔥🔥🔥..."));
 client.connect().catch(console.error);
 
 // helper functions
+
 // get session
 const getSession = async (key) => await client.hGetAll(key);
+
 // set session
-const setSession = async (key, value, ttl = SESSION_EXPIRATION) =>
-  await client.hSet(key, value, ttl);
+const setSession = async (key, value, ttl = SESSION_EXPIRATION) => {
+  await client.hSet(key, value);
+  await client.expire(key, ttl);
+};
+
 // delete session
 const deleteSession = async (key) => await client.del(key);
 
