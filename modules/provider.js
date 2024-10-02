@@ -148,6 +148,13 @@ class ServiceProvider {
           .status(StatusCodes.OK)
           .send(`${messages.CHOOSE_CATEGORY}\n${categoryList}`);
       } else if (session.step === steps.PROVIDER_COLLECT_CATEGORY) {
+        if (isNaN(message)) {
+          return res
+            .status(StatusCodes.OK)
+            .send(
+              "❌ Invalid category selection. Please choose a valid number from the list."
+            );
+        }
         const categoryCode = parseInt(message);
         const category = await Category.findOne({ code: categoryCode });
         if (!category) {
@@ -175,6 +182,13 @@ class ServiceProvider {
           .status(StatusCodes.OK)
           .send(`${messages.CHOOSE_SERVICE}\n${serviceList}`);
       } else if (session.step === steps.PROVIDER_COLLECT_SERVICE) {
+         if (isNaN(message)) {
+           return res
+             .status(StatusCodes.OK)
+             .send(
+               "❌ Invalid service selection. Please choose a valid number from the list."
+             );
+         }
         const serviceCode = parseInt(message);
         const service = await Service.findOne({
           code: serviceCode,
