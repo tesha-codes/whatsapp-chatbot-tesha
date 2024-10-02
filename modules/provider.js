@@ -161,7 +161,7 @@ class ServiceProvider {
         await setSession(phone, {
           step: steps.PROVIDER_COLLECT_SERVICE,
           message,
-          categoryId: category._id,
+          categoryId: category._id.toString(),
           lActivity,
         });
         const services = await Service.find(
