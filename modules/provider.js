@@ -114,13 +114,11 @@ class ServiceProvider {
         });
         return res.status(StatusCodes.OK).send(messages.GET_LOCATION);
       } else if (session.step === steps.PROVIDER_COLLECT_LOCATION) {
-       console.log('Location:', message);
+        console.log("Location:", message);
         if (typeof message !== "object") {
           return res
             .status(StatusCodes.OK)
-            .send(
-              "❌ Invalid location format. Please send your location."
-            );
+            .send("❌ Invalid location format. Please send your location.");
         }
         await updateUser({
           phone,
@@ -130,7 +128,7 @@ class ServiceProvider {
         });
         await setSession(phone, {
           step: steps.PROVIDER_COLLECT_CITY,
-          message,
+          message: JSON.stringify(message),
           lActivity,
         });
         return res.status(StatusCodes.OK).send(messages.GET_CITY);
