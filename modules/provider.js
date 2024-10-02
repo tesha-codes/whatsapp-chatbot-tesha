@@ -114,7 +114,7 @@ class ServiceProvider {
         });
         return res.status(StatusCodes.OK).send(messages.GET_LOCATION);
       } else if (session.step === steps.PROVIDER_COLLECT_LOCATION) {
-       
+       console.log('Location:', message);
         if (typeof message !== "object") {
           return res
             .status(StatusCodes.OK)
@@ -125,7 +125,7 @@ class ServiceProvider {
         await updateUser({
           phone,
           address: {
-            coordinates: [longitude, latitude],
+            coordinates: message,
           },
         });
         await setSession(phone, {
