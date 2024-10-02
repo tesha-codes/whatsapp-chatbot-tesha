@@ -68,7 +68,7 @@ class ServiceProvider {
         default:
           return res
             .status(StatusCodes.ACCEPTED)
-            .send("I see you, but I don't know what you want. Still in dev .....");
+            .send(""); // say nothing for now
       }
     } catch (error) {
       console.error("Error in ServiceProvider mainEntry:", error);
