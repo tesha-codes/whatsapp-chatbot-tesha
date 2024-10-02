@@ -29,10 +29,19 @@ const getUser = async (phone) => {
 };
 // update user
 const updateUser = async (data) => {
+  const updateData = {};
+  if (data.address) {
+    for (const [key, value] of Object.entries(data.address)) {
+      updateData[`address.${key}`] = value;
+    }
+    delete data.address;
+  }
+  Object.assign(updateData, data);
+
   try {
     const updatedUser = await User.findOneAndUpdate(
       { phone: data.phone },
-      { $set: data },
+      { $set: updateData },
       { new: true, runValidators: true }
     );
     if (!updatedUser) {
@@ -44,8 +53,6 @@ const updateUser = async (data) => {
     throw error;
   }
 };
-
-const onGetUserByPhone = 
 
 module.exports = {
   createUser,

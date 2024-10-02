@@ -256,7 +256,7 @@ class ServiceProvider {
     } catch (error) {
       console.error("Error in ServiceProvider mainEntry:", error);
       return res
-        .status(StatusCodes.INTERNAL_SERVER_ERROR)
+        .status(StatusCodes.ACCEPTED)
         .send("An error occurred. Please try again later.");
     }
   }
