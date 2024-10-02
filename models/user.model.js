@@ -35,7 +35,7 @@ const UserSchema = new mongoose.Schema(
         type: String,
       },
       coordinates: {
-        type: [Number],
+        type: Object,
       },
     },
     verified: {

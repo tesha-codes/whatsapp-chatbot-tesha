@@ -24,7 +24,7 @@ class ServiceProvider {
   setupCommonVariables() {
     const { userResponse } = this;
     this.phone = userResponse.sender.phone;
-    this.message = userResponse.payload?.text || "";
+    this.message = userResponse.payload?.text || userResponse.payload || "";
     this.username = userResponse.sender.name;
   }
 
@@ -114,14 +114,12 @@ class ServiceProvider {
         });
         return res.status(StatusCodes.OK).send(messages.GET_LOCATION);
       } else if (session.step === steps.PROVIDER_COLLECT_LOCATION) {
-        const [latitude, longitude] = message
-          .split(",")
-          .map((coord) => parseFloat(coord.trim()));
-        if (isNaN(latitude) || isNaN(longitude)) {
+       
+        if (typeof message !== "object") {
           return res
             .status(StatusCodes.OK)
             .send(
-              "❌ Invalid location format. Please send your location in the format: latitude,longitude"
+              "❌ Invalid location format. Please send your location."
             );
         }
         await updateUser({
@@ -138,7 +136,7 @@ class ServiceProvider {
         return res.status(StatusCodes.OK).send(messages.GET_CITY);
       } else if (session.step === steps.PROVIDER_COLLECT_CITY) {
         const city = message.toString();
-        await updateProvider(user._id, { city });
+        await createServiceProvider(user._id, { city }); // create servive provider for the first time
         await setSession(phone, {
           step: steps.PROVIDER_COLLECT_CATEGORY,
           message,
