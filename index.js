@@ -135,6 +135,9 @@ app.post("/bot", async (req, res) => {
           //  request service
           // list services
           // : acknlowledge request
+          console.log('Session: line 138', session);
+
+
           if (session.step === steps.SETUP_CLIENT_PROFILE) {
             if (message.toString().toLowerCase() === "create account") {
               await setSession(phone, {
@@ -252,8 +255,8 @@ Youâ€™re all set! If you need any further assistance, feel free to reach out. ðŸ
 *${category.name}* 
 Please select a service from the list below:
 ${services
-  .map((s, index) => `${index + 1}. *${s.title}*\n${s.description}`)
-  .join("\n\n")}
+                .map((s, index) => `${index + 1}. *${s.title}*\n${s.description}`)
+                .join("\n\n")}
 
 Reply with the number of the service you'd like to hire.
             `;
