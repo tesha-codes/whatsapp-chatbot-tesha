@@ -42,216 +42,33 @@ class ServiceProvider {
     } = this;
 
     try {
-      if (session.step === steps.PROVIDER_PROMPT_ACCOUNT) {
-        if (message.toString().toLowerCase() === "create account") {
-          await setSession(phone, {
-            step: steps.COLLECT_PROVIDER_FULL_NAME,
-            message,
-            lActivity,
-          });
-          return res.status(StatusCodes.OK).send(messages.GET_FULL_NAME);
-        } else {
-          await setSession(phone, {
-            step: steps.PROVIDER_PROMPT_ACCOUNT,
-            message,
-            lActivity,
-          });
+      switch (session.step) {
+        case steps.PROVIDER_PROMPT_ACCOUNT:
+          return this.handlePromptAccount();
+        case steps.COLLECT_PROVIDER_FULL_NAME:
+          return this.handleCollectFullName();
+        case steps.COLLECT_USER_ID:
+          return this.handleCollectNationalId();
+        case steps.PROVIDER_COLLECT_CITY:
+          return this.handleCollectCity();
+        case steps.COLLECT_USER_ADDRESS:
+          return this.handleCollectAddress();
+        case steps.PROVIDER_COLLECT_LOCATION:
+          return this.handleCollectLocation();
+        case steps.PROVIDER_COLLECT_CATEGORY:
+          return this.handleCollectCategory();
+        case steps.PROVIDER_COLLECT_SERVICE:
+          return this.handleCollectService();
+        case steps.PROVIDER_COLLECT_DESCRIPTION:
+          return this.handleCollectDescription();
+        case steps.PROVIDER_COLLECT_SUBSCRIPTION:
+          return this.handleCollectSubscription();
+        case steps.PROVIDER_COLLECT_ID_IMAGE:
+          return this.handleCollectIdImage();
+        default:
           return res
-            .status(StatusCodes.OK)
-            .send(
-              "❌ You have cancelled creating profile. You need to have a profile to be able to request services. If you change your mind, please type 'create account' to proceed."
-            );
-        }
-      } else if (session.step === steps.COLLECT_PROVIDER_FULL_NAME) {
-        if (message.toString().length > 16) {
-          return res
-            .status(StatusCodes.OK)
-            .send(
-              "❌ Name and surname provided is too long. Please re-enter your full name, name(s) first and then surname second."
-            );
-        }
-        const userNames = message.toString().split(" ");
-        const lastName = userNames[userNames.length - 1];
-        const firstName = message.toString().replace(lastName, " ").trim();
-
-        await updateUser({ phone, firstName, lastName });
-        await setSession(phone, {
-          step: steps.COLLECT_USER_ID,
-          message,
-          lActivity,
-        });
-        return res.status(StatusCodes.OK).send(messages.GET_NATIONAL_ID);
-      } else if (session.step === steps.COLLECT_USER_ID) {
-        const pattern = /^(\d{2})-(\d{7})-([A-Z])-(\d{2})$/;
-        if (!pattern.test(message.toString())) {
-          return res
-            .status(StatusCodes.OK)
-            .send(
-              "❌ Invalid National Id format, please provide id in the format specified in the example."
-            );
-        }
-
-        const nationalId = message.toString();
-        await updateUser({ phone, nationalId });
-        await setSession(phone, {
-          step: steps.COLLECT_USER_ADDRESS,
-          message,
-          lActivity,
-        });
-        return res.status(StatusCodes.OK).send(messages.GET_ADDRESS);
-      } else if (session.step === steps.COLLECT_USER_ADDRESS) {
-        const street = message.toString();
-        await updateUser({
-          phone,
-          address: {
-            physicalAddress: street,
-          },
-        });
-        await setSession(phone, {
-          step: steps.PROVIDER_COLLECT_LOCATION,
-          message,
-          lActivity,
-        });
-        return res.status(StatusCodes.OK).send(messages.GET_LOCATION);
-      } else if (session.step === steps.PROVIDER_COLLECT_LOCATION) {
-        console.log("Location:", message);
-        if (typeof message !== "object") {
-          return res
-            .status(StatusCodes.OK)
-            .send("❌ Invalid location format. Please send your location.");
-        }
-        await updateUser({
-          phone,
-          address: {
-            coordinates: message,
-          },
-        });
-        await setSession(phone, {
-          step: steps.PROVIDER_COLLECT_CITY,
-          message: JSON.stringify(message),
-          lActivity,
-        });
-        return res.status(StatusCodes.OK).send(messages.GET_CITY);
-      } else if (session.step === steps.PROVIDER_COLLECT_CITY) {
-        const city = message.toString();
-        await createServiceProvider({ user: user._id, city }); // create servive provider for the first time
-        await setSession(phone, {
-          step: steps.PROVIDER_COLLECT_CATEGORY,
-          message,
-          lActivity,
-        });
-        const categories = await Category.find({}, "name code").sort("code");
-        const categoryList = categories
-          .map((cat) => `${cat.code}. ${cat.name}`)
-          .join("\n");
-        return res
-          .status(StatusCodes.OK)
-          .send(`${messages.CHOOSE_CATEGORY}\n${categoryList}`);
-      } else if (session.step === steps.PROVIDER_COLLECT_CATEGORY) {
-        if (isNaN(message)) {
-          return res
-            .status(StatusCodes.OK)
-            .send(
-              "❌ Invalid category selection. Please choose a valid number from the list."
-            );
-        }
-        const categoryCode = parseInt(message);
-        const category = await Category.findOne({ code: categoryCode });
-        if (!category) {
-          return res
-            .status(StatusCodes.OK)
-            .send(
-              "❌ Invalid category selection. Please choose a valid number from the list."
-            );
-        }
-        await updateProvider(user._id, { category: category._id });
-        await setSession(phone, {
-          step: steps.PROVIDER_COLLECT_SERVICE,
-          message,
-          categoryId: category._id.toString(),
-          lActivity,
-        });
-        const services = await Service.find(
-          { category: category._id },
-          "title code"
-        ).sort("code");
-        const serviceList = services
-          .map((svc) => `${svc.code}. ${svc.title}`)
-          .join("\n");
-        return res
-          .status(StatusCodes.OK)
-          .send(`${messages.CHOOSE_SERVICE}\n${serviceList}`);
-      } else if (session.step === steps.PROVIDER_COLLECT_SERVICE) {
-         if (isNaN(message)) {
-           return res
-             .status(StatusCodes.OK)
-             .send(
-               "❌ Invalid service selection. Please choose a valid number from the list."
-             );
-         }
-        const serviceCode = parseInt(message);
-        const service = await Service.findOne({
-          code: serviceCode,
-          category: session.categoryId,
-        });
-        if (!service) {
-          return res
-            .status(StatusCodes.OK)
-            .send(
-              "❌ Invalid service selection. Please choose a valid number from the list."
-            );
-        }
-        await updateProvider(user._id, { service: service._id });
-        await setSession(phone, {
-          step: steps.PROVIDER_COLLECT_DESCRIPTION,
-          message,
-          lActivity,
-        });
-        return res.status(StatusCodes.OK).send(messages.GET_DESCRIPTION);
-      } else if (session.step === steps.PROVIDER_COLLECT_DESCRIPTION) {
-        const description = message.toString();
-        if (description.length > 200) {
-          return res
-            .status(StatusCodes.OK)
-            .send(
-              "❌ Description is too long. Please keep it under 200 characters."
-            );
-        }
-        await updateProvider(user._id, { description });
-        await setSession(phone, {
-          step: steps.PROVIDER_COLLECT_SUBSCRIPTION,
-          message,
-          lActivity,
-        });
-        return res.status(StatusCodes.OK).send(messages.CHOOSE_SUBSCRIPTION);
-      } else if (session.step === steps.PROVIDER_COLLECT_SUBSCRIPTION) {
-        const subscriptionId = message.toString();
-        // Here you should validate if the subscriptionId is valid
-        // await updateProvider(user._id, { subscription: subscriptionId });
-        await setSession(phone, {
-          step: steps.PROVIDER_COLLECT_ID_IMAGE,
-          message,
-          lActivity,
-        });
-        return res.status(StatusCodes.OK).send(messages.UPLOAD_ID_IMAGE);
-      } else if (session.step === steps.PROVIDER_COLLECT_ID_IMAGE) {
-        const nationalIdImage = message.toString(); // Assuming this is a URL or file path
-        // Here you should implement logic to handle and validate the uploaded image
-        await updateProvider(user._id, {
-          nationalIdImage,
-          isProfileCompleted: true,
-        });
-        await setSession(phone, {
-          step: steps.PROVIDER_PROFILE_COMPLETE,
-          message,
-          lActivity,
-        });
-        return res.status(StatusCodes.OK).send(messages.PROFILE_COMPLETE);
-      } else {
-        // Handle unknown step
-        return res
-          .status(StatusCodes.BAD_REQUEST)
-          .send("Invalid step in the registration process.");
+            .status(StatusCodes.BAD_REQUEST)
+            .send("Invalid step in the registration process.");
       }
     } catch (error) {
       console.error("Error in ServiceProvider mainEntry:", error);
@@ -259,6 +76,235 @@ class ServiceProvider {
         .status(StatusCodes.ACCEPTED)
         .send("An error occurred. Please try again later.");
     }
+  }
+
+  async handlePromptAccount() {
+    if (this.message.toString().toLowerCase() === "create account") {
+      await setSession(this.phone, {
+        step: this.steps.COLLECT_PROVIDER_FULL_NAME,
+        message: this.message,
+        lActivity: this.lActivity,
+      });
+      return this.res.status(StatusCodes.OK).send(this.messages.GET_FULL_NAME);
+    } else {
+      await setSession(this.phone, {
+        step: this.steps.PROVIDER_PROMPT_ACCOUNT,
+        message: this.message,
+        lActivity: this.lActivity,
+      });
+      return this.res
+        .status(StatusCodes.OK)
+        .send(
+          "❌ You have cancelled creating profile. You need to have a profile to be able to request services. If you change your mind, please type 'create account' to proceed."
+        );
+    }
+  }
+
+  async handleCollectFullName() {
+    if (this.message.toString().length > 16) {
+      return this.res
+        .status(StatusCodes.OK)
+        .send(
+          "❌ Name and surname provided is too long. Please re-enter your full name, name(s) first and then surname second."
+        );
+    }
+    const userNames = this.message.toString().split(" ");
+    const lastName = userNames[userNames.length - 1];
+    const firstName = this.message.toString().replace(lastName, " ").trim();
+
+    await updateUser({ phone: this.phone, firstName, lastName });
+    await setSession(this.phone, {
+      step: this.steps.COLLECT_USER_ID,
+      message: this.message,
+      lActivity: this.lActivity,
+    });
+    return this.res.status(StatusCodes.OK).send(this.messages.GET_NATIONAL_ID);
+  }
+
+  async handleCollectNationalId() {
+    const pattern = /^(\d{2})-(\d{7})-([A-Z])-(\d{2})$/;
+    if (!pattern.test(this.message.toString())) {
+      return this.res
+        .status(StatusCodes.OK)
+        .send(
+          "❌ Invalid National Id format, please provide id in the format specified in the example."
+        );
+    }
+
+    const nationalId = this.message.toString();
+    await updateUser({ phone: this.phone, nationalId });
+    await setSession(this.phone, {
+      step: this.steps.PROVIDER_COLLECT_CITY,
+      message: this.message,
+      lActivity: this.lActivity,
+    });
+    return this.res.status(StatusCodes.OK).send(this.messages.GET_CITY);
+  }
+
+  async handleCollectCity() {
+    const city = this.message.toString();
+    await createServiceProvider({ user: this.user._id, city });
+    await setSession(this.phone, {
+      step: this.steps.COLLECT_USER_ADDRESS,
+      message: this.message,
+      lActivity: this.lActivity,
+    });
+    return this.res.status(StatusCodes.OK).send(this.messages.GET_ADDRESS);
+  }
+
+  async handleCollectAddress() {
+    const street = this.message.toString();
+    await updateUser({
+      phone: this.phone,
+      address: {
+        physicalAddress: street,
+      },
+    });
+    await setSession(this.phone, {
+      step: this.steps.PROVIDER_COLLECT_LOCATION,
+      message: this.message,
+      lActivity: this.lActivity,
+    });
+    return this.res.status(StatusCodes.OK).send(this.messages.GET_LOCATION);
+  }
+
+  async handleCollectLocation() {
+    console.log("Location:", this.message);
+    if (typeof this.message !== "object") {
+      return this.res
+        .status(StatusCodes.OK)
+        .send("❌ Invalid location format. Please send your location.");
+    }
+    await updateUser({
+      phone: this.phone,
+      address: {
+        coordinates: this.message,
+      },
+    });
+    await setSession(this.phone, {
+      step: this.steps.PROVIDER_COLLECT_CATEGORY,
+      message: JSON.stringify(this.message),
+      lActivity: this.lActivity,
+    });
+    const categories = await Category.find({}, "name code").sort("code");
+    const categoryList = categories
+      .map((cat) => `${cat.code}. ${cat.name}`)
+      .join("\n");
+    return this.res
+      .status(StatusCodes.OK)
+      .send(`${this.messages.CHOOSE_CATEGORY}\n${categoryList}`);
+  }
+
+  async handleCollectCategory() {
+    if (isNaN(this.message)) {
+      return this.res
+        .status(StatusCodes.OK)
+        .send(
+          "❌ Invalid category selection. Please choose a valid number from the list."
+        );
+    }
+    const categoryCode = parseInt(this.message);
+    const category = await Category.findOne({ code: categoryCode });
+    if (!category) {
+      return this.res
+        .status(StatusCodes.OK)
+        .send(
+          "❌ Invalid category selection. Please choose a valid number from the list."
+        );
+    }
+    await updateProvider(this.user._id, { category: category._id });
+    await setSession(this.phone, {
+      step: this.steps.PROVIDER_COLLECT_SERVICE,
+      message: this.message,
+      categoryId: category._id.toString(),
+      lActivity: this.lActivity,
+    });
+    const services = await Service.find(
+      { category: category._id },
+      "title code"
+    ).sort("code");
+    const serviceList = services
+      .map((svc) => `${svc.code}. ${svc.title}`)
+      .join("\n");
+    return this.res
+      .status(StatusCodes.OK)
+      .send(`${this.messages.CHOOSE_SERVICE}\n${serviceList}`);
+  }
+
+  async handleCollectService() {
+    if (isNaN(this.message)) {
+      return this.res
+        .status(StatusCodes.OK)
+        .send(
+          "❌ Invalid service selection. Please choose a valid number from the list."
+        );
+    }
+    const serviceCode = parseInt(this.message);
+    const service = await Service.findOne({
+      code: serviceCode,
+      category: this.session.categoryId,
+    });
+    if (!service) {
+      return this.res
+        .status(StatusCodes.OK)
+        .send(
+          "❌ Invalid service selection. Please choose a valid number from the list."
+        );
+    }
+    await updateProvider(this.user._id, { service: service._id });
+    await setSession(this.phone, {
+      step: this.steps.PROVIDER_COLLECT_DESCRIPTION,
+      message: this.message,
+      lActivity: this.lActivity,
+    });
+    return this.res.status(StatusCodes.OK).send(this.messages.GET_DESCRIPTION);
+  }
+
+  async handleCollectDescription() {
+    const description = this.message.toString();
+    if (description.length > 200) {
+      return this.res
+        .status(StatusCodes.OK)
+        .send(
+          "❌ Description is too long. Please keep it under 200 characters."
+        );
+    }
+    await updateProvider(this.user._id, { description });
+    await setSession(this.phone, {
+      step: this.steps.PROVIDER_COLLECT_SUBSCRIPTION,
+      message: this.message,
+      lActivity: this.lActivity,
+    });
+    return this.res
+      .status(StatusCodes.OK)
+      .send(this.messages.CHOOSE_SUBSCRIPTION);
+  }
+
+  async handleCollectSubscription() {
+    const subscriptionId = this.message.toString();
+    // Here you should validate if the subscriptionId is valid
+    // await updateProvider(this.user._id, { subscription: subscriptionId });
+    await setSession(this.phone, {
+      step: this.steps.PROVIDER_COLLECT_ID_IMAGE,
+      message: this.message,
+      lActivity: this.lActivity,
+    });
+    return this.res.status(StatusCodes.OK).send(this.messages.UPLOAD_ID_IMAGE);
+  }
+
+  async handleCollectIdImage() {
+    const nationalIdImage = this.message.toString(); // Assuming this is a URL or file path
+    // Here you should implement logic to handle and validate the uploaded image
+    await updateProvider(this.user._id, {
+      nationalIdImage,
+      isProfileCompleted: true,
+    });
+    await setSession(this.phone, {
+      step: this.steps.PROVIDER_PROFILE_COMPLETE,
+      message: this.message,
+      lActivity: this.lActivity,
+    });
+    return this.res.status(StatusCodes.OK).send(this.messages.PROFILE_COMPLETE);
   }
 }
 
