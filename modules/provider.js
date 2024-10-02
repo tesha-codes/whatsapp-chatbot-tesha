@@ -134,7 +134,7 @@ class ServiceProvider {
         return res.status(StatusCodes.OK).send(messages.GET_CITY);
       } else if (session.step === steps.PROVIDER_COLLECT_CITY) {
         const city = message.toString();
-        await createServiceProvider(user._id, { city }); // create servive provider for the first time
+        await createServiceProvider({ user: user._id, city }); // create servive provider for the first time
         await setSession(phone, {
           step: steps.PROVIDER_COLLECT_CATEGORY,
           message,
