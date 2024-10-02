@@ -67,8 +67,8 @@ class ServiceProvider {
           return this.handleCollectIdImage();
         default:
           return res
-            .status(StatusCodes.BAD_REQUEST)
-            .send("Invalid step in the registration process.");
+            .status(StatusCodes.ACCEPTED)
+            .send("I see you, but I don't know what you want. Still in dev .....");
       }
     } catch (error) {
       console.error("Error in ServiceProvider mainEntry:", error);
