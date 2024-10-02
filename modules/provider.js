@@ -227,7 +227,7 @@ class ServiceProvider {
       } else if (session.step === steps.PROVIDER_COLLECT_SUBSCRIPTION) {
         const subscriptionId = message.toString();
         // Here you should validate if the subscriptionId is valid
-        await updateProvider(user._id, { subscription: subscriptionId });
+        // await updateProvider(user._id, { subscription: subscriptionId });
         await setSession(phone, {
           step: steps.PROVIDER_COLLECT_ID_IMAGE,
           message,
