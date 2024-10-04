@@ -334,7 +334,7 @@ Our team will connect you with a service provider shortly.
               const { serviceId, categoryId } = session
               const providers = await getRequestedServiceProviders({ service: serviceId, category: categoryId });
               if (providers === null) {
-                return await sendTextMessage("We're sorry, but there are no service providers available at the moment. We'll keep searching and notify you as soon as one becomes available.");
+                 await sendTextMessage("We're sorry, but there are no service providers available at the moment. We'll keep searching and notify you as soon as one becomes available.");
 
               } else {
                 let providersMessage = "We've found the following service providers for you:\n\n";
@@ -356,10 +356,10 @@ Our team will connect you with a service provider shortly.
               serviceId: service._id.toString(),
               requestId: request._id.toString(),
             });
-            return await sendTextMessage(responseMessage);
+             return res.status(StatusCodes.OK).send(responseMessage)
           }
           else if (session.step === steps.SELECT_SERVICE_PROVIDER) {
-            console.log('Service provider value selected');
+            console.log('Service provider value selected', message);
             // RESPOND TO USER FOR THE SERVICE CREATED
           }
 
