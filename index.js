@@ -343,7 +343,7 @@ Our team will connect you with a service provider shortly.
 
             console.log('Result',result);
 
-            if (result.status === 'no_providers') {
+            if (result.status === 'NO_SERVICE_PROVIDERS') {
               setSession(phone, {
                 step: steps.DEFAULT_CLIENT_STATE,
                 message,
@@ -355,7 +355,7 @@ Our team will connect you with a service provider shortly.
             }
 
             setSession(phone, {
-              step: steps.SELECT_SERVICE_PROVIDER,
+              // step: steps.SELECT_SERVICE_PROVIDER,
               message,
               lActivity,
               serviceId: service._id.toString(),

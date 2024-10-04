@@ -42,7 +42,7 @@ async function processProviderJob(job) {
                 phone,
                 "We're sorry, but there are no service providers available at the moment. We'll keep searching and notify you as soon as one becomes available."
             );
-            return { status: 'no_providers', requestId };
+            return { status: 'NO_SERVICE_PROVIDERS', requestId };
         }
 
         let providersMessage = "We've found the following service providers for you:\n\n";
@@ -56,7 +56,7 @@ async function processProviderJob(job) {
         providersMessage += "Please reply with the number of the provider you'd like to choose, or type 'more' for additional options.";
 
         await sendTextMessage(phone, providersMessage);
-        return { status: 'providers_sent', requestId, providersCount: providers.length };
+        return { status: 'SERVICE_PROVIDERS_AVAILABLE', requestId, providersCount: providers.length };
     } catch (error) {
         console.error(`Error processing provider job for request ${requestId}:`, error);
         throw error; 
@@ -90,7 +90,8 @@ async function queueProviderSearch({ phone, serviceId, categoryId, requestId }) 
         });
 
         console.log(`Added provider search job ${job.id} for request ${requestId}`);
-        return job;
+        const respond =  await job.waitUntilFinished()
+        return respond;
     } catch (error) {
         console.error('Error adding provider search job:', error);
         throw error;
