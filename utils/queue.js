@@ -6,7 +6,9 @@ function createRedisConnection(redisUrl) {
     if (!redisUrl) {
         throw new Error('REDIS_URL environment variable is required');
     }
-    return new Redis(redisUrl);
+    return new Redis(redisUrl, {
+        maxRetriesPerRequest: null
+    } );
 }
 
 function setupQueue(queueName, processFunction, options = {}) {
