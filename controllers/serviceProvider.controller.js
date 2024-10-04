@@ -60,8 +60,20 @@ const getProvider = async (userId) => {
   }
 };
 
+const getRequestedServiceProviders = async (data) => {
+  try {
+    const { service, category } = data
+    const providers = await ServiceProvider.find({ service, category }).populate("user", "phone firstName lastName")
+    if (providers.length === 0) return null
+    return providers;
+  } catch (error) {
+    throw error
+  }
+}
+
 module.exports = {
   createServiceProvider,
   updateProvider,
   getProvider,
+  getRequestedServiceProviders
 };

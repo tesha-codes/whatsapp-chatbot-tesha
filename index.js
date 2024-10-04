@@ -27,6 +27,8 @@ const ServiceRequest = require("./models/request.model");
 const User = require("./models/user.model");
 const ServiceProvider = require("./modules/provider");
 const Onboarding = require("./modules/onboarding");
+const { onGetRequestHandler } = require("./controllers/request.controller");
+const { getRequestedServiceProviders } = require("./controllers/serviceProvider.controller");
 
 const app = express();
 const PORT = process.env.PORT || 3000;
@@ -47,6 +49,7 @@ const steps = {
   COLLECT_USER_FULL_NAME: "COLLECT_USER_FULL_NAME",
   COLLECT_USER_ID: "COLLECT_USER_ID",
   COLLECT_USER_ADDRESS: "COLLECT_USER_ADDRESS",
+  COLLECT_USER_LOCATION: "COLLECT_USER_LOCATION",
   SELECT_SERVICE_CATEGORY: "SELECT_SERVICE_CATEGORY",
   PROFILE_CONFIRMATION: "PROFILE_CONFIRMATION",
   SELECT_MENU_ACTION: "SELECT_MENU_ACTION",
@@ -138,6 +141,7 @@ app.post("/bot", async (req, res) => {
           console.log('Session: line 138', session);
 
 
+
           if (session.step === steps.SETUP_CLIENT_PROFILE) {
             if (message.toString().toLowerCase() === "create account") {
               await setSession(phone, {
@@ -207,10 +211,23 @@ app.post("/bot", async (req, res) => {
               },
             });
             await setSession(phone, {
+              step: steps.COLLECT_USER_LOCATION,
+              message,
+              lActivity,
+            });
+
+            return res.status(StatusCodes.OK).send(messages.GET_LOCATION);
+            //
+          }
+          else if (session.step === steps.COLLECT_USER_LOCATION) {
+            console.log('Location here:', message);
+
+            await setSession(phone, {
               step: steps.SELECT_SERVICE_CATEGORY,
               message,
               lActivity,
             });
+
             const confirmation = `
 *Profile Setup Confirmation*
 
@@ -225,7 +242,7 @@ You’re all set! If you need any further assistance, feel free to reach out. �
               async () => await clientMainMenuTemplate(phone, user.firstName)
             );
             return res.status(StatusCodes.OK).send(confirmation);
-            //
+
           }
           // NOTE: Received service request
           else if (
@@ -293,14 +310,6 @@ Reply with the number of the service you'd like to hire.
             });
 
             await request.save();
-            setSession(phone, {
-              step: steps.SELECT_SERVICE_PROVIDER,
-              message,
-              lActivity,
-              serviceId: service.toString(),
-              requestId: request._id.toString(),
-            });
-
             const responseMessage = `
 
 📃 Thank you, *${user.username}*! 
@@ -312,8 +321,38 @@ Your request for the service  has been successfully created.
 
 Our team will connect you with a service provider shortly. 
  Please wait...`;
+
+            setImmediate(async () => {
+              const { serviceId, categoryId } = session
+              const providers = await getRequestedServiceProviders({ service: serviceId, category: categoryId });
+              if (providers === null) {
+                return res.status(StatusCodes.OK).send("We're sorry, but there are no service providers available at the moment. We'll keep searching and notify you as soon as one becomes available.");
+
+              } else {
+
+                let providersMessage = "We've found the following service providers for you:\n\n";
+
+                providers.forEach((provider, index) => {
+                  providersMessage += `${index + 1}. ${provider.name}\n`;
+                  providersMessage += `   Rating: ${provider.rating} ⭐\n`;
+                  providersMessage += `   Experience: ${provider.experience} years\n\n`;
+                });
+
+                providersMessage += "Please reply with the number of the provider you'd like to choose, or type 'more' for additional options.";
+              }
+            });
+
+            setSession(phone, {
+              step: steps.SELECT_SERVICE_PROVIDER,
+              message,
+              lActivity,
+              serviceId: service._id.toString(),
+              requestId: request._id.toString(),
+            });
             return res.status(StatusCodes.OK).send(responseMessage);
           }
+
+
           console.log("Client session: ", session);
         } else {
           //  MAIN GATE FOR SERVICE PROVIDERS

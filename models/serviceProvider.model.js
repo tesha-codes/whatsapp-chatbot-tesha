@@ -36,6 +36,10 @@ const ServiceProviderSchema = new mongoose.Schema(
       type: Boolean,
       default: false,
     },
+    rating: {
+      type: Number,
+      default: 1.0
+    }
   },
   { timestamps: true }
 );
