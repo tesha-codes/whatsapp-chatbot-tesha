@@ -333,22 +333,22 @@ Our team will connect you with a service provider shortly.
             setImmediate(async () => {
               const { serviceId, categoryId } = session
               const providers = await getRequestedServiceProviders({ service: serviceId, category: categoryId });
-              console.log('Providers',providers);
-              await sendTextMessage("We're sorry, but there are no service providers available at the moment. We'll keep searching and notify you as soon as one becomes available.");
-              // if (providers === null) {
-              //    await sendTextMessage("We're sorry, but there are no service providers available at the moment. We'll keep searching and notify you as soon as one becomes available.");
+              if (providers === null) {
+                return await sendTextMessage("We're sorry, but there are no service providers available at the moment. We'll keep searching and notify you as soon as one becomes available.");
 
-              // } else {
-              //   let providersMessage = "We've found the following service providers for you:\n\n";
+              } else {
+                let providersMessage = "We've found the following service providers for you:\n\n";
 
-              //   providers.forEach((provider, index) => {
-              //     providersMessage += `${index + 1}. ${provider.name}\n`;
-              //     providersMessage += `   Rating: ${provider.rating} ⭐\n`;
-              //     providersMessage += `   Experience: ${provider.experience} years\n\n`;
-              //   });
+                providers.forEach((provider, index) => {
+                  providersMessage += `${index + 1}. ${provider.name}\n`;
+                  providersMessage += `   Rating: ${provider.rating} ⭐\n`;
+                  providersMessage += `   Experience: ${provider.experience} years\n\n`;
+                });
 
-              //   providersMessage += "Please reply with the number of the provider you'd like to choose, or type 'more' for additional options.";
-              // }
+                providersMessage += "Please reply with the number of the provider you'd like to choose, or type 'more' for additional options.";
+
+                await sendTextMessage(phone, providersMessage);
+              }
             });
 
             setSession(phone, {
@@ -358,10 +358,11 @@ Our team will connect you with a service provider shortly.
               serviceId: service._id.toString(),
               requestId: request._id.toString(),
             });
-             return res.status(StatusCodes.OK).send(responseMessage)
+
+            return res.status(StatusCodes.OK).send(responseMessage)
           }
           else if (session.step === steps.SELECT_SERVICE_PROVIDER) {
-            console.log('Service provider value selected', message);
+            console.log('Service provider value selected');
             // RESPOND TO USER FOR THE SERVICE CREATED
           }
 
