@@ -222,6 +222,12 @@ app.post("/bot", async (req, res) => {
           else if (session.step === steps.COLLECT_USER_LOCATION) {
             console.log('Location here:', message);
 
+            await updateUser({
+              phone,
+              address: {
+                coordinates: message
+              },
+            });
             await setSession(phone, {
               step: steps.SELECT_SERVICE_CATEGORY,
               message,
@@ -237,9 +243,12 @@ Youâ€™re all set! If you need any further assistance, feel free to reach out. ðŸ
 
             // NOTE:  you can pull the actual name of the client here NOT the whatsapp username used
             // NOTE: Used SetImmediate in place of setTimeout O Only for testing. I believe it could be efficient or it could be
-            const user = await getUser(phone);
             setImmediate(
-              async () => await clientMainMenuTemplate(phone, user.firstName)
+              async () => {
+
+                const user = await getUser(phone);
+                await clientMainMenuTemplate(phone, user.firstName)
+              }
             );
             return res.status(StatusCodes.OK).send(confirmation);
 
@@ -302,9 +311,7 @@ Reply with the number of the service you'd like to hire.
               city: "Harare",
               requester: user._id,
               service: service._id,
-              address: {
-                physicalAddress: "801 New Prospect, Harare.",
-              },
+              address: user.address,
               notes: "Service booking is still in dev",
               id: reqID,
             });
@@ -326,7 +333,7 @@ Our team will connect you with a service provider shortly.
               const { serviceId, categoryId } = session
               const providers = await getRequestedServiceProviders({ service: serviceId, category: categoryId });
               if (providers === null) {
-                return res.status(StatusCodes.OK).send("We're sorry, but there are no service providers available at the moment. We'll keep searching and notify you as soon as one becomes available.");
+                return await sendTextMessage("We're sorry, but there are no service providers available at the moment. We'll keep searching and notify you as soon as one becomes available.");
 
               } else {
 
@@ -349,7 +356,11 @@ Our team will connect you with a service provider shortly.
               serviceId: service._id.toString(),
               requestId: request._id.toString(),
             });
-            return res.status(StatusCodes.OK).send(responseMessage);
+            return await sendTextMessage(responseMessage);
+          }
+          else if (session.step === steps.SELECT_SERVICE_PROVIDER) {
+            console.log('Service provider value selected');
+            // RESPOND TO USER FOR THE SERVICE CREATED
           }
 
 
