@@ -334,28 +334,39 @@ Your request for the service  has been successfully created.
 Our team will connect you with a service provider shortly. 
  Please wait...`;
 
-            const result = await queueProviderSearch({
+            const jobResult = await queueProviderSearch({
               phone,
               serviceId: service._id.toString(),
               categoryId: session.categoryId,
               requestId: request._id.toString(),
             });
 
-            console.log('Result',result);
+            console.log('Result', jobResult);
 
-            if (result.status === 'NO_SERVICE_PROVIDERS') {
-              setSession(phone, {
-                step: steps.DEFAULT_CLIENT_STATE,
-                message,
-                lActivity,
-                serviceId: service._id.toString(),
-                requestId: request._id.toString(),
-                id: reqID
-              });
+            switch (jobResult.status) {
+              case 'NO_SERVICE_PROVIDERS':
+                setSession(phone, {
+                  step: steps.DEFAULT_CLIENT_STATE,
+                  message,
+                  lActivity,
+                  serviceId: service._id.toString(),
+                  requestId: request._id.toString(),
+                  id: reqID
+                });
+                res.status(StatusCodes.OK).send("")
+                break;
+
+              case 'Error':
+                console.log(jobResult);
+                res.status(StatusCodes.OK).send("😔Can't register responses right now. Please wait for us to resolve the issue...")
+                break;
+
+              default:
+                break;
             }
 
             setSession(phone, {
-              // step: steps.SELECT_SERVICE_PROVIDER,
+              step: steps.DEFAULT_CLIENT_STATE,
               message,
               lActivity,
               serviceId: service._id.toString(),

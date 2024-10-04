@@ -94,7 +94,7 @@ async function queueProviderSearch({ phone, serviceId, categoryId, requestId }) 
         return respond;
     } catch (error) {
         console.error('Error adding provider search job:', error);
-        throw error;
+        return { status: 'ERROR', requestId, error: error.message };
     }
 }
 
