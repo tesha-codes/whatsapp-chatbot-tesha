@@ -1,15 +1,16 @@
 const { StatusCodes } = require("http-status-codes");
 const { getRequestedServiceProviders } = require("./../controllers/serviceProvider.controller")
-const { setupQueue } = require('./../utils/queue')
+const { setupQueue } = require('./../utils/queue');
+const { sendTextMessage } = require("../services/whatsappService");
 
 
-async function processProviderJob(req, res, job) {
+async function processProviderJob(job) {
     const { phone, serviceId, categoryId, requestId } = job.data;
 
     const providers = await getRequestedServiceProviders({ service: serviceId, category: categoryId });
 
     if (providers === null) {
-        return res.status(StatusCodes.OK).send("We're sorry, but there are no service providers available at the moment. We'll keep searching and notify you as soon as one becomes available.")
+        await sendTextMessage(phone, "We're sorry, but there are no service providers available at the moment. We'll keep searching and notify you as soon as one becomes available.")
     } else {
 
         let providersMessage = "We've found the following service providers for you:\n\n";
@@ -22,7 +23,7 @@ async function processProviderJob(req, res, job) {
 
         providersMessage += "Please reply with the number of the provider you'd like to choose, or type 'more' for additional options.";
 
-        return res.status(StatusCodes.OK).send(providersMessage)
+        await sendTextMessage(phone, providersMessage)
     }
 }
 

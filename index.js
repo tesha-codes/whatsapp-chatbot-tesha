@@ -330,7 +330,6 @@ Our team will connect you with a service provider shortly.
               requestId: request._id.toString(),
             });
 
-
             setSession(phone, {
               step: steps.SELECT_SERVICE_PROVIDER,
               message,
@@ -369,6 +368,12 @@ Our team will connect you with a service provider shortly.
   // acknowledge callback requests, do not remove:);
   return res.status(StatusCodes.OK).send("Callback received:)");
 });
+
+process.on('SIGTERM', async () => {
+  await serviceProviderQueue.close();
+  process.exit(0);
+});
+
 
 app.listen(PORT, function () {
   console.log(`Warming up the server 🔥🔥...`);
