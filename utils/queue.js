@@ -1,9 +1,10 @@
-import { Queue } from 'bullmq';
+const { Queue } = require('bullmq');
 
 const REDIS_URL = process.env.REDIS_URL || 'redis://localhost:6379';
 
 function setupQueue(queueName, processFunction, options = {}) {
     // Create a new Bull queue
+
     const queue = new Queue(queueName, REDIS_URL, {
         defaultJobOptions: {
             removeOnComplete: true,
