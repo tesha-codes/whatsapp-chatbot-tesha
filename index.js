@@ -341,6 +341,8 @@ Our team will connect you with a service provider shortly.
               requestId: request._id.toString(),
             });
 
+            console.log('Result',result);
+
             if (result.status === 'no_providers') {
               setSession(phone, {
                 step: steps.DEFAULT_CLIENT_STATE,
