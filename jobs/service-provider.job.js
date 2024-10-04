@@ -90,7 +90,7 @@ async function queueProviderSearch({ phone, serviceId, categoryId, requestId }) 
         });
 
         console.log(`Added provider search job ${job.id} for request ${requestId}`);
-        const respond =  await job.waitUntilFinished()
+        const respond =  await job.waitUntilFinished(providerQueue)
         return respond;
     } catch (error) {
         console.error('Error adding provider search job:', error);
