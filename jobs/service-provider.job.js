@@ -4,15 +4,15 @@ const Redis = require('ioredis');
 const { getRequestedServiceProviders } = require("./../controllers/serviceProvider.controller");
 const { sendTextMessage } = require("../services/whatsappService");
 
-// Create Redis connection
+
 const connection = new Redis(process.env.REDIS_URL, {
     maxRetriesPerRequest: null
 });
 
-// Define queue name as a constant
+
 const QUEUE_NAME = 'serviceProviderQueue';
 
-// Create the queue instance
+
 const providerQueue = new Queue(QUEUE_NAME, {
     connection,
     defaultJobOptions: {
@@ -26,7 +26,7 @@ const providerQueue = new Queue(QUEUE_NAME, {
     }
 });
 
-// Process function for the jobs
+
 async function processProviderJob(job) {
     const { phone, serviceId, categoryId, requestId } = job.data;
     console.log(`Processing provider job for request ${requestId}`);
@@ -59,17 +59,16 @@ async function processProviderJob(job) {
         return { status: 'providers_sent', requestId, providersCount: providers.length };
     } catch (error) {
         console.error(`Error processing provider job for request ${requestId}:`, error);
-        throw error; // This will trigger a retry based on the job options
+        throw error; 
     }
 }
 
-// Create the worker
 const worker = new Worker(QUEUE_NAME, processProviderJob, {
     connection,
-    concurrency: 5 // Process up to 5 jobs simultaneously
+    concurrency: 5
 });
 
-// Set up worker event handlers
+
 worker.on('completed', (job) => {
     console.log(`Provider job ${job.id} completed successfully`);
 });
@@ -78,7 +77,6 @@ worker.on('failed', (job, err) => {
     console.error(`Provider job ${job.id} failed:`, err);
 });
 
-// Function to add new jobs to the queue
 async function queueProviderSearch({ phone, serviceId, categoryId, requestId }) {
     try {
         const job = await providerQueue.add('findProviders', {
@@ -99,16 +97,16 @@ async function queueProviderSearch({ phone, serviceId, categoryId, requestId }) 
     }
 }
 
-// Graceful shutdown function
+
 async function shutdown() {
     await worker.close();
     await providerQueue.close();
     await connection.quit();
 }
 
-// Export the queue interface
+
 module.exports = {
     queueProviderSearch,
     shutdown,
-    providerQueue // Export the queue if you need direct access
+    providerQueue 
 };

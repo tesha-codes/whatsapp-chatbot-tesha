@@ -134,6 +134,17 @@ app.post("/bot", async (req, res) => {
           // list services
           // : acknlowledge request
           console.log('Session: line 138', session);
+          if (session.step === steps.DEFAULT_CLIENT_STATE) {
+
+            const user = await getUser(phone);
+            console.log(user);
+            await clientMainMenuTemplate(phone, user.firstName)
+            // await setSession(phone, {
+            //   step: steps.SELECT_SERVICE_CATEGORY,
+            //   message,
+            //   lActivity,
+            // });
+          }
 
           if (session.step === steps.SETUP_CLIENT_PROFILE) {
             if (message.toString().toLowerCase() === "create account") {
@@ -323,12 +334,23 @@ Your request for the service  has been successfully created.
 Our team will connect you with a service provider shortly. 
  Please wait...`;
 
-            await queueProviderSearch({
+            const result = await queueProviderSearch({
               phone,
               serviceId: service._id.toString(),
               categoryId: session.categoryId,
               requestId: request._id.toString(),
             });
+
+            if (result.status === 'no_providers') {
+              setSession(phone, {
+                step: steps.DEFAULT_CLIENT_STATE,
+                message,
+                lActivity,
+                serviceId: service._id.toString(),
+                requestId: request._id.toString(),
+                id: reqID
+              });
+            }
 
             setSession(phone, {
               step: steps.SELECT_SERVICE_PROVIDER,
