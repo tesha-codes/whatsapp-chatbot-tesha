@@ -228,11 +228,6 @@ app.post("/bot", async (req, res) => {
                 coordinates: message
               },
             });
-            await setSession(phone, {
-              step: steps.SELECT_SERVICE_CATEGORY,
-              message,
-              lActivity,
-            });
 
             const confirmation = `
 *Profile Setup Confirmation*
@@ -249,6 +244,11 @@ Youâ€™re all set! If you need any further assistance, feel free to reach out. ðŸ
                 const user = await getUser(phone);
                 console.log(user);
                 await clientMainMenuTemplate(phone, user.firstName)
+                await setSession(phone, {
+                  step: steps.SELECT_SERVICE_CATEGORY,
+                  message,
+                  lActivity,
+                });
               }
             );
             return res.status(StatusCodes.OK).send(confirmation);
