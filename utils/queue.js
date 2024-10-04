@@ -1,4 +1,4 @@
-const Queue = require('bull');
+import { Queue } from 'bullmq';
 
 const REDIS_URL = process.env.REDIS_URL || 'redis://localhost:6379';
 
