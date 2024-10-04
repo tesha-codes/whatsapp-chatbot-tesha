@@ -369,10 +369,7 @@ Our team will connect you with a service provider shortly.
   return res.status(StatusCodes.OK).send("Callback received:)");
 });
 
-process.on('SIGTERM', async () => {
-  await serviceProviderQueue.close();
-  process.exit(0);
-});
+
 
 
 app.listen(PORT, function () {
@@ -386,4 +383,15 @@ app.listen(PORT, function () {
       console.error(error);
       process.exit(1);
     });
+});
+
+process.on('SIGTERM', async () => {
+  await serviceProviderQueue.close();
+  process.exit(0);
+});
+
+process.on('SIGINT', async () => {
+  console.log('Received SIGINT signal. Starting graceful shutdown...');
+  await shutdown();
+  process.exit(0);
 });
