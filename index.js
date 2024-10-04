@@ -140,8 +140,6 @@ app.post("/bot", async (req, res) => {
           // : acknlowledge request
           console.log('Session: line 138', session);
 
-
-
           if (session.step === steps.SETUP_CLIENT_PROFILE) {
             if (message.toString().toLowerCase() === "create account") {
               await setSession(phone, {
@@ -164,7 +162,7 @@ app.post("/bot", async (req, res) => {
             }
             // NOTE: Collected full name here, now collect national id
           } else if (session.step === steps.COLLECT_USER_FULL_NAME) {
-            if (message.toString().length > 16) {
+            if (message.toString().length < 5) {
               return res
                 .status(StatusCodes.OK)
                 .send(
@@ -362,7 +360,7 @@ Our team will connect you with a service provider shortly.
             return res.status(StatusCodes.OK).send(responseMessage)
           }
           else if (session.step === steps.SELECT_SERVICE_PROVIDER) {
-            console.log('Service provider value selected');
+            console.log('Service provider value selected', message);
             // RESPOND TO USER FOR THE SERVICE CREATED
           }
 
