@@ -19,7 +19,7 @@ const getUser = async (phone) => {
   try {
     const user = await User.findOne(
       { phone },
-      { phone: 1, termsAndConditionsAccepted: 1, accountType: 1 }
+      { phone: 1, termsAndConditionsAccepted: 1, accountType: 1, firstName: 1 }
     );
     return user;
   } catch (error) {

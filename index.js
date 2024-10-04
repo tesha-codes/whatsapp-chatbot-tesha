@@ -247,6 +247,7 @@ Youâ€™re all set! If you need any further assistance, feel free to reach out. ðŸ
               async () => {
 
                 const user = await getUser(phone);
+                console.log(user);
                 await clientMainMenuTemplate(phone, user.firstName)
               }
             );
@@ -336,7 +337,6 @@ Our team will connect you with a service provider shortly.
                 return await sendTextMessage("We're sorry, but there are no service providers available at the moment. We'll keep searching and notify you as soon as one becomes available.");
 
               } else {
-
                 let providersMessage = "We've found the following service providers for you:\n\n";
 
                 providers.forEach((provider, index) => {
