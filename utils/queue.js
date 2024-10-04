@@ -1,11 +1,20 @@
-const { Queue } = require('bullmq');
+const { Queue, Worker } = require('bullmq');
+const Redis = require('ioredis');
 
-const REDIS_URL = process.env.REDIS_URL || 'redis://localhost:6379';
+// Parse Redis URL and create connection
+function createRedisConnection(redisUrl) {
+    if (!redisUrl) {
+        throw new Error('REDIS_URL environment variable is required');
+    }
+    return new Redis(redisUrl);
+}
 
 function setupQueue(queueName, processFunction, options = {}) {
-    // Create a new Bull queue
+    const connection = createRedisConnection(process.env.REDIS_URL);
 
-    const queue = new Queue(queueName, REDIS_URL, {
+    // Create a new BullMQ queue with proper connection
+    const queue = new Queue(queueName, {
+        connection,
         defaultJobOptions: {
             removeOnComplete: true,
             removeOnFail: false,
@@ -13,24 +22,46 @@ function setupQueue(queueName, processFunction, options = {}) {
         ...options
     });
 
-    // Process jobs in the queue
-    queue.process(processFunction);
+    // Create a worker to process jobs
+    const worker = new Worker(queueName, async (job) => {
+        try {
+            return await processFunction(job);
+        } catch (error) {
+            console.error(`Error processing job ${job.id}:`, error);
+            throw error;
+        }
+    }, { connection });
 
-    // Set up basic event handlers
-    queue.on('completed', (job) => {
+    // Set up worker event handlers
+    worker.on('completed', (job) => {
         console.log(`Job ${job.id} in queue ${queueName} completed`);
     });
 
-    queue.on('failed', (job, err) => {
+    worker.on('failed', (job, err) => {
         console.error(`Job ${job.id} in queue ${queueName} failed with error:`, err);
     });
 
-    queue.on('error', (error) => {
+    worker.on('error', (error) => {
         console.error(`Error in queue ${queueName}:`, error);
     });
 
-    return queue;
+    // Return both queue and worker for more control
+    return { queue, worker };
 }
 
+// Example usage
+async function addJob(queue, data) {
+    try {
+        const job = await queue.add('process', data);
+        console.log(`Added job ${job.id} to queue`);
+        return job;
+    } catch (error) {
+        console.error('Error adding job to queue:', error);
+        throw error;
+    }
+}
 
-module.exports = { setupQueue };
+module.exports = {
+    setupQueue,
+    addJob
+};

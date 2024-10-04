@@ -1,6 +1,6 @@
 require("dotenv").config();
 const express = require("express");
-const serviceProviderQueue = require('./jobs/service-provider.job')
+const { queueProviderSearch } = require('./jobs/service-provider.job')
 const {
   clientMainMenuTemplate,
 } = require("./services/whatsappService");
@@ -323,7 +323,7 @@ Your request for the service  has been successfully created.
 Our team will connect you with a service provider shortly. 
  Please wait...`;
 
-            await serviceProviderQueue.add({
+            await queueProviderSearch({
               phone,
               serviceId: service._id.toString(),
               categoryId: session.categoryId,
