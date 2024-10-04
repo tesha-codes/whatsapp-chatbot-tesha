@@ -1,11 +1,8 @@
 require("dotenv").config();
 const express = require("express");
+const serviceProviderQueue = require('./jobs/service-provider.job')
 const {
-  sendTextMessage,
-  sendChooseAccountTypeTemplate,
-  registerClientTemplate,
   clientMainMenuTemplate,
-  welcomeMessageTemplate,
 } = require("./services/whatsappService");
 const bodyParser = require("body-parser");
 const { StatusCodes } = require("http-status-codes");
@@ -15,7 +12,6 @@ const morgan = require("morgan");
 const connectDb = require("./database/connect.database");
 const { getSession, setSession } = require("./utils/redis");
 const {
-  createUser,
   updateUser,
   getUser,
 } = require("./controllers/user.controllers");
@@ -95,7 +91,6 @@ app.post("/bot", async (req, res) => {
   if (userResponse && userResponse.source) {
     const phone = userResponse.sender.phone;
     const message = userResponse.payload?.text || "";
-    const username = userResponse.sender.name;
     // const SESSION_TEMPLATE = {
     //   phone,
     //   accountType,
@@ -328,26 +323,13 @@ Your request for the service  has been successfully created.
 Our team will connect you with a service provider shortly. 
  Please wait...`;
 
-            setImmediate(async () => {
-              const { serviceId, categoryId } = session
-              const providers = await getRequestedServiceProviders({ service: serviceId, category: categoryId });
-              if (providers === null) {
-                return await sendTextMessage("We're sorry, but there are no service providers available at the moment. We'll keep searching and notify you as soon as one becomes available.");
-
-              } else {
-                let providersMessage = "We've found the following service providers for you:\n\n";
-
-                providers.forEach((provider, index) => {
-                  providersMessage += `${index + 1}. ${provider.name}\n`;
-                  providersMessage += `   Rating: ${provider.rating} ⭐\n`;
-                  providersMessage += `   Experience: ${provider.experience} years\n\n`;
-                });
-
-                providersMessage += "Please reply with the number of the provider you'd like to choose, or type 'more' for additional options.";
-
-                await sendTextMessage(phone, providersMessage);
-              }
+            await serviceProviderQueue.add({
+              phone,
+              serviceId: service._id.toString(),
+              categoryId: session.categoryId,
+              requestId: request._id.toString(),
             });
+
 
             setSession(phone, {
               step: steps.SELECT_SERVICE_PROVIDER,
