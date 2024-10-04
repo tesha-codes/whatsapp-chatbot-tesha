@@ -5,7 +5,9 @@ const { getRequestedServiceProviders } = require("./../controllers/serviceProvid
 const { sendTextMessage } = require("../services/whatsappService");
 
 // Create Redis connection
-const connection = new Redis(process.env.REDIS_URL);
+const connection = new Redis(process.env.REDIS_URL, {
+    maxRetriesPerRequest: null
+});
 
 // Define queue name as a constant
 const QUEUE_NAME = 'serviceProviderQueue';

@@ -1,22 +1,19 @@
+require('dotenv').config()
 const { Queue, Worker } = require('bullmq');
+
 const Redis = require('ioredis');
 
 // Parse Redis URL and create connection
-function createRedisConnection(redisUrl) {
-    if (!redisUrl) {
-        throw new Error('REDIS_URL environment variable is required');
-    }
-    return new Redis(redisUrl, {
-        maxRetriesPerRequest: null
-    } );
-}
+
 
 function setupQueue(queueName, processFunction, options = {}) {
-    const connection = createRedisConnection(process.env.REDIS_URL);
+
 
     // Create a new BullMQ queue with proper connection
     const queue = new Queue(queueName, {
-        connection,
+        connection: new Redis(process.env.REDIS_URL, {
+            maxRetriesPerRequest: null
+        }),
         defaultJobOptions: {
             removeOnComplete: true,
             removeOnFail: false,
@@ -32,7 +29,10 @@ function setupQueue(queueName, processFunction, options = {}) {
             console.error(`Error processing job ${job.id}:`, error);
             throw error;
         }
-    }, { connection });
+    }, {
+        connection: new Redis(process.env.REDIS_URL, { maxRetriesPerRequest: null }),
+        concurrency: 5
+    });
 
     // Set up worker event handlers
     worker.on('completed', (job) => {
