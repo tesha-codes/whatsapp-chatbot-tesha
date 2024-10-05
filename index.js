@@ -51,6 +51,7 @@ const steps = {
   SELECT_MENU_ACTION: "SELECT_MENU_ACTION",
   SETUP_CLIENT_PROFILE: "SETUP_CLIENT_PROFILE",
   DEFAULT_CLIENT_STATE: "DEFAULT_CLIENT_STATE",
+  CONFIRM_ADDRESS_AND_LOCATION: "CONFIRM_ADDRESS_AND_LOCATION",
   SELECT_SERVICE: "SELECT_SERVICE",
   COLLECT_PROVIDER_FULL_NAME: "COLLECT_PROVIDER_FULL_NAME",
   PROVIDER_COLLECT_LOCATION: "PROVIDER_COLLECT_LOCATION",
@@ -137,13 +138,13 @@ app.post("/bot", async (req, res) => {
           if (session.step === steps.DEFAULT_CLIENT_STATE) {
 
             const user = await getUser(phone);
-            console.log(user);
             await clientMainMenuTemplate(phone, user.firstName)
             // await setSession(phone, {
             //   step: steps.SELECT_SERVICE_CATEGORY,
             //   message,
             //   lActivity,
             // });
+            return res.status(StatusCodes.OK).send(`Hello there 👋 ${user.firstName}`)
           }
 
           if (session.step === steps.SETUP_CLIENT_PROFILE) {
@@ -272,7 +273,8 @@ You’re all set! If you need any further assistance, feel free to reach out. �
             return res
               .status(StatusCodes.OK)
               .send(messages.CLIENT_WELCOME_MESSAGE);
-          } else if (session.step === steps.SELECT_SERVICE) {
+          }
+          else if (session.step === steps.SELECT_SERVICE) {
             const category = await Category.findOne(
               { code: +message.toLowerCase() },
               { _id: 1, name: 1 }
@@ -298,7 +300,14 @@ Reply with the number of the service you'd like to hire.
               categoryId: category._id.toString(),
             });
             return res.status(StatusCodes.OK).send(responseMessage);
-          } else if (
+          }
+
+          else if (session.step === steps.BOOK_SERVICE &&
+            session.categoryId) {
+
+          }
+
+          else if (
             session.step === steps.BOOK_SERVICE &&
             session.categoryId
           ) {
@@ -334,14 +343,14 @@ Your request for the service  has been successfully created.
 Our team will connect you with a service provider shortly. 
  Please wait...`;
 
-              await queueProviderSearch({
+            await queueProviderSearch({
               phone,
               serviceId: service._id.toString(),
               categoryId: session.categoryId,
               requestId: request._id.toString(),
             });
 
-              
+
             setSession(phone, {
               step: steps.DEFAULT_CLIENT_STATE,
               message,
