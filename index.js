@@ -139,11 +139,11 @@ app.post("/bot", async (req, res) => {
 
             const user = await getUser(phone);
             await clientMainMenuTemplate(phone, user.firstName)
-            // await setSession(phone, {
-            //   step: steps.SELECT_SERVICE_CATEGORY,
-            //   message,
-            //   lActivity,
-            // });
+            await setSession(phone, {
+              step: steps.SELECT_SERVICE_CATEGORY,
+              message,
+              lActivity,
+            });
             return res.status(StatusCodes.OK).send(`Hello there 👋 ${user.firstName}`)
           }
 
