@@ -195,25 +195,6 @@ const registerServiceProviderTemplate = (userMobileNumber) => {
 
   return axios.post(TEMPLATE_MSG_URL, params, config);
 };
-const sendLocationTemplate = (userMobileNumber) => {
-   const params = getUrlEncodedData({
-     channel: "whatsapp",
-     source: SOURCE_MOBILE_NUMBER,
-     destination: userMobileNumber,
-     "src.name": APP_NAME,
-     template: {
-       id: "2290fc5b-05bc-42b9-bb23-dc0d3d53e6d0",
-       params: [],
-     },
-     message: {
-       type: "image",
-       image: {
-         id: "1531096554171763",
-       },
-     },
-   });
-   return axios.post(TEMPLATE_MSG_URL, params, config);
-};
 
 module.exports = {
   getTemplatesList,
@@ -228,5 +209,4 @@ module.exports = {
   registerClientTemplate,
   welcomeMessageTemplate,
   registerServiceProviderTemplate,
-  sendLocationTemplate
 };
