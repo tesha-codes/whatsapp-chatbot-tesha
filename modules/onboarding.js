@@ -7,7 +7,7 @@ const {
   registerClientTemplate,
   welcomeMessageTemplate,
   registerServiceProviderTemplate,
-} = require("../services/whatsappService");
+} = require("./../services/whatsappService");
 
 class Onboarding {
   constructor(res, userResponse, session, user, steps, messages) {
