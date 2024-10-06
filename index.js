@@ -2,11 +2,9 @@ require("dotenv").config();
 const express = require("express");
 const bodyParser = require("body-parser");
 const { StatusCodes } = require("http-status-codes");
-const crypto = require("node:crypto");
-const mongoose = require("mongoose");
 const morgan = require("morgan");
 const connectDb = require("./database/connect.database");
-const { getSession, setSession } = require("./utils/redis");
+const { getSession } = require("./utils/redis");
 const {
   updateUser,
   getUser,
@@ -14,13 +12,8 @@ const {
 const { messages } = require("./modules/client");
 const serviceRouter = require("./routes/service.routes");
 const Category = require("./models/category.model");
-const Service = require("./models/services.model");
-const ServiceRequest = require("./models/request.model");
-const User = require("./models/user.model");
 const ServiceProvider = require("./modules/provider");
 const Onboarding = require("./modules/onboarding");
-const { onGetRequestHandler } = require("./controllers/request.controller");
-const { getRequestedServiceProviders } = require("./controllers/serviceProvider.controller");
 const Client = require("./modules/request-services");
 
 const app = express();
@@ -181,7 +174,6 @@ process.on('SIGTERM', async () => {
   await serviceProviderQueue.close();
   process.exit(0);
 });
-
 process.on('SIGINT', async () => {
   console.log('Received SIGINT signal. Starting graceful shutdown...');
   await shutdown();

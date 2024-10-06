@@ -2,7 +2,7 @@ const { StatusCodes } = require("http-status-codes");
 const { formatDateTime } = require("../utils/dateUtil");
 const { setSession } = require("../utils/redis");
 const { updateUser } = require("../controllers/user.controllers");
-const { sendLocationTemplate } = require("../services/whatsappService");
+const { sendMediaImageMessage } = require("../services/whatsappService");
 const {
   createServiceProvider,
   updateProvider,
@@ -164,8 +164,14 @@ class ServiceProvider {
       message: this.message,
       lActivity: this.lActivity,
     });
-    await sendLocationTemplate(this.phone);
-    return this.res.status(StatusCodes.OK).send(""); // removed this.messages.GET_LOCATION
+    const locationImgURL =
+      "https://tesha-util.s3.af-south-1.amazonaws.com/WhatsApp+Image+2024-10-06+at+11.49.44_12568059.jpg";
+    await sendMediaImageMessage(
+      this.phone,
+      locationImgURL,
+      "Please share your location by tapping the location icon in WhatsApp and selecting 'Send your current location'"
+    );
+    return this.res.status(StatusCodes.OK).send("");
   }
 
   async handleCollectLocation() {
