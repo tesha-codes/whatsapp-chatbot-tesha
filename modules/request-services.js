@@ -33,20 +33,80 @@ class Client {
         this.username = userResponse.sender.name;
     }
 
+    async handleInitialState() {
+        const { res, session, steps, lActivity, phone, message, user } = this;
+
+        if (!session || session.step === steps.DEFAULT_CLIENT_STATE) {
+            // User is in the default state or has no session
+            const updatedUser = await getUser(phone);
+            await clientMainMenuTemplate(phone, updatedUser.firstName);
+            await setSession(phone, {
+                step: steps.SELECT_SERVICE_CATEGORY,
+                message,
+                lActivity,
+            });
+            return res.status(StatusCodes.OK).send(`Hello there 👋 ${updatedUser.firstName}`);
+        }
+
+        // Handle incomplete profile setup
+        if (session.step === steps.SETUP_CLIENT_PROFILE) {
+            return await this.setupClientProfile();
+        }
+
+        if (session.step === steps.COLLECT_USER_FULL_NAME) {
+            return await this.collectFullName();
+        }
+
+        if (session.step === steps.COLLECT_USER_ID) {
+            return await this.collectNationalId();
+        }
+
+        if (session.step === steps.COLLECT_USER_ADDRESS) {
+            return await this.collectAddress();
+        }
+
+        if (session.step === steps.COLLECT_USER_LOCATION) {
+            return await this.collectLocation();
+        }
+
+        // If none of the above, return null to proceed with regular flow
+        return null;
+    }
+
+    // async mainEntry() {
+    //     const { session, steps } = this;
+
+    //     switch (session.step) {
+    //         case steps.SETUP_CLIENT_PROFILE:
+    //             return await this.setupClientProfile();
+    //         case steps.COLLECT_USER_FULL_NAME:
+    //             return await this.collectFullName();
+    //         case steps.COLLECT_USER_ID:
+    //             return await this.collectNationalId();
+    //         case steps.COLLECT_USER_ADDRESS:
+    //             return await this.collectAddress();
+    //         case steps.COLLECT_USER_LOCATION:
+    //             return await this.collectLocation();
+    //         case steps.SELECT_SERVICE_CATEGORY:
+    //             return await this.selectServiceCategory();
+    //         case steps.SELECT_SERVICE:
+    //             return await this.selectService();
+    //         case steps.BOOK_SERVICE:
+    //             return await this.bookService();
+    //         default:
+    //             return await this.handleDefaultState();
+    //     }
+    // }
+
     async mainEntry() {
+        // Handle initial state first
+        const initialStateResult = await this.handleInitialState();
+        if (initialStateResult) return initialStateResult;
+
+        // Proceed with regular flow
         const { session, steps } = this;
 
         switch (session.step) {
-            case steps.SETUP_CLIENT_PROFILE:
-                return await this.setupClientProfile();
-            case steps.COLLECT_USER_FULL_NAME:
-                return await this.collectFullName();
-            case steps.COLLECT_USER_ID:
-                return await this.collectNationalId();
-            case steps.COLLECT_USER_ADDRESS:
-                return await this.collectAddress();
-            case steps.COLLECT_USER_LOCATION:
-                return await this.collectLocation();
             case steps.SELECT_SERVICE_CATEGORY:
                 return await this.selectServiceCategory();
             case steps.SELECT_SERVICE:
