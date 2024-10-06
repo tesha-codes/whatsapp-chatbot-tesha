@@ -10,7 +10,7 @@ const mongoose = require('mongoose')
 const ServiceRequest =  require('../models/request.model')
 const User = require('../models/user.model')
 const crypto = require("node:crypto");
-const { queueProviderSearch } = require('./jobs/service-provider.job')
+const { queueProviderSearch } = require('../jobs/service-provider.job')
 
 
 
