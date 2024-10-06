@@ -44,7 +44,9 @@ class Onboarding {
       lActivity,
     });
     //
-    await welcomeMessageTemplate(phone);
+    const response = await welcomeMessageTemplate(phone);
+    console.log("Some response to check: ", response);
+
     return res.status(StatusCodes.OK).send("Templates have a problem I guess");
   }
 

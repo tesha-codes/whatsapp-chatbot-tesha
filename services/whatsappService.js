@@ -164,6 +164,7 @@ const welcomeMessageTemplate = (userMobileNumber) => {
     destination: userMobileNumber,
     template: {
       id: "9ffdc87e-5f22-4994-a56f-a29c84fcd3a5",
+      
       params: [],
     },
     message: {},
