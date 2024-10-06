@@ -71,6 +71,7 @@ const sendMediaVideoMessage = (userMobileNumber, videoUrl, caption) => {
     channel: "whatsapp",
     source: SOURCE_MOBILE_NUMBER,
     destination: userMobileNumber,
+    "src.name": APP_NAME,
     message: {
       type: "video",
       url: videoUrl,
@@ -107,6 +108,7 @@ const sendTemplateMessage = (
   const params = getUrlEncodedData({
     source: SOURCE_MOBILE_NUMBER,
     destination: userMobileNumber,
+    "src.name": APP_NAME,
     template: {
       id: templateId,
       params: templateParams,
@@ -121,6 +123,7 @@ const sendChooseAccountTypeTemplate = (userMobileNumber) => {
   const params = getUrlEncodedData({
     source: SOURCE_MOBILE_NUMBER,
     destination: userMobileNumber,
+    "src.name": APP_NAME,
     template: {
       id: "e1de1f14-93e6-439c-b46e-cb834aec99b3",
       params: [],
@@ -134,6 +137,7 @@ const clientMainMenuTemplate = (userMobileNumber, name) => {
   const params = getUrlEncodedData({
     source: SOURCE_MOBILE_NUMBER,
     destination: userMobileNumber,
+    "src.name": APP_NAME,
     template: {
       id: "d792b702-b2da-454c-927e-4d3bd826698d",
       params: [name],
@@ -148,6 +152,7 @@ const registerClientTemplate = (userMobileNumber) => {
   const params = getUrlEncodedData({
     source: SOURCE_MOBILE_NUMBER,
     destination: userMobileNumber,
+    "src.name": APP_NAME,
     template: {
       id: "aaf19ff4-ea9f-450f-a631-602ed5bdb5ea",
       params: [],
@@ -162,9 +167,10 @@ const welcomeMessageTemplate = (userMobileNumber) => {
   const params = getUrlEncodedData({
     source: SOURCE_MOBILE_NUMBER,
     destination: userMobileNumber,
+    "src.name": APP_NAME,
     template: {
       id: "9ffdc87e-5f22-4994-a56f-a29c84fcd3a5",
-      
+
       params: [],
     },
     message: {},
@@ -179,6 +185,7 @@ const registerServiceProviderTemplate = (userMobileNumber) => {
   const params = getUrlEncodedData({
     source: SOURCE_MOBILE_NUMBER,
     destination: userMobileNumber,
+    "src.name": APP_NAME,
     template: {
       id: "38daed5b-8c2b-4af8-b30c-add7c1880e3c",
       params: [],
@@ -193,7 +200,7 @@ const sendLocationTemplate = (userMobileNumber) => {
      channel: "whatsapp",
      source: SOURCE_MOBILE_NUMBER,
      destination: userMobileNumber,
-     "src.name": "TeshaBot",
+     "src.name": APP_NAME,
      template: {
        id: "2290fc5b-05bc-42b9-bb23-dc0d3d53e6d0",
        params: [],
