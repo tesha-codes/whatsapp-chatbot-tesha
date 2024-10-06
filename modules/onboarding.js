@@ -45,7 +45,7 @@ class Onboarding {
     });
     //
     await welcomeMessageTemplate(phone);
-    return res.status(StatusCodes.OK).send("");
+    return res.status(StatusCodes.OK).send("Templates have a problem I guess");
   }
 
   // existing user without session
