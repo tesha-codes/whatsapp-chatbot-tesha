@@ -16,7 +16,7 @@ const config = {
   headers: {
     "Cache-Control": "no-cache",
     "Content-Type": "application/x-www-form-urlencoded",
-    apikey: API_KEY,
+    apiKey: API_KEY,
   },
 };
 

@@ -38,14 +38,15 @@ class Onboarding {
     //
     await createUser({ phone, username });
 
+    console.log('Phone number: ', phone);
+
+    const response = await welcomeMessageTemplate(phone);
+    console.log("Some response to check: ", response);
     await setSession(phone, {
       step: steps.ACCEPT_TERMS,
       message,
       lActivity,
     });
-    //
-    const response = await welcomeMessageTemplate(phone);
-    console.log("Some response to check: ", response);
 
     return res.status(StatusCodes.OK).send("Templates have a problem I guess");
   }

@@ -1,13 +1,13 @@
 
 const { StatusCodes } = require("http-status-codes");
 const { setSession } = require("../utils/redis");
-const { createUser, updateUser ,getUser } = require("../controllers/user.controllers");
+const { createUser, updateUser, getUser } = require("../controllers/user.controllers");
 const { formatDateTime } = require("../utils/dateUtil");
-const Category =  require('../models/category.model')
-const { clientMainMenuTemplate } = require('../services/whatsappService')
+const Category = require('../models/category.model')
+const { clientMainMenuTemplate,  } = require('../services/whatsappService')
 const Service = require('../models/services.model')
 const mongoose = require('mongoose')
-const ServiceRequest =  require('../models/request.model')
+const ServiceRequest = require('../models/request.model')
 const User = require('../models/user.model')
 const crypto = require("node:crypto");
 const { queueProviderSearch } = require('../jobs/service-provider.job')
@@ -108,13 +108,17 @@ class Client {
 
         switch (session.step) {
             case steps.SELECT_SERVICE_CATEGORY:
-                return await this.selectServiceCategory();
+                 await this.selectServiceCategory();
+                 break;
             case steps.SELECT_SERVICE:
-                return await this.selectService();
+                 await this.selectService();
+                 break
             case steps.BOOK_SERVICE:
-                return await this.bookService();
+                 await this.bookService();
+                break;
             default:
-                return await this.handleDefaultState();
+                 await this.handleDefaultState();
+                 break
         }
     }
 
@@ -273,8 +277,9 @@ Reply with the number of the service you'd like to hire.
 
     async bookService() {
         const { res, steps, lActivity, phone, message, session } = this;
+        const code = parseInt(message)
         const service = await Service.findOne({
-            code: +message,
+            code,
             category: session.categoryId,
         });
         const user = await User.findOne({ phone });
