@@ -1,8 +1,5 @@
 require("dotenv").config();
 const express = require("express");
-const {
-  clientMainMenuTemplate,
-} = require("./services/whatsappService");
 const bodyParser = require("body-parser");
 const { StatusCodes } = require("http-status-codes");
 const crypto = require("node:crypto");

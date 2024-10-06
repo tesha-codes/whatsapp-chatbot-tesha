@@ -189,22 +189,23 @@ const registerServiceProviderTemplate = (userMobileNumber) => {
   return axios.post(TEMPLATE_MSG_URL, params, config);
 };
 const sendLocationTemplate = (userMobileNumber) => {
-  const params = getUrlEncodedData({
-    source: SOURCE_MOBILE_NUMBER,
-    destination: userMobileNumber,
-    template: {
-      id: "38daed5b-8c2b-4af8-b30c-add7c1880e3c",
-      params: [],
-    },
-    message: {
-      type: "image",
-      image: {
-        id: "1531096554171763",
-      },
-    },
-  });
-
-  return axios.post(TEMPLATE_MSG_URL, params, config);
+   const params = getUrlEncodedData({
+     channel: "whatsapp",
+     source: SOURCE_MOBILE_NUMBER,
+     destination: userMobileNumber,
+     "src.name": "TeshaBot",
+     template: {
+       id: "2290fc5b-05bc-42b9-bb23-dc0d3d53e6d0",
+       params: [],
+     },
+     message: {
+       type: "image",
+       image: {
+         id: "1531096554171763",
+       },
+     },
+   });
+   return axios.post(TEMPLATE_MSG_URL, params, config);
 };
 
 module.exports = {
