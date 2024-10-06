@@ -2,6 +2,7 @@ const { StatusCodes } = require("http-status-codes");
 const { formatDateTime } = require("../utils/dateUtil");
 const { setSession } = require("../utils/redis");
 const { updateUser } = require("../controllers/user.controllers");
+const { sendLocationTemplate } = require("../services/whatsappService");
 const {
   createServiceProvider,
   updateProvider,
@@ -66,9 +67,7 @@ class ServiceProvider {
         case steps.PROVIDER_COLLECT_ID_IMAGE:
           return this.handleCollectIdImage();
         default:
-          return res
-            .status(StatusCodes.ACCEPTED)
-            .send(""); // say nothing for now
+          return res.status(StatusCodes.ACCEPTED).send(""); // say nothing for now
       }
     } catch (error) {
       console.error("Error in ServiceProvider mainEntry:", error);
@@ -165,7 +164,8 @@ class ServiceProvider {
       message: this.message,
       lActivity: this.lActivity,
     });
-    return this.res.status(StatusCodes.OK).send(this.messages.GET_LOCATION);
+    await sendLocationTemplate(this.phone);
+    return this.res.status(StatusCodes.OK).send(""); // removed this.messages.GET_LOCATION
   }
 
   async handleCollectLocation() {

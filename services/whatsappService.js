@@ -16,7 +16,7 @@ const config = {
   headers: {
     "Cache-Control": "no-cache",
     "Content-Type": "application/x-www-form-urlencoded",
-    apiKey: API_KEY,
+    apikey: API_KEY,
   },
 };
 
@@ -187,6 +187,24 @@ const registerServiceProviderTemplate = (userMobileNumber) => {
 
   return axios.post(TEMPLATE_MSG_URL, params, config);
 };
+const sendLocationTemplate = (userMobileNumber) => {
+  const params = getUrlEncodedData({
+    source: SOURCE_MOBILE_NUMBER,
+    destination: userMobileNumber,
+    template: {
+      id: "38daed5b-8c2b-4af8-b30c-add7c1880e3c",
+      params: [],
+    },
+    message: {
+      type: "image",
+      image: {
+        id: "1531096554171763",
+      },
+    },
+  });
+
+  return axios.post(TEMPLATE_MSG_URL, params, config);
+};
 
 module.exports = {
   getTemplatesList,
@@ -200,5 +218,6 @@ module.exports = {
   clientMainMenuTemplate,
   registerClientTemplate,
   welcomeMessageTemplate,
-  registerServiceProviderTemplate
+  registerServiceProviderTemplate,
+  sendLocationTemplate
 };
