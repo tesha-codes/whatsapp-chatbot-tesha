@@ -9,6 +9,7 @@ const {
 } = require("../controllers/serviceProvider.controller");
 const Category = require("../models/category.model");
 const Service = require("../models/services.model");
+const { uploadToS3 } = require("../utils/uploadToS3");
 
 class ServiceProvider {
   constructor(res, userResponse, session, user, steps, messages) {
