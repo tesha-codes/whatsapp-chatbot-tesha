@@ -299,8 +299,25 @@ class ServiceProvider {
   }
 
   async handleCollectIdImage() {
-    const nationalIdImage = this.message.toString(); // Assuming this is a URL or file path
-    // Here you should implement logic to handle and validate the uploaded image
+    const nationalIdImageUrl = this.message?.url;
+    if (!nationalIdImage) {
+      return this.res
+        .status(StatusCodes.OK)
+        .send("❌ Please upload a valid ID image.");
+    }
+    // : check content type
+    const contentType = this.message?.contentType;
+    if (!contentType.startsWith("image/")) {
+      return this.res
+        .status(StatusCodes.OK)
+        .send("❌ Invalid image format. Please upload an image file.");
+    }
+    // : upload to AWS S3
+    const nationalIdImage = await uploadToS3(
+      process.env.USRID_BUCKET_NAME,
+      nationalIdImageUrl
+    );
+    // : save uploaded file
     await updateProvider(this.user._id, {
       nationalIdImage,
       isProfileCompleted: true,

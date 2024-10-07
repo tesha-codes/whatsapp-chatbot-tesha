@@ -5,8 +5,7 @@ const { StatusCodes } = require("http-status-codes");
 const morgan = require("morgan");
 const connectDb = require("./database/connect.database");
 const { getSession } = require("./utils/redis");
-const { uploadToS3 } = require("./utils/uploadToS3");
-const { updateUser, getUser } = require("./controllers/user.controllers");
+const {getUser } = require("./controllers/user.controllers");
 const { messages } = require("./modules/client");
 const serviceRouter = require("./routes/service.routes");
 const Category = require("./models/category.model");
@@ -165,7 +164,7 @@ app.listen(PORT, function () {
 });
 
 process.on("SIGTERM", async () => {
-  await serviceProviderQueue.close();
+  await queue.close();
   process.exit(0);
 });
 process.on("SIGINT", async () => {
