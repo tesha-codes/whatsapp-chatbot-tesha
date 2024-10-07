@@ -58,7 +58,7 @@ function setupQueue(queueName, processFunction, options = {}) {
   });
 
   // Return both queue and worker for more control
-  return { queue, worker };
+  return { queue, worker, connection };
 }
 
 // Add a job to the queue

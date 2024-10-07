@@ -1,6 +1,3 @@
-// service-provider.job.js
-const { Queue, Worker } = require("bullmq");
-const Redis = require("ioredis");
 const {
   getRequestedServiceProviders,
 } = require("./../controllers/serviceProvider.controller");
@@ -8,13 +5,12 @@ const { sendTextMessage } = require("../services/whatsappService");
 
 const { setupQueue, addJob } = require("../utils/queue");
 
-const connection = new Redis(process.env.REDIS_URL, {
-  maxRetriesPerRequest: null,
-});
-
 const QUEUE_NAME = "serviceProviderQueue";
 
-const { queue, worker } = setupQueue(QUEUE_NAME, processProviderJob);
+const { queue, worker, connection } = setupQueue(
+  QUEUE_NAME,
+  processProviderJob
+);
 
 async function processProviderJob(job) {
   const { phone, serviceId, categoryId, requestId } = job.data;
