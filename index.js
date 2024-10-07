@@ -5,10 +5,8 @@ const { StatusCodes } = require("http-status-codes");
 const morgan = require("morgan");
 const connectDb = require("./database/connect.database");
 const { getSession } = require("./utils/redis");
-const {
-  updateUser,
-  getUser,
-} = require("./controllers/user.controllers");
+const { uploadToS3 } = require("./utils/uploadToS3");
+const { updateUser, getUser } = require("./controllers/user.controllers");
 const { messages } = require("./modules/client");
 const serviceRouter = require("./routes/service.routes");
 const Category = require("./models/category.model");
@@ -130,8 +128,7 @@ app.post("/bot", async (req, res) => {
             steps,
             messages
           );
-          return await client.mainEntry()
-
+          return await client.mainEntry();
         } else {
           //  MAIN GATE FOR SERVICE PROVIDERS
           const provider = new ServiceProvider(
@@ -154,9 +151,6 @@ app.post("/bot", async (req, res) => {
   return res.status(StatusCodes.OK).send("Callback received:)");
 });
 
-
-
-
 app.listen(PORT, function () {
   console.log(`Warming up the server 🔥🔥...`);
   connectDb(process.env.MONGO_URL)
@@ -170,12 +164,12 @@ app.listen(PORT, function () {
     });
 });
 
-process.on('SIGTERM', async () => {
+process.on("SIGTERM", async () => {
   await serviceProviderQueue.close();
   process.exit(0);
 });
-process.on('SIGINT', async () => {
-  console.log('Received SIGINT signal. Starting graceful shutdown...');
+process.on("SIGINT", async () => {
+  console.log("Received SIGINT signal. Starting graceful shutdown...");
   await shutdown();
   process.exit(0);
 });

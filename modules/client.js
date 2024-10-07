@@ -129,11 +129,11 @@ Example: 123 Main Street, Harare`,
     GET_DESCRIPTION:
       "📝 Please provide a brief description of your services (maximum 200 characters).",
     CHOOSE_SUBSCRIPTION:
-      "🎉 Good news! You're eligible for a free 3-month subscription. Choose your plan:\n1. Basic\n2. Standard\n3. Premium\nReply with the number of your choice.",
+      "🎉 Good news! You're eligible for a free 1-month subscription. Choose your plan:\n1. Basic\n2. Standard\n3. Premium\nReply with the number of your choice.",
     UPLOAD_ID_IMAGE:
       "📸 Please upload a clear image of your National ID. This will be used for verification purposes.",
     PROFILE_COMPLETE:
-      "✅ Congratulations! Your profile is now complete. Your account will be active for 3 months and you'll start receiving tasks once verified. Thank you for joining our platform! 🎊",
+      "✅ Congratulations! Your profile is now complete. You'll start receiving tasks once verified. Thank you for joining our platform! 🎊",
     UNAVAILABLE_SERVICE_PROVIDER:`
     Thank you for your request! Unfortunately, the service provider for [requested service] is currently unavailable. We apologize for the inconvenience and are working to find a suitable provider for you. We’ll notify you as soon as we have an update.
 
