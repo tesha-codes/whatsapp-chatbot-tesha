@@ -325,7 +325,7 @@ class ServiceProvider {
     });
     await setSession(this.phone, {
       step: this.steps.PROVIDER_PROFILE_COMPLETE,
-      message: this.message,
+      message: this.message.toString(),
       lActivity: this.lActivity,
     });
     return this.res.status(StatusCodes.OK).send(this.messages.PROFILE_COMPLETE);
