@@ -90,81 +90,74 @@ app.post("/add/categories", async (request, response) => {
 });
 
 app.post("/bot", async (req, res) => {
-  const userResponse = req.body.payload;
-  console.log("User response: ", userResponse);
-
-  if (userResponse && userResponse.source) {
-    const phone = userResponse.sender.phone;
-    const message = userResponse.payload?.text || "";
-    // const SESSION_TEMPLATE = {
-    //   phone,
-    //   accountType,
-    //   step,
-    //   message,
-    //   lActivity: Date.now(),
-    // };
-
-    const session = await getSession(phone);
-
-    console.log("session: ", session);
-
-    const user = await getUser(phone);
-    const lActivity = Date.now();
-    // : create onboarding instance
-    const onboard = new Onboarding(
-      res,
-      userResponse,
-      session,
-      user,
-      steps,
-      messages
-    );
-    if (!user) {
-      // : create new user
-      return await onboard.createNewUser();
-    } else {
-      // check session
-      if (!session) {
-        // : existing users without session
-        return await onboard.existingUserWithoutSession();
-      }
-
-      if (session?.accountType) {
-        // : are already user or service provider
-        // : check they user or service provider
-        console.log("The sessions here: ", session);
-        if (session.accountType === "Client") {
-          console.log("Client session: ", session);
-
-          const client = new Client(
-            res,
-            userResponse,
-            session,
-            user,
-            steps,
-            messages
-          );
-          return await client.mainEntry();
-        } else {
-          //  MAIN GATE FOR SERVICE PROVIDERS
-          const provider = new ServiceProvider(
-            res,
-            userResponse,
-            session,
-            user,
-            steps,
-            messages
-          );
-          return await provider.mainEntry();
-        }
+  try {
+    const userResponse = req.body.payload;
+    console.log("User response: ", userResponse);
+    if (userResponse && userResponse.source) {
+      const phone = userResponse.sender.phone;
+      // get session
+      const session = await getSession(phone);
+      // get user info
+      const user = await getUser(phone);
+      // create onboarding instance
+      const onboard = new Onboarding(
+        res,
+        userResponse,
+        session,
+        user,
+        steps,
+        messages
+      );
+      // check user
+      if (!user) {
+        // new user
+        return await onboard.createNewUser();
       } else {
-        // newly create user - accept terms and conditions and choose account type
-        return await onboard.acceptTermsAndChooseAccountType();
+        // existing users without session
+        if (!session) {
+          return await onboard.existingUserWithoutSession();
+        }
+        // existing users with session with account type
+        if (session?.accountType) {
+          // client
+          if (session.accountType === "Client") {
+            console.log("Client session: ", session);
+            const client = new Client(
+              res,
+              userResponse,
+              session,
+              user,
+              steps,
+              messages
+            );
+            return await client.mainEntry();
+          } else {
+            // service provider
+            const provider = new ServiceProvider(
+              res,
+              userResponse,
+              session,
+              user,
+              steps,
+              messages
+            );
+            return await provider.mainEntry();
+          }
+        } else {
+          // existing users with session without account type
+          return await onboard.acceptTermsAndChooseAccountType();
+        }
       }
     }
+
+    // Acknowledge callback requests
+    return res.status(StatusCodes.OK).send("Callback received:)");
+  } catch (error) {
+    console.error("Error in /bot route:", error);
+    return res
+      .status(StatusCodes.OK)
+      .json("Something went wrong. Please try again later.");
   }
-  // acknowledge callback requests, do not remove:);
-  return res.status(StatusCodes.OK).send("Callback received:)");
 });
 
 app.listen(PORT, function () {
