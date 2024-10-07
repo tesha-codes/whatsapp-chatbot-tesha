@@ -300,7 +300,7 @@ class ServiceProvider {
 
   async handleCollectIdImage() {
     const nationalIdImageUrl = this.message?.url;
-    if (!nationalIdImage) {
+    if (!nationalIdImageUrl) {
       return this.res
         .status(StatusCodes.OK)
         .send("❌ Please upload a valid ID image.");

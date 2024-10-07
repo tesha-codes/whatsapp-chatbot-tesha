@@ -48,7 +48,7 @@ class Onboarding {
       lActivity,
     });
 
-    return res.status(StatusCodes.OK).send("Templates have a problem I guess");
+    return res.status(StatusCodes.OK).send("");
   }
 
   // existing user without session
