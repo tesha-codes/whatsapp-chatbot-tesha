@@ -3,15 +3,19 @@ const express = require("express");
 const bodyParser = require("body-parser");
 const { StatusCodes } = require("http-status-codes");
 const morgan = require("morgan");
+const { createBullBoard } = require("@bull-board/api");
+const { BullMQAdapter } = require("@bull-board/api/bullMQAdapter");
+const { ExpressAdapter } = require("@bull-board/express");
 const connectDb = require("./database/connect.database");
 const { getSession } = require("./utils/redis");
-const {getUser } = require("./controllers/user.controllers");
+const { getUser } = require("./controllers/user.controllers");
 const { messages } = require("./modules/client");
 const serviceRouter = require("./routes/service.routes");
 const Category = require("./models/category.model");
 const ServiceProvider = require("./modules/provider");
 const Onboarding = require("./modules/onboarding");
 const Client = require("./modules/request-services");
+const { serviceProviderQueue } = require("./jobs/service-provider.job");
 
 const app = express();
 const PORT = process.env.PORT || 3000;
@@ -54,6 +58,19 @@ const steps = {
 app.use(morgan("dev"));
 app.use(bodyParser.urlencoded({ extended: false }));
 app.use(express.json());
+
+// Express adapter for BullBoard
+const serverAdapter = new ExpressAdapter();
+
+// Create Bull Board
+createBullBoard({
+  queues: [new BullMQAdapter(serviceProviderQueue)],
+  serverAdapter: serverAdapter,
+});
+
+// Use the serverAdapter's middleware
+serverAdapter.setBasePath("/admin/queues");
+app.use("/admin/queues", serverAdapter.getRouter());
 
 app.get("/", async (request, response) => {
   response
@@ -164,7 +181,7 @@ app.listen(PORT, function () {
 });
 
 process.on("SIGTERM", async () => {
-  await queue.close();
+  await serviceProviderQueue.close();
   process.exit(0);
 });
 process.on("SIGINT", async () => {

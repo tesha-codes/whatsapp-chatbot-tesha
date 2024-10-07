@@ -7,10 +7,11 @@ const { setupQueue, addJob } = require("../utils/queue");
 
 const QUEUE_NAME = "serviceProviderQueue";
 
-const { queue, worker, connection } = setupQueue(
-  QUEUE_NAME,
-  processProviderJob
-);
+const {
+  queue: serviceProviderQueue,
+  worker,
+  connection,
+} = setupQueue(QUEUE_NAME, processProviderJob);
 
 async function processProviderJob(job) {
   const { phone, serviceId, categoryId, requestId } = job.data;
@@ -65,7 +66,7 @@ async function queueProviderSearch({
 }) {
   try {
     const job = await addJob(
-      queue,
+      serviceProviderQueue,
       "findProviders",
       {
         phone,
@@ -88,12 +89,12 @@ async function queueProviderSearch({
 
 async function shutdown() {
   await worker.close();
-  await queue.close();
+  await serviceProviderQueue.close();
   await connection.quit();
 }
 
 module.exports = {
   queueProviderSearch,
   shutdown,
-  queue,
+  serviceProviderQueue,
 };
