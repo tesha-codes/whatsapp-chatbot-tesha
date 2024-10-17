@@ -15,7 +15,6 @@ client.on("connect", () => console.log("Connected to Redis🔥🔥🔥..."));
 client.connect().catch(console.error);
 
 // helper functions
-
 // get session
 const getSession = async (key) => await client.hGetAll(key);
 
