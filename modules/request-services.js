@@ -51,6 +51,7 @@ class Client {
         .send(`Hello there 👋 ${updatedUser.firstName}`);
     }
 
+
     if (session.step === steps.SETUP_CLIENT_PROFILE) {
       return await this.setupClientProfile();
     }
@@ -71,30 +72,17 @@ class Client {
       return await this.collectLocation();
     }
 
+
     return null;
   }
 
   async mainEntry() {
-    const { user, session, steps } = this;
-
-    // Handle profile setup first
-    if (!user.firstName || !user.nationalId || !user.address) {
-      if (!session || session.step !== steps.SETUP_CLIENT_PROFILE) {
-        await setSession(this.phone, {
-          step: steps.SETUP_CLIENT_PROFILE,
-          message: this.message,
-          lActivity: this.lActivity,
-        });
-        return this.res
-          .status(StatusCodes.OK)
-          .send("To use our services, you need to complete your profile first. Reply with 'Create Account' to continue.");
-      }
-    }
-
     const initialStateResult = await this.handleInitialState();
     if (initialStateResult) return initialStateResult;
 
     // Proceed with regular flow
+    const { session, steps } = this;
+
     switch (session.step) {
       case steps.SELECT_SERVICE_CATEGORY:
         await this.selectServiceCategory();
@@ -124,6 +112,7 @@ class Client {
     await clientMainMenuTemplate(phone, '');
     return res.status(StatusCodes.OK).send("");
   }
+
 
   async setupClientProfile() {
     const { res, steps, lActivity, phone, message } = this;
