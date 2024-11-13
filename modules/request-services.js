@@ -35,21 +35,17 @@ class Client {
   }
 
   async handleInitialState() {
-    const { res, session, steps, lActivity, phone, message, user } = this;
+    const { res, session, steps, phone, message, user } = this;
 
-    // Check if user has a complete profile
-    if (!user.firstName || !user.nationalId || !user.address) {
-      return await this.handleIncompleteProfile();
-    }
-
-    // Handle default state or no session - show main menu
+    // No session or default state - show main menu
     if (!session || session.step === steps.DEFAULT_CLIENT_STATE) {
       await this.showMainMenu(user.firstName);
       return res
         .status(StatusCodes.OK)
-        .send(`Hello there 👋 ${user.firstName}`);
+        .send(this.messages.CLIENT_HOME);
     }
 
+    // Profile setup in progress
     if (session.step === steps.SETUP_CLIENT_PROFILE) {
       return await this.setupClientProfile();
     }
@@ -69,37 +65,48 @@ class Client {
     return null;
   }
 
-  async handleIncompleteProfile() {
+  async setupClientProfile() {
     const { res, steps, lActivity, phone, message } = this;
-    await setSession(phone, {
-      step: steps.SETUP_CLIENT_PROFILE,
-      message,
-      lActivity,
-    });
-    return res.status(StatusCodes.OK).send(
-      "To use our services, you need to complete your profile first. Reply with 'Create Account' to continue."
-    );
+
+    if (message.toLowerCase() === "create account") {
+      await setSession(phone, {
+        step: steps.COLLECT_USER_FULL_NAME,
+        message,
+        lActivity,
+      });
+      return res
+        .status(StatusCodes.OK)
+        .send(this.messages.GET_FULL_NAME);
+    }
+
+    return res
+      .status(StatusCodes.OK)
+      .send("To use our services, you need to complete your profile first. Reply with 'Create Account' to continue.");
   }
 
   async mainEntry() {
+    const { user, session } = this;
+
+    // Check if profile is incomplete
+    if (!user.firstName || !user.nationalId || !user.address) {
+      return await this.setupClientProfile();
+    }
+
     const initialStateResult = await this.handleInitialState();
     if (initialStateResult) return initialStateResult;
 
-    const { session, steps } = this;
-
     // Main flow steps
     const flowSteps = {
-      [steps.SELECT_MENU_ACTION]: this.handleMenuSelection.bind(this),
-      [steps.SELECT_SERVICE_CATEGORY]: this.selectServiceCategory.bind(this),
-      [steps.SELECT_SERVICE]: this.selectService.bind(this),
-      [steps.BOOK_SERVICE]: this.bookService.bind(this),
+      [this.steps.SELECT_MENU_ACTION]: this.handleMenuSelection.bind(this),
+      [this.steps.SELECT_SERVICE_CATEGORY]: this.selectServiceCategory.bind(this),
+      [this.steps.SELECT_SERVICE]: this.selectService.bind(this),
+      [this.steps.BOOK_SERVICE]: this.bookService.bind(this),
     };
 
     if (flowSteps[session.step]) {
       return await flowSteps[session.step]();
     }
 
-    // If no matching step, return to main menu
     return await this.handleDefaultState();
   }
 
@@ -130,14 +137,23 @@ class Client {
         return res.status(StatusCodes.OK).send(this.messages.CLIENT_WELCOME_MESSAGE);
       },
       "my bookings": async () => {
-        // Implement viewing bookings logic
         await this.showMainMenu();
         return res.status(StatusCodes.OK).send("Your booking history will be displayed here.");
       },
       "my profile": async () => {
-        // Implement profile viewing logic
+        const user = await getUser(this.phone);
+        const profileInfo = `
+*Your Profile Information* 📋
+
+*Name:* ${user.firstName}
+*ID Number:* ${user.nationalId}
+*Address:* ${user.address?.physicalAddress || 'Not provided'}
+*Phone:* ${this.phone}
+
+To update any information, please contact our support team.`;
+
         await this.showMainMenu();
-        return res.status(StatusCodes.OK).send("Your profile information will be displayed here.");
+        return res.status(StatusCodes.OK).send(profileInfo);
       },
     };
 
@@ -146,18 +162,59 @@ class Client {
       return await selectedOption();
     }
 
-    // If no valid option selected, show menu again
     return await this.handleDefaultState();
   }
 
-  // ... (keep existing profile setup methods unchanged)
+  async collectFullName() {
+    const { res, steps, lActivity, phone, message } = this;
+    await updateUser({ phone, firstName: message });
+    await setSession(phone, {
+      step: steps.COLLECT_USER_ID,
+      message,
+      lActivity,
+    });
+    return res
+      .status(StatusCodes.OK)
+      .send(this.messages.GET_NATIONAL_ID);
+  }
+
+  async collectNationalId() {
+    const { res, steps, lActivity, phone, message } = this;
+    await updateUser({ phone, nationalId: message });
+    await setSession(phone, {
+      step: steps.COLLECT_USER_ADDRESS,
+      message,
+      lActivity,
+    });
+    return res
+      .status(StatusCodes.OK)
+      .send(this.messages.GET_ADDRESS);
+  }
+
+  async collectAddress() {
+    const { res, steps, lActivity, phone, message } = this;
+    await updateUser({
+      phone,
+      address: {
+        physicalAddress: message,
+      },
+    });
+    await setSession(phone, {
+      step: steps.COLLECT_USER_LOCATION,
+      message,
+      lActivity,
+    });
+    return res
+      .status(StatusCodes.OK)
+      .send(this.messages.GET_LOCATION);
+  }
 
   async collectLocation() {
     const { res, steps, lActivity, phone, message } = this;
     await updateUser({
       phone,
       address: {
-        coordinates: message
+        coordinates: message,
       },
     });
 
@@ -168,7 +225,6 @@ class Client {
 You're all set! If you need any further assistance, feel free to reach out. 😊
 `;
 
-    // Set to default state and show menu after profile completion
     const user = await getUser(phone);
     await setSession(phone, {
       step: steps.SELECT_MENU_ACTION,
@@ -180,6 +236,55 @@ You're all set! If you need any further assistance, feel free to reach out. 😊
     return res.status(StatusCodes.OK).send(confirmation);
   }
 
+  async selectServiceCategory() {
+    const { res, message, phone, lActivity, steps, session } = this;
+    const categoryNumber = parseInt(message);
+
+    if (isNaN(categoryNumber) || categoryNumber < 1 || categoryNumber > 8) {
+      return res.status(StatusCodes.OK).send(this.messages.CLIENT_WELCOME_MESSAGE);
+    }
+
+    const categories = {
+      1: "Household Services",
+      2: "Yard & Outdoor Services",
+      3: "Errands & Shopping",
+      4: "Skilled Tasks",
+      5: "Moving & Hauling",
+      6: "Pet Care",
+      7: "Senior Care",
+      8: "Home Maintenance"
+    };
+
+    const selectedCategory = await Category.findOne({ name: categories[categoryNumber] });
+    if (!selectedCategory) {
+      return res.status(StatusCodes.OK).send(this.messages.CLIENT_WELCOME_MESSAGE);
+    }
+
+    const services = await Service.find({ category: selectedCategory._id });
+    if (!services.length) {
+      return res.status(StatusCodes.OK).send(this.messages.UNAVAILABLE_SERVICE_PROVIDER);
+    }
+
+    const serviceList = services.map(service =>
+      `${service.code}. ${service.name} - $${service.price}/hr`
+    ).join('\n');
+
+    await setSession(phone, {
+      step: steps.BOOK_SERVICE,
+      message,
+      lActivity,
+      categoryId: selectedCategory._id.toString()
+    });
+
+    return res.status(StatusCodes.OK).send(`
+*Available Services in ${selectedCategory.name}*
+
+Please select a service by typing its code:
+
+${serviceList}
+    `);
+  }
+
   async bookService() {
     const { res, steps, lActivity, phone, message, session } = this;
     const code = parseInt(message);
@@ -187,9 +292,14 @@ You're all set! If you need any further assistance, feel free to reach out. 😊
       code,
       category: session.categoryId,
     });
-    const user = await User.findOne({ phone });
 
+    if (!service) {
+      return res.status(StatusCodes.OK).send("Invalid service code. Please try again.");
+    }
+
+    const user = await User.findOne({ phone });
     const reqID = "REQ" + crypto.randomBytes(3).toString("hex").toUpperCase();
+
     const request = await ServiceRequest.create({
       _id: new mongoose.Types.ObjectId(),
       city: "Harare",
@@ -200,17 +310,16 @@ You're all set! If you need any further assistance, feel free to reach out. 😊
       id: reqID,
     });
 
-    await request.save();
     const responseMessage = `
-📃 Thank you, *${user.username}*! 
+📃 Thank you, *${user.firstName}*! 
 
-Your request for the service has been successfully created. 
+Your request for *${service.name}* has been successfully created. 
 
-📝 Your request ID is: *${reqID}*. 
+📝 Request ID: *${reqID}*
 📍 Location: *${request.address.physicalAddress}*
 
 Our team will connect you with a service provider shortly. 
-Please wait...`;
+Please wait while we search for available providers...`;
 
     await queueProviderSearch({
       phone,
@@ -219,7 +328,6 @@ Please wait...`;
       requestId: request._id.toString(),
     });
 
-    // Set to menu action state after booking
     await setSession(phone, {
       step: steps.SELECT_MENU_ACTION,
       message,
@@ -228,7 +336,6 @@ Please wait...`;
       requestId: request._id.toString(),
     });
 
-    // Show menu template after confirmation
     setImmediate(async () => {
       await clientMainMenuTemplate(phone, user.firstName);
     });
@@ -238,7 +345,6 @@ Please wait...`;
 
   async handleDefaultState() {
     const { user } = this;
-    // Always return to main menu as default behavior
     return await this.showMainMenu(user.firstName);
   }
 }
