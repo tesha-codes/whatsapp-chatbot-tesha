@@ -280,9 +280,7 @@ class ServiceProvider {
       message: this.message,
       lActivity: this.lActivity,
     });
-    return this.res
-      .status(StatusCodes.OK)
-      .send(this.messages.CHOOSE_SUBSCRIPTION);
+    return this.res.status(StatusCodes.OK).send(this.messages.UPLOAD_ID_IMAGE);
   }
 
   async handleCollectIdImage() {
