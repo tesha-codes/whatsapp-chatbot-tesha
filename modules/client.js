@@ -133,11 +133,13 @@ Example: 123 Main Street, Harare`,
     UPLOAD_ID_IMAGE:
       "📸 Please upload a clear image of your National ID. This will be used for verification purposes.",
     PROFILE_COMPLETE:
-      "✅ Congratulations! Your profile is now complete. You'll start receiving tasks once verified. Thank you for joining our platform! 🎊",
-    UNAVAILABLE_SERVICE_PROVIDER:`
+      `🎉 Congratulations! Your profile is complete! 🎉
+
+You\'re now eligible for a free 3-month subscription. Once verified, you\'ll start receiving tasks. Thanks for joining our platform!`,
+    UNAVAILABLE_SERVICE_PROVIDER: `
     Thank you for your request! Unfortunately, the service provider for [requested service] is currently unavailable. We apologize for the inconvenience and are working to find a suitable provider for you. We’ll notify you as soon as we have an update.
 
-    Thank you for your patience!"`
+    Thank you for your patience!"`,
   },
 };
 

@@ -63,8 +63,6 @@ class ServiceProvider {
           return this.handleCollectService();
         case steps.PROVIDER_COLLECT_DESCRIPTION:
           return this.handleCollectDescription();
-        case steps.PROVIDER_COLLECT_SUBSCRIPTION:
-          return this.handleCollectSubscription();
         case steps.PROVIDER_COLLECT_ID_IMAGE:
           return this.handleCollectIdImage();
         default:
@@ -278,25 +276,13 @@ class ServiceProvider {
     }
     await updateProvider(this.user._id, { description });
     await setSession(this.phone, {
-      step: this.steps.PROVIDER_COLLECT_SUBSCRIPTION,
+      step: this.steps.PROVIDER_COLLECT_ID_IMAGE,
       message: this.message,
       lActivity: this.lActivity,
     });
     return this.res
       .status(StatusCodes.OK)
       .send(this.messages.CHOOSE_SUBSCRIPTION);
-  }
-
-  async handleCollectSubscription() {
-    const subscriptionId = this.message.toString();
-    // Here you should validate if the subscriptionId is valid
-    // await updateProvider(this.user._id, { subscription: subscriptionId });
-    await setSession(this.phone, {
-      step: this.steps.PROVIDER_COLLECT_ID_IMAGE,
-      message: this.message,
-      lActivity: this.lActivity,
-    });
-    return this.res.status(StatusCodes.OK).send(this.messages.UPLOAD_ID_IMAGE);
   }
 
   async handleCollectIdImage() {
