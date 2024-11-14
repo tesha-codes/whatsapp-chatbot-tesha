@@ -16,6 +16,7 @@ const ServiceProvider = require("./modules/provider");
 const Onboarding = require("./modules/onboarding");
 const Client = require("./modules/request-services");
 const { serviceProviderQueue } = require("./jobs/service-provider.job");
+const initializeTemplates = require("./services/initializeTemplates");
 
 const app = express();
 const PORT = process.env.PORT || 3000;
@@ -163,9 +164,11 @@ app.post("/bot", async (req, res) => {
 app.listen(PORT, function () {
   console.log(`Warming up the server 🔥🔥...`);
   connectDb(process.env.MONGO_URL)
-    .then((response) => {
+    .then(async (response) => {
       console.log(`Successfully connected to ${response.db.databaseName} ✅✅`);
       console.log(`Server now running on port ${PORT} 👍👌😁😁`);
+      // initalize templates
+      await initializeTemplates();
     })
     .catch((error) => {
       console.error(error);

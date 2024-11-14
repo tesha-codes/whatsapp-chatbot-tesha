@@ -1,5 +1,7 @@
 const axios = require("axios");
 const dotenv = require("dotenv");
+const templateManager = require("./templateManager");
+const { messages } = require("../modules/client");
 const {
   USER_OPTIN_URL,
   TEXT_MSG_URL,
@@ -119,13 +121,21 @@ const sendTemplateMessage = (
   return axios.post(TEMPLATE_MSG_URL, params, config);
 };
 
-const sendChooseAccountTypeTemplate = (userMobileNumber) => {
+const sendChooseAccountTypeTemplate = async (userMobileNumber) => {
+  const templateId = await templateManager.getAvailableTemplateId(
+    "chooseAccountType"
+  );
+  //  no template, send a regular message
+  if (!templateId) {
+    return sendTextMessage(userMobileNumber, messages.USER_OR_PROVIDER);
+  }
+
   const params = getUrlEncodedData({
     source: SOURCE_MOBILE_NUMBER,
     destination: userMobileNumber,
     "src.name": APP_NAME,
     template: {
-      id: "e1de1f14-93e6-439c-b46e-cb834aec99b3",
+      id: templateId,
       params: [],
     },
     message: {},
@@ -133,13 +143,20 @@ const sendChooseAccountTypeTemplate = (userMobileNumber) => {
 
   return axios.post(TEMPLATE_MSG_URL, params, config);
 };
-const clientMainMenuTemplate = (userMobileNumber, name) => {
+const clientMainMenuTemplate = async (userMobileNumber, name) => {
+  const templateId = await templateManager.getAvailableTemplateId(
+    "clientMainMenu"
+  );
+  //  no template, send a regular message
+  if (!templateId) {
+    return sendTextMessage(userMobileNumber, messages.CLIENT_MAIN_MENU);
+  }
   const params = getUrlEncodedData({
     source: SOURCE_MOBILE_NUMBER,
     destination: userMobileNumber,
     "src.name": APP_NAME,
     template: {
-      id: "d792b702-b2da-454c-927e-4d3bd826698d",
+      id: templateId,
       params: [name],
     },
     message: {},
@@ -148,13 +165,20 @@ const clientMainMenuTemplate = (userMobileNumber, name) => {
   return axios.post(TEMPLATE_MSG_URL, params, config);
 };
 
-const registerClientTemplate = (userMobileNumber) => {
+const registerClientTemplate = async (userMobileNumber) => {
+  const templateId = await templateManager.getAvailableTemplateId(
+    "registerClient"
+  );
+  //  no template, send a regular message
+  if (!templateId) {
+    return sendTextMessage(userMobileNumber, messages.CLIENT_MAIN_MENU);
+  }
   const params = getUrlEncodedData({
     source: SOURCE_MOBILE_NUMBER,
     destination: userMobileNumber,
     "src.name": APP_NAME,
     template: {
-      id: "aaf19ff4-ea9f-450f-a631-602ed5bdb5ea",
+      id: templateId,
       params: [],
     },
     message: {},
@@ -163,13 +187,20 @@ const registerClientTemplate = (userMobileNumber) => {
   return axios.post(TEMPLATE_MSG_URL, params, config);
 };
 
-const welcomeMessageTemplate = (userMobileNumber) => {
+const welcomeMessageTemplate = async (userMobileNumber) => {
+  const templateId = await templateManager.getAvailableTemplateId(
+    "welcomeMessage"
+  );
+  //  no template, send a regular message
+  if (!templateId) {
+    return sendTextMessage(userMobileNumber, messages.WELCOME_MESSAGE);
+  }
   const params = getUrlEncodedData({
     source: SOURCE_MOBILE_NUMBER,
     destination: userMobileNumber,
     "src.name": APP_NAME,
     template: {
-      id: "9ffdc87e-5f22-4994-a56f-a29c84fcd3a5",
+      id: templateId,
 
       params: [],
     },
@@ -180,14 +211,23 @@ const welcomeMessageTemplate = (userMobileNumber) => {
 };
 
 // PROVIDER TEMPLATES START HERE
-
-const registerServiceProviderTemplate = (userMobileNumber) => {
+const registerServiceProviderTemplate = async (userMobileNumber) => {
+  const templateId = await templateManager.getAvailableTemplateId(
+    "registerServiceProvider"
+  );
+  //  no template, send a regular message
+  if (!templateId) {
+    return sendTextMessage(
+      userMobileNumber,
+      messages.REGISTER_SERVICE_PROVIDER
+    );
+  }
   const params = getUrlEncodedData({
     source: SOURCE_MOBILE_NUMBER,
     destination: userMobileNumber,
     "src.name": APP_NAME,
     template: {
-      id: "38daed5b-8c2b-4af8-b30c-add7c1880e3c",
+      id: templateId,
       params: [],
     },
     message: {},

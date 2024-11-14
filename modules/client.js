@@ -1,22 +1,22 @@
 const clientModule = {
   messages: {
     WELCOME_MESSAGE: `
-🎉*Welcome to Tesha!*
+*Welcome to Tesha*
+Tesha is a WhatsApp-based platform that connects you with local service providers, such as handymen and maids— all through WhatsApp!
 
-*Tesha* is a WhatsApp-based platform that connects you with service providers like handymen, maids, and more—all through WhatsApp!
+Key Features:
 
-*Key Features:* 
+🔧 Service Requests: Effortlessly book handymen, maids, and more.
 
-🔧 *Service Requests:* Book handymen, maids, and other professionals. 
-📅 *Bookings:* Choose based on ratings and hourly rates. 
-🔔 *Notifications:* Get booking updates and payment alerts.
+📅 Bookings: Select from available service providers based on their ratings and hourly rates.
 
-Please respond with either(Yes/No): 
+🔔 Notifications: Receive updates on task availability and any service changes.
 
-👍 *Yes:* to accept the terms and start using Tesha. 
-❌ *No:* to cancel the process.
+To get started, please review and accept our privacy policy and terms and conditions here: https://tesha.co.zw/legal.
 
-You can also visit our website at tesha.co.zw/legal for full terms.
+Reply with:
+
+*Accept Terms* or *Decline Terms*
 
     `,
     WELCOME_TERMS: `
@@ -62,9 +62,23 @@ Are you joining us as a *Client* looking to hire services, or a *Service Provide
       "Welcome, valued Client! 👋 We're here to help you find the right services. How can we assist you today?",
 
     USER_OR_PROVIDER: `
-Welcome to Tesha's main menu! Please let us know who you are:
-1. Client - Looking for services
-2. Service Provider - Offering services`,
+You’ve accepted the terms and conditions, and you’re all set to explore Tesha’s services!
+
+Our Offerings:
+
+🏠 Household services
+🌳 Yard and outdoor maintenance
+🛍 Errands and deliveries
+🛠 Skilled tasks (plumbing, electrical work, etc.)
+🚚 Moving and hauling services
+🐾 Pet care
+👵 Senior care
+🏡 Home maintenance
+
+Are you joining us as a *Client* looking to hire services, or as a *Service Provider* wishing to offer your skills?
+
+Reply with *Client* or  *Service Provider*
+`,
     CLIENT_WELCOME_MESSAGE: ` 
 *What can we help you with today?*
 
@@ -132,14 +146,44 @@ Example: 123 Main Street, Harare`,
       "🎉 Good news! You're eligible for a free 1-month subscription. Choose your plan:\n1. Basic\n2. Standard\n3. Premium\nReply with the number of your choice.",
     UPLOAD_ID_IMAGE:
       "📸 Please upload a clear image of your National ID. This will be used for verification purposes.",
-    PROFILE_COMPLETE:
-      `🎉 Congratulations! Your profile is complete! 🎉
+    PROFILE_COMPLETE: `🎉 Congratulations! Your profile is complete! 🎉
 
 You\'re now eligible for a free 3-month subscription. Once verified, you\'ll start receiving tasks. Thanks for joining our platform!`,
     UNAVAILABLE_SERVICE_PROVIDER: `
     Thank you for your request! Unfortunately, the service provider for [requested service] is currently unavailable. We apologize for the inconvenience and are working to find a suitable provider for you. We’ll notify you as soon as we have an update.
 
     Thank you for your patience!"`,
+
+    //
+    CLIENT_MAIN_MENU: `*Manage Your Account & Services*
+
+Welcome back! 👋 Here's what's available to you today:
+
+🛎️ *Request a Service Provider*
+🔧 *Update Your Profile*
+🗑️ *Deactivate Account*
+📝 *View Booking History*
+
+What would you like to do next?
+
+Please reply with: 
+
+*Request Service*
+
+*Edit Profile*
+
+*Delete Account*
+
+*Booking History*   
+    `,
+    REGISTER_SERVICE_PROVIDER: `We're thrilled you're interested in offering your skills on Tesha.
+
+Before we get started, let's set up your account so you can connect with clients and start receiving tasks.
+
+Please respond with:
+
+*Create Account* or *Cancel*
+    `,
   },
 };
 
