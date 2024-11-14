@@ -51,7 +51,7 @@ class Client {
         .send(`Hello there 👋 ${updatedUser.firstName}`);
     }
 
-    // Handle incomplete profile setup
+
     if (session.step === steps.SETUP_CLIENT_PROFILE) {
       return await this.setupClientProfile();
     }
@@ -72,37 +72,11 @@ class Client {
       return await this.collectLocation();
     }
 
-    // If none of the above, return null to proceed with regular flow
+
     return null;
   }
 
-  // async mainEntry() {
-  //     const { session, steps } = this;
-
-  //     switch (session.step) {
-  //         case steps.SETUP_CLIENT_PROFILE:
-  //             return await this.setupClientProfile();
-  //         case steps.COLLECT_USER_FULL_NAME:
-  //             return await this.collectFullName();
-  //         case steps.COLLECT_USER_ID:
-  //             return await this.collectNationalId();
-  //         case steps.COLLECT_USER_ADDRESS:
-  //             return await this.collectAddress();
-  //         case steps.COLLECT_USER_LOCATION:
-  //             return await this.collectLocation();
-  //         case steps.SELECT_SERVICE_CATEGORY:
-  //             return await this.selectServiceCategory();
-  //         case steps.SELECT_SERVICE:
-  //             return await this.selectService();
-  //         case steps.BOOK_SERVICE:
-  //             return await this.bookService();
-  //         default:
-  //             return await this.handleDefaultState();
-  //     }
-  // }
-
   async mainEntry() {
-    // Handle initial state first
     const initialStateResult = await this.handleInitialState();
     if (initialStateResult) return initialStateResult;
 
@@ -124,6 +98,21 @@ class Client {
         break;
     }
   }
+
+  async showMainMenu() {
+    const { res, phone, lActivity, steps, message } = this;
+
+    await setSession(phone, {
+      accountType: "Client",
+      step: steps.SELECT_MENU_ACTION,
+      message,
+      lActivity,
+    });
+
+    await clientMainMenuTemplate(phone, '');
+    return res.status(StatusCodes.OK).send("");
+  }
+
 
   async setupClientProfile() {
     const { res, steps, lActivity, phone, message } = this;
@@ -211,7 +200,7 @@ class Client {
     await updateUser({
       phone,
       address: {
-        coordinates: message,
+        coordinates: message
       },
     });
 
@@ -247,7 +236,6 @@ You're all set! If you need any further assistance, feel free to reach out. 😊
         .status(StatusCodes.OK)
         .send(this.messages.CLIENT_WELCOME_MESSAGE);
     }
-    // Handle other cases if needed
   }
 
   async selectService() {
@@ -264,8 +252,8 @@ You're all set! If you need any further assistance, feel free to reach out. 😊
 *${category.name}* 
 Please select a service from the list below:
 ${services
-  .map((s, index) => `${index + 1}. *${s.title}*\n${s.description}`)
-  .join("\n\n")}
+        .map((s, index) => `${index + 1}. *${s.title}*\n${s.description}`)
+        .join("\n\n")}
 
 Reply with the number of the service you'd like to hire.
     `;
