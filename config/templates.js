@@ -1,4 +1,5 @@
 const WHATSAPP_TEMPLATES = {
+  // important: names should be unique !
   chooseAccountType: {
     name: "chooseAccountType",
     ids: [

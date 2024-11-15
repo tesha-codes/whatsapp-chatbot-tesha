@@ -13,7 +13,6 @@ dotenv.config();
 
 const { API_KEY, APP_NAME, SOURCE_MOBILE_NUMBER } = process.env;
 //
-
 const config = {
   headers: {
     "Cache-Control": "no-cache",
