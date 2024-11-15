@@ -32,20 +32,24 @@ class TemplateManager {
       );
 
       if (!userTemplateData) {
+        // Create new user data with the first template ID's lastUsedAt set to 'now'
         userTemplateData = {
           phoneNumber: phoneNumber,
-          templateIds: templateConfig.ids.map((id) => ({
+          templateIds: templateConfig.ids.map((id, index) => ({
             id,
-            lastUsedAt: new Date(0),
+            lastUsedAt: index === 0 ? now : new Date(0), // Set the first template to 'now'
           })),
         };
+
         await TemplateUsage.updateOne(
           { templateName: templateConfig.name },
           { $push: { usageByPhone: userTemplateData } }
         );
-        return templateConfig.ids[0];
+
+        return templateConfig.ids[0]; // Return the first template ID
       }
 
+      // Sort by lastUsedAt and find the first available template
       const availableTemplate = userTemplateData.templateIds
         .sort((a, b) => a.lastUsedAt - b.lastUsedAt)
         .find((template) => template.lastUsedAt < cooldownTime);
@@ -54,6 +58,7 @@ class TemplateManager {
         return null;
       }
 
+      // Update last used time
       await TemplateUsage.updateOne(
         {
           templateName: templateConfig.name,

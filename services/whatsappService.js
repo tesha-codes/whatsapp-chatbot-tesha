@@ -122,7 +122,8 @@ const sendTemplateMessage = (
 
 const sendChooseAccountTypeTemplate = async (userMobileNumber) => {
   const templateId = await templateManager.getAvailableTemplateId(
-    "chooseAccountType"
+    "chooseAccountType",
+    userMobileNumber
   );
   //  no template, send a regular message
   if (!templateId) {
@@ -144,7 +145,8 @@ const sendChooseAccountTypeTemplate = async (userMobileNumber) => {
 };
 const clientMainMenuTemplate = async (userMobileNumber, name) => {
   const templateId = await templateManager.getAvailableTemplateId(
-    "clientMainMenu"
+    "clientMainMenu",
+    userMobileNumber
   );
   //  no template, send a regular message
   if (!templateId) {
@@ -166,7 +168,8 @@ const clientMainMenuTemplate = async (userMobileNumber, name) => {
 
 const registerClientTemplate = async (userMobileNumber) => {
   const templateId = await templateManager.getAvailableTemplateId(
-    "registerClient"
+    "registerClient",
+    userMobileNumber
   );
   //  no template, send a regular message
   if (!templateId) {
@@ -188,7 +191,8 @@ const registerClientTemplate = async (userMobileNumber) => {
 
 const welcomeMessageTemplate = async (userMobileNumber) => {
   const templateId = await templateManager.getAvailableTemplateId(
-    "welcomeMessage"
+    "welcomeMessage",
+    userMobileNumber
   );
   //  no template, send a regular message
   if (!templateId) {
@@ -212,7 +216,8 @@ const welcomeMessageTemplate = async (userMobileNumber) => {
 // PROVIDER TEMPLATES START HERE
 const registerServiceProviderTemplate = async (userMobileNumber) => {
   const templateId = await templateManager.getAvailableTemplateId(
-    "registerServiceProvider"
+    "registerServiceProvider",
+    userMobileNumber
   );
   //  no template, send a regular message
   if (!templateId) {
