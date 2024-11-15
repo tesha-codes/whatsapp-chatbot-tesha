@@ -4,13 +4,18 @@ const templateUsageSchema = new mongoose.Schema({
   templateName: {
     type: String,
     required: true,
-    unque: true,
+    unique: true,
     index: true,
   },
-  templateIds: [
+  usageByPhone: [
     {
-      id: String,
-      lastUsedAt: Date,
+      phoneNumber: String,
+      templateIds: [
+        {
+          id: String,
+          lastUsedAt: Date,
+        },
+      ],
     },
   ],
 });
