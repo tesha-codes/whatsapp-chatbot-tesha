@@ -44,6 +44,7 @@ class ServiceProvider {
     } = this;
 
     try {
+      
       switch (session.step) {
         case steps.PROVIDER_PROMPT_ACCOUNT:
           return this.handlePromptAccount();
@@ -65,6 +66,10 @@ class ServiceProvider {
           return this.handleCollectDescription();
         case steps.PROVIDER_COLLECT_ID_IMAGE:
           return this.handleCollectIdImage();
+          // send wait messages for un verified users
+          // route verified users to homepage
+          // send verification messages for verified users
+
         default:
           return res.status(StatusCodes.ACCEPTED).send(""); // say nothing for now
       }
