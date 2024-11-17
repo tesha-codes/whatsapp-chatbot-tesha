@@ -190,9 +190,9 @@ If you have any questions in the meantime, please feel free to reach out.
 
 Thank you for choosing our service!
     `,
-    SUSPENDED_MESSAGE: `⚠️ We're sorry, but your account has been temporarily suspended. This means you won’t be able to receive new requests or accept new clients at the moment. If you have any questions or need assistance, please feel free to reach out to our support team at 071-360-3012.
+    SUSPENDED_MESSAGE: `⚠️ We're sorry, but your account has been temporarily suspended. This means you won’t be able to receive new requests or accept new clients at the moment. If you have any questions or need assistance, please feel free to reach out to our support team at 📞 071-360-3012.
     `,
-    INACTIVE_MESSAGE: `Your account is currently inactive, which means it’s not visible to new clients, and you won’t receive any new requests. To reactivate your account, please follow the steps in your account settings, or reach out to our support team for assistance at 071-360-3012. We’re here to help get you back up and running!
+    INACTIVE_MESSAGE: `Your account is currently inactive, which means it’s not visible to new clients, and you won’t receive any new requests. To reactivate your account, please follow the steps in your account settings, or reach out to our support team for assistance at 📞 071-360-3012. We’re here to help get you back up and running!
     `,
     DEV_IN_PROGRESS: `🚀 "Great things are not done by impulse, but by a series of small things brought together." — Vincent Van Gogh
 

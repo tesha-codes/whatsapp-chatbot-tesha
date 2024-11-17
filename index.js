@@ -164,7 +164,7 @@ app.post("/bot", async (req, res) => {
     return res
       .status(StatusCodes.OK)
       .send(
-        "😕 Oops! Something went wrong. Please try again a bit later. Thank you for your patience! 🙏"
+        "😕 Oops! Something went wrong. Please try again a bit later. If the issue persists, feel free to call us at 📞 071-360-3012. Thank you for your patience! 🙏"
       );
   }
 });
