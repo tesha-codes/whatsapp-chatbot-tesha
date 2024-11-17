@@ -186,7 +186,7 @@ Please respond with:
     `,
     VERIFICATION_WAIT_MESSAGE: `🚦 Thank you for your patience. We are currently verifying your identity and information. This process typically takes between a few minutes and up to 24 hours. Rest assured, you will receive a notification as soon as the verification is complete.
 
-If you have any questions in the meantime, please feel free to reach out.
+If you have any questions in the meantime, please feel free to reach out at 📞 071-360-3012
 
 Thank you for choosing our service!
     `,
