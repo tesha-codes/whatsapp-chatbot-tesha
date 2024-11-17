@@ -102,12 +102,8 @@ app.post("/bot", async (req, res) => {
       const phone = userResponse.sender.phone;
       // get session
       const session = await getSession(phone);
-
-      console.log("session: ", session);
-
       // get user info
       const user = await getUser(phone);
-      console.log("User: ", user);
       // create onboarding instance
       const onboard = new Onboarding(
         res,
@@ -123,11 +119,9 @@ app.post("/bot", async (req, res) => {
         return await onboard.createNewUser();
       } else {
         // existing users without session
-        if (!session) {
-          console.log('No session.....')
+        if (Object.keys(session).length === 0) {
           return await onboard.existingUserWithoutSession();
         }
-        console.log('Opps skipped');
         
         // existing users with session with account type
         if (session?.accountType) {
