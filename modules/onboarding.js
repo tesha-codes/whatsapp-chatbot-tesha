@@ -78,10 +78,9 @@ class Onboarding {
             message,
             lActivity,
           });
-          // 
+          //
           await serviceProviderMainMenuTemplate(phone);
           return res.status(StatusCodes.OK).send("");
-
         } else if (user.verified && user.accountStatus === "Suspended") {
           await setSession(phone, {
             accountType: "ServiceProvider",
@@ -105,9 +104,13 @@ class Onboarding {
             message,
             lActivity,
           });
-          return res.status(StatusCodes.OK).send(messages.VERIFICATION_WAIT_MESSAGE);
-        }else{
-          return res.status(StatusCodes.OK).send("Not sure if this is happening");
+          return res
+            .status(StatusCodes.OK)
+            .send(messages.VERIFICATION_WAIT_MESSAGE);
+        } else {
+          return res
+            .status(StatusCodes.OK)
+            .send("Not sure if this is happening");
         }
       }
     } else {

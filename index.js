@@ -102,8 +102,12 @@ app.post("/bot", async (req, res) => {
       const phone = userResponse.sender.phone;
       // get session
       const session = await getSession(phone);
+
+      console.log("session: ", session);
+
       // get user info
       const user = await getUser(phone);
+      console.log("User: ", user);
       // create onboarding instance
       const onboard = new Onboarding(
         res,
