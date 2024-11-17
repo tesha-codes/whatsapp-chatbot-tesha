@@ -124,8 +124,11 @@ app.post("/bot", async (req, res) => {
       } else {
         // existing users without session
         if (!session) {
+          console.log('No session.....')
           return await onboard.existingUserWithoutSession();
         }
+        console.log('Opps skipped');
+        
         // existing users with session with account type
         if (session?.accountType) {
           // client
