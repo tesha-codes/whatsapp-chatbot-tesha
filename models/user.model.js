@@ -42,6 +42,11 @@ const UserSchema = new mongoose.Schema(
       type: Boolean,
       default: false,
     },
+    accountStatus: {
+      type: String,
+      enum: ["Active", "Inactive", "Suspended"],
+      default: "Inactive",
+    },
     preferredLanguage: {
       type: String,
       enum: ["English", "Shona", "Ndebele"],
@@ -53,8 +58,8 @@ const UserSchema = new mongoose.Schema(
     },
     nationalId: {
       type: String,
-      default: ''
-    }
+      default: "",
+    },
   },
   { timestamps: true }
 );

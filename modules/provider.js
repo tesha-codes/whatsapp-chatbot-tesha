@@ -44,7 +44,8 @@ class ServiceProvider {
     } = this;
 
     try {
-      
+      // wait message for un verified users
+
       switch (session.step) {
         case steps.PROVIDER_PROMPT_ACCOUNT:
           return this.handlePromptAccount();
@@ -66,12 +67,17 @@ class ServiceProvider {
           return this.handleCollectDescription();
         case steps.PROVIDER_COLLECT_ID_IMAGE:
           return this.handleCollectIdImage();
-          // send wait messages for un verified users
-          // route verified users to homepage
-          // send verification messages for verified users
-
+        case steps.WAITING_FOR_VERIFICATION:
+          return this.handleWaitForVerification();
+        case steps.ACCOUNT_STATUS_SUSPENDED:
+          return this.handleAccountStatusSuspended();
+        case steps.ACCOUNT_STATUS_INACTIVE:
+          return this.handleAccountStatusInactive();
+        // HANDle home
         default:
-          return res.status(StatusCodes.ACCEPTED).send(""); // say nothing for now
+          return res
+            .status(StatusCodes.ACCEPTED)
+            .send(this.messages.DEV_IN_PROGRESS);
       }
     } catch (error) {
       console.error("Error in ServiceProvider mainEntry:", error);
@@ -313,11 +319,40 @@ class ServiceProvider {
       isProfileCompleted: true,
     });
     await setSession(this.phone, {
-      step: this.steps.PROVIDER_PROFILE_COMPLETE,
+      step: this.steps.WAIT_FOR_VERIFICATION,
       message: this.message.toString(),
       lActivity: this.lActivity,
     });
     return this.res.status(StatusCodes.OK).send(this.messages.PROFILE_COMPLETE);
+  }
+  async handleWaitForVerification() {
+    await setSession(this.phone, {
+      step: this.steps.WAIT_FOR_VERIFICATION,
+      message: this.message,
+      lActivity: this.lActivity,
+    });
+    return this.res
+      .status(StatusCodes.OK)
+      .send(this.messages.VERIFICATION_WAIT_MESSAGE);
+  }
+  async handleAccountStatusSuspended() {
+    await setSession(this.phone, {
+      step: this.steps.ACCOUNT_STATUS_SUSPENDED,
+      message: this.message,
+      lActivity: this.lActivity,
+    });
+    return this.res
+      .status(StatusCodes.OK)
+      .send(this.messages.SUSPENDED_MESSAGE);
+  }
+
+  async handleAccountStatusInactive() {
+    await setSession(this.phone, {
+      step: this.steps.ACCOUNT_STATUS_INACTIVE,
+      message: this.message,
+      lActivity: this.lActivity,
+    });
+    return this.res.status(StatusCodes.OK).send(this.messages.INACTIVE_MESSAGE);
   }
 }
 

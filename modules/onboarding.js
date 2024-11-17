@@ -38,7 +38,7 @@ class Onboarding {
     //
     await createUser({ phone, username });
 
-    console.log('Phone number: ', phone);
+    console.log("Phone number: ", phone);
 
     const response = await welcomeMessageTemplate(phone);
     console.log("Some response to check: ", response);
@@ -69,14 +69,41 @@ class Onboarding {
       }
       // provider.accountType
       if (user.accountType === "ServiceProvider") {
-        await setSession(phone, {
-          accountType: "ServiceProvider",
-          step: steps.ACCEPTED_TERMS,
-          message,
-          lActivity,
-        });
-
-        return res.status(StatusCodes.OK).send(messages.PROVIDER_HOME);
+        if (user.verified && user.accountStatus === "Active") {
+          // home stuff
+          await setSession(phone, {
+            accountType: "ServiceProvider",
+            step: steps.PROVIDER_MAIN_MENU,
+            message,
+            lActivity,
+          });
+          // send provider main menu
+          
+        } else if (user.verified && user.accountStatus === "Suspended") {
+          await setSession(phone, {
+            accountType: "ServiceProvider",
+            step: steps.ACCOUNT_STATUS_SUSPENDED,
+            message,
+            lActivity,
+          });
+          return res.status(StatusCodes.OK).send(messages.SUSPENDED_MESSAGE);
+        } else if (user.verified && user.accountStatus === "Inactive") {
+          await setSession(phone, {
+            accountType: "ServiceProvider",
+            step: steps.ACCOUNT_STATUS_INACTIVE,
+            message,
+            lActivity,
+          });
+          return res.status(StatusCodes.OK).send(messages.INACTIVE_MESSAGE);
+        } else if (!user.verified) {
+          await setSession(phone, {
+            accountType: "ServiceProvider",
+            step: steps.WAITING_FOR_VERIFICATION,
+            message,
+            lActivity,
+          });
+          return res.status(StatusCodes.OK).send(messages.VERIFICATION_WAIT_MESSAGE);
+        }
       }
     } else {
       // no session and no terms were accepted

@@ -184,6 +184,20 @@ Please respond with:
 
 *Create Account* or *Cancel*
     `,
+    VERIFICATION_WAIT_MESSAGE: `🚦 Thank you for your patience. We are currently verifying your identity and information. This process typically takes between a few minutes and up to 24 hours. Rest assured, you will receive a notification as soon as the verification is complete.
+
+If you have any questions in the meantime, please feel free to reach out.
+
+Thank you for choosing our service!
+    `,
+    SUSPENDED_MESSAGE: `⚠️ We're sorry, but your account has been temporarily suspended. This means you won’t be able to receive new requests or accept new clients at the moment. If you have any questions or need assistance, please feel free to reach out to our support team at 071-360-3012.
+    `,
+    INACTIVE_MESSAGE: `Your account is currently inactive, which means it’s not visible to new clients, and you won’t receive any new requests. To reactivate your account, please follow the steps in your account settings, or reach out to our support team for assistance at 071-360-3012. We’re here to help get you back up and running!
+    `,
+    DEV_IN_PROGRESS: `🚀 "Great things are not done by impulse, but by a series of small things brought together." — Vincent Van Gogh
+
+Keep pushing forward—every line of code is bringing you closer to something amazing!
+    `,
   },
 };
 

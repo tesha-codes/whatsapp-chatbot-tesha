@@ -239,6 +239,31 @@ const registerServiceProviderTemplate = async (userMobileNumber) => {
 
   return axios.post(TEMPLATE_MSG_URL, params, config);
 };
+// TODO: TO IFX provider home template
+// provider main menu template
+const providerMainMenuTemplate = async (userMobileNumber) => {
+
+  const templateId = await templateManager.getAvailableTemplateId(
+    "providerMainMenu",
+    userMobileNumber
+  );
+  //  no template, send a regular message
+  if (!templateId) {
+    return sendTextMessage(userMobileNumber, messages.PROVIDER_MAIN_MENU);
+  }
+  const params = getUrlEncodedData({
+    source: SOURCE_MOBILE_NUMBER,
+    destination: userMobileNumber,
+    "src.name": APP_NAME,
+    template: {
+      id: templateId,
+      params: [],
+    },
+    message: {},
+  });
+
+  return axios.post(TEMPLATE_MSG_URL, params, config);
+};
 
 module.exports = {
   getTemplatesList,
@@ -253,4 +278,5 @@ module.exports = {
   registerClientTemplate,
   welcomeMessageTemplate,
   registerServiceProviderTemplate,
+  providerMainMenuTemplate,
 };
