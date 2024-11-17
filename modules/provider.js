@@ -319,7 +319,7 @@ class ServiceProvider {
       isProfileCompleted: true,
     });
     await setSession(this.phone, {
-      step: this.steps.WAIT_FOR_VERIFICATION,
+      step: this.steps.WAITING_FOR_VERIFICATION,
       message: this.message.toString(),
       lActivity: this.lActivity,
     });
@@ -327,7 +327,7 @@ class ServiceProvider {
   }
   async handleWaitForVerification() {
     await setSession(this.phone, {
-      step: this.steps.WAIT_FOR_VERIFICATION,
+      step: this.steps.WAITING_FOR_VERIFICATION,
       message: this.message,
       lActivity: this.lActivity,
     });

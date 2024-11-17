@@ -163,7 +163,9 @@ app.post("/bot", async (req, res) => {
     console.error("Error in /bot route:", error);
     return res
       .status(StatusCodes.OK)
-      .json("Something went wrong. Please try again later.");
+      .send(
+        "😕 Oops! Something went wrong. Please try again a bit later. Thank you for your patience! 🙏"
+      );
   }
 });
 
