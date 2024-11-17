@@ -120,6 +120,7 @@ app.post("/bot", async (req, res) => {
       } else {
         // existing users without session
         if (Object.keys(session).length === 0) {
+          console.log("No sessions found.....");
           return await onboard.existingUserWithoutSession();
         }
         
