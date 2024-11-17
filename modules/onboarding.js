@@ -7,6 +7,7 @@ const {
   registerClientTemplate,
   welcomeMessageTemplate,
   registerServiceProviderTemplate,
+  serviceProviderMainMenuTemplate,
 } = require("./../services/whatsappService");
 
 class Onboarding {
@@ -73,12 +74,14 @@ class Onboarding {
           // home stuff
           await setSession(phone, {
             accountType: "ServiceProvider",
-            step: steps.PROVIDER_MAIN_MENU,
+            step: steps.SERVICE_PROVIDER_MAIN_MENU,
             message,
             lActivity,
           });
-          // send provider main menu
-          
+          // 
+          await serviceProviderMainMenuTemplate(phone);
+          return res.status(StatusCodes.OK).send("");
+
         } else if (user.verified && user.accountStatus === "Suspended") {
           await setSession(phone, {
             accountType: "ServiceProvider",
@@ -103,6 +106,8 @@ class Onboarding {
             lActivity,
           });
           return res.status(StatusCodes.OK).send(messages.VERIFICATION_WAIT_MESSAGE);
+        }else{
+          return res.status(StatusCodes.OK).send("Not sure if this is happening");
         }
       }
     } else {

@@ -239,12 +239,10 @@ const registerServiceProviderTemplate = async (userMobileNumber) => {
 
   return axios.post(TEMPLATE_MSG_URL, params, config);
 };
-// TODO: TO IFX provider home template
-// provider main menu template
-const providerMainMenuTemplate = async (userMobileNumber) => {
-
+// service provider main menu template
+const serviceProviderMainMenuTemplate = async (userMobileNumber) => {
   const templateId = await templateManager.getAvailableTemplateId(
-    "providerMainMenu",
+    "serviceProviderMainMenu",
     userMobileNumber
   );
   //  no template, send a regular message
@@ -278,5 +276,5 @@ module.exports = {
   registerClientTemplate,
   welcomeMessageTemplate,
   registerServiceProviderTemplate,
-  providerMainMenuTemplate,
+  serviceProviderMainMenuTemplate,
 };
