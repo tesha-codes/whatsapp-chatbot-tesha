@@ -45,7 +45,6 @@ class ServiceProvider {
 
     try {
       // wait message for un verified users
-
       switch (session.step) {
         case steps.PROVIDER_PROMPT_ACCOUNT:
           return this.handlePromptAccount();
@@ -73,7 +72,15 @@ class ServiceProvider {
           return this.handleAccountStatusSuspended();
         case steps.ACCOUNT_STATUS_INACTIVE:
           return this.handleAccountStatusInactive();
-        // HANDle home
+        case steps.SERVICE_PROVIDER_MAIN_MENU:
+          return this.handleServiceProviderMainMenu();
+        // set up verification dashboard
+        // send verification messages for verified users or unverified users
+        // send with guidelines and short cuts
+        // view tasks
+        // edit profiles
+        // delete account
+        // billing history
         default:
           return res
             .status(StatusCodes.ACCEPTED)
@@ -325,7 +332,13 @@ class ServiceProvider {
     });
     return this.res.status(StatusCodes.OK).send(this.messages.PROFILE_COMPLETE);
   }
+
   async handleWaitForVerification() {
+    // Check if user is verified
+    if (this.user.verified) {
+       return this.handleServiceProviderMainMenu();
+    }
+    // Default case - user still waiting for verification
     await setSession(this.phone, {
       step: this.steps.WAITING_FOR_VERIFICATION,
       message: this.message,
@@ -335,11 +348,13 @@ class ServiceProvider {
       .status(StatusCodes.OK)
       .send(this.messages.VERIFICATION_WAIT_MESSAGE);
   }
+
   async handleAccountStatusSuspended() {
     await setSession(this.phone, {
       step: this.steps.ACCOUNT_STATUS_SUSPENDED,
       message: this.message,
       lActivity: this.lActivity,
+      accountType: "ServiceProvider",
     });
     return this.res
       .status(StatusCodes.OK)
@@ -351,8 +366,20 @@ class ServiceProvider {
       step: this.steps.ACCOUNT_STATUS_INACTIVE,
       message: this.message,
       lActivity: this.lActivity,
+      accountType: "ServiceProvider",
     });
     return this.res.status(StatusCodes.OK).send(this.messages.INACTIVE_MESSAGE);
+  }
+
+  async handleServiceProviderMainMenu() {
+    await serviceProviderMainMenuTemplate(this.phone);
+    await setSession(this.phone, {
+      step: this.steps.SERVICE_PROVIDER_MAIN_MENU,
+      message: this.message,
+      lActivity: this.lActivity,
+      accountType: "ServiceProvider",
+    });
+    return this.res.status(StatusCodes.OK).send("");
   }
 }
 
