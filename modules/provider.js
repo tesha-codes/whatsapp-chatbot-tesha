@@ -338,9 +338,12 @@ class ServiceProvider {
 
   async handleWaitForVerification() {
     // Check if user is verified
+    console.log("Checking if user is verified")
     if (this.user.verified) {
+      console.log("User is verified");
        return this.handleServiceProviderMainMenu();
     }
+    console.log("User is not verified, opps skipped verification");
     // Default case - user still waiting for verification
     await setSession(this.phone, {
       step: this.steps.WAITING_FOR_VERIFICATION,
