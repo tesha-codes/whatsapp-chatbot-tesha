@@ -375,7 +375,10 @@ class ServiceProvider {
   }
 
   async handleServiceProviderMainMenu() {
-    await serviceProviderMainMenuTemplate(this.phone);
+    await serviceProviderMainMenuTemplate(
+      this.phone,
+      this.user?.firstName || this.user?.lastName
+    );
     await setSession(this.phone, {
       step: this.steps.SERVICE_PROVIDER_MAIN_MENU,
       message: this.message,

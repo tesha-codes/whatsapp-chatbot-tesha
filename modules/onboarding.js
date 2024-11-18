@@ -149,7 +149,10 @@ class Onboarding {
         await this.setUserSession(this.steps.SERVICE_PROVIDER_MAIN_MENU, {
           accountType: this.constructor.ACCOUNT_TYPES.SERVICE_PROVIDER,
         });
-        await serviceProviderMainMenuTemplate(this.phone);
+        await serviceProviderMainMenuTemplate(
+          this.phone,
+          user?.firstName || user?.lastName
+        );
         return this.sendResponse();
       },
       [this.constructor.ACCOUNT_STATUS.SUSPENDED]: async () => {
@@ -169,7 +172,9 @@ class Onboarding {
     const handler = providerStatusHandlers[user.accountStatus];
     return handler
       ? handler()
-      : this.sendResponse("⚠️ Account status not recognized. Please double-check your account details or contact our support team for assistance. We're here to help! 😊");
+      : this.sendResponse(
+          "⚠️ Account status not recognized. Please double-check your account details or contact our support team for assistance. We're here to help! 😊"
+        );
   }
 
   // Handle terms acceptance

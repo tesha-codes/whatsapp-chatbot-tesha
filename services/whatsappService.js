@@ -240,7 +240,7 @@ const registerServiceProviderTemplate = async (userMobileNumber) => {
   return axios.post(TEMPLATE_MSG_URL, params, config);
 };
 // service provider main menu template
-const serviceProviderMainMenuTemplate = async (userMobileNumber) => {
+const serviceProviderMainMenuTemplate = async (userMobileNumber, name) => {
   const templateId = await templateManager.getAvailableTemplateId(
     "serviceProviderMainMenu",
     userMobileNumber
@@ -255,7 +255,7 @@ const serviceProviderMainMenuTemplate = async (userMobileNumber) => {
     "src.name": APP_NAME,
     template: {
       id: templateId,
-      params: [],
+      params: [name],
     },
     message: {},
   });
