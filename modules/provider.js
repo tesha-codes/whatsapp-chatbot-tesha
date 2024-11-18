@@ -339,6 +339,7 @@ class ServiceProvider {
   async handleWaitForVerification() {
     // Check if user is verified
     console.log("Checking if user is verified")
+    console.log("user", this.user)
     if (this.user.verified) {
       console.log("User is verified");
        return this.handleServiceProviderMainMenu();
