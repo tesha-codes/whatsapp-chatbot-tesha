@@ -17,10 +17,7 @@ const createUser = async (data) => {
 // get user
 const getUser = async (phone) => {
   try {
-    const user = await User.findOne(
-      { phone },
-      { phone: 1, termsAndConditionsAccepted: 1, accountType: 1, firstName: 1 }
-    );
+    const user = await User.findOne({ phone });
     return user;
   } catch (error) {
     console.error("Error getting user:", error);
