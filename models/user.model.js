@@ -45,7 +45,7 @@ const UserSchema = new mongoose.Schema(
     accountStatus: {
       type: String,
       enum: ["Active", "Inactive", "Suspended"],
-      default: "Inactive",
+      default: "Active",
     },
     preferredLanguage: {
       type: String,

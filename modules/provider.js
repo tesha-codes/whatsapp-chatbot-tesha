@@ -2,7 +2,10 @@ const { StatusCodes } = require("http-status-codes");
 const { formatDateTime } = require("../utils/dateUtil");
 const { setSession } = require("../utils/redis");
 const { updateUser } = require("../controllers/user.controllers");
-const { sendMediaImageMessage } = require("../services/whatsappService");
+const {
+  sendMediaImageMessage,
+  serviceProviderMainMenuTemplate,
+} = require("../services/whatsappService");
 const {
   createServiceProvider,
   updateProvider,
@@ -381,6 +384,7 @@ class ServiceProvider {
     });
     return this.res.status(StatusCodes.OK).send("");
   }
+
 }
 
 module.exports = ServiceProvider;
