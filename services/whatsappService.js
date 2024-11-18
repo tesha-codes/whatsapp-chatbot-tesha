@@ -247,7 +247,10 @@ const serviceProviderMainMenuTemplate = async (userMobileNumber, name) => {
   );
   //  no template, send a regular message
   if (!templateId) {
-    return sendTextMessage(userMobileNumber, 'Hi there');
+    return sendTextMessage(
+      userMobileNumber,
+      messages.SERVICE_PROVIDER_MAIN_MENU
+    );
   }
   const params = getUrlEncodedData({
     source: SOURCE_MOBILE_NUMBER,

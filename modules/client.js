@@ -198,6 +198,25 @@ Thank you for choosing our service!
 
 Keep pushing forward—every line of code is bringing you closer to something amazing!
     `,
+    SERVICE_PROVIDER_MAIN_MENU: `Welcome back! 👋 Here's what's available to you today:
+
+📋 View Available Tasks
+🔧 Edit Your Profile
+🗑️ Delete Account
+💳 View Billing & Payment History
+
+What would you like to do next?
+
+Please reply with:
+
+*View Tasks*
+
+*Edit Profile*
+
+*Delete Account*
+
+*Billing & Payment History*  
+`,
   },
 };
 
