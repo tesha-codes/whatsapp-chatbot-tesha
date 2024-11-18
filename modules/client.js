@@ -14,9 +14,11 @@ Key Features:
 
 To get started, please review and accept our privacy policy and terms and conditions here: https://tesha.co.zw/legal.
 
-Reply with:
+Please reply with the number of your choice (e.g., 1 or 2):
 
-*Accept Terms* or *Decline Terms*
+1. *Accept Terms*
+
+2. *Decline Terms*
 
     `,
     WELCOME_TERMS: `
@@ -166,23 +168,25 @@ Welcome back! 👋 Here's what's available to you today:
 
 What would you like to do next?
 
-Please reply with: 
+Please reply with the number of your choice (e.g., 1, 2, 3, or 4):
 
-*Request Service*
+1. *Request Service*
 
-*Edit Profile*
+2. *Edit Profile*
 
-*Delete Account*
+3. *Delete Account*
 
-*Booking History*   
+4. *Booking History*   
     `,
     REGISTER_SERVICE_PROVIDER: `We're thrilled you're interested in offering your skills on Tesha.
 
 Before we get started, let's set up your account so you can connect with clients and start receiving tasks.
 
-Please respond with:
+Please reply with the number of your choice (e.g., 1 or 2):
 
-*Create Account* or *Cancel*
+1. *Create Account*
+
+2. *Cancel*
     `,
     VERIFICATION_WAIT_MESSAGE: `🚦 Thank you for your patience. We are currently verifying your identity and information. This process typically takes between a few minutes and up to 24 hours. Rest assured, you will receive a notification as soon as the verification is complete.
 
@@ -207,15 +211,15 @@ Keep pushing forward—every line of code is bringing you closer to something am
 
 What would you like to do next?
 
-Please reply with:
+Please reply with the number of your choice (e.g., 1, 2, 3, or 4):
 
-*View Tasks*
+1. *View Tasks*
 
-*Edit Profile*
+2. *Edit Profile*
 
-*Delete Account*
+3. *Delete Account*
 
-*Billing & Payment History*  
+4. *Billing & Payment History*  
 `,
   },
 };
