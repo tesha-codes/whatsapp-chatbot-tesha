@@ -80,6 +80,116 @@ class Client {
     return true;
   }
 
+  async setupClientProfile() {
+    const { res, steps, lActivity, phone, message } = this;
+    if (message.toLowerCase() === "create account") {
+      await setSession(phone, {
+        step: steps.COLLECT_USER_FULL_NAME,
+        message,
+        lActivity,
+      });
+      return res.status(StatusCodes.OK).send(this.messages.GET_FULL_NAME);
+    } else {
+      await setSession(phone, {
+        step: steps.DEFAULT_CLIENT_STATE,
+        message,
+        lActivity,
+      });
+      return res
+        .status(StatusCodes.OK)
+        .send(
+          "❌ You have cancelled creating profile. You need to have a profile to be able to request services. "
+        );
+    }
+  }
+
+  async collectFullName() {
+    const { res, steps, lActivity, phone, message } = this;
+    if (message.length < 5) {
+      return res
+        .status(StatusCodes.OK)
+        .send(
+          "❌ Name and surname provided is too short. Please re-enter your full name, name(s) first and then surname second."
+        );
+    }
+    const userNames = message.split(" ");
+    const lastName = userNames[userNames.length - 1];
+    const firstName = message.replace(lastName, " ").trim();
+
+    await updateUser({ phone, firstName, lastName });
+    await setSession(phone, {
+      step: steps.COLLECT_USER_ID,
+      message,
+      lActivity,
+    });
+    return res.status(StatusCodes.OK).send(this.messages.GET_NATIONAL_ID);
+  }
+
+  async collectNationalId() {
+    const { res, steps, lActivity, phone, message } = this;
+    const pattern = /^(\d{2})-(\d{7})-([A-Z])-(\d{2})$/;
+    if (!pattern.test(message)) {
+      return res
+        .status(StatusCodes.OK)
+        .send(
+          "❌ Invalid National Id format, please provide id in the format specified in the example."
+        );
+    }
+
+    await updateUser({ phone, nationalId: message });
+    await setSession(phone, {
+      step: steps.COLLECT_USER_ADDRESS,
+      message,
+      lActivity,
+    });
+    return res.status(StatusCodes.OK).send(this.messages.GET_ADDRESS);
+  }
+
+  async collectAddress() {
+    const { res, steps, lActivity, phone, message } = this;
+    await updateUser({
+      phone,
+      address: {
+        physicalAddress: message,
+      },
+    });
+    await setSession(phone, {
+      step: steps.COLLECT_USER_LOCATION,
+      message,
+      lActivity,
+    });
+    return res.status(StatusCodes.OK).send(this.messages.GET_LOCATION);
+  }
+
+  async collectLocation() {
+    const { res, steps, lActivity, phone, message } = this;
+    await updateUser({
+      phone,
+      address: {
+        coordinates: (message instanceof Object) ? message : { longitude: '', latitude: '' },
+      },
+    });
+
+    const confirmation = `
+*Profile Setup Confirmation*
+
+✅ Thank you! Your profile has been successfully set up.
+You're all set! If you need any further assistance, feel free to reach out. 😊
+`;
+
+    setImmediate(async () => {
+      const user = await getUser(phone);
+      await clientMainMenuTemplate(phone, user.firstName);
+      await setSession(phone, {
+        step: steps.SELECT_SERVICE_CATEGORY,
+        message,
+        lActivity,
+      });
+    });
+
+    return res.status(StatusCodes.OK).send(confirmation);
+  }
+
   async handleInitialState() {
     try {
       const { res, session, steps, lActivity, phone, message, user } = this;
