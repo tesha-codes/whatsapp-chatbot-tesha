@@ -107,7 +107,6 @@ class Client {
   handleError(error) {
     console.error('Error in Client class:', error);
 
-    // If we have a response object, send an error response
     if (this.res && typeof this.res.status === 'function') {
       const errorMessage = error.message || 'An unexpected error occurred';
       return this.res.status(StatusCodes.INTERNAL_SERVER_ERROR).send(
@@ -115,11 +114,9 @@ class Client {
       );
     }
 
-    // Re-throw the error if we can't handle it
     throw error;
   }
 
-  // Add missing selectServiceCategory method
   async selectServiceCategory() {
     try {
       const { res, steps, lActivity, message } = this;
@@ -152,7 +149,6 @@ Reply with the category number to continue.
     }
   }
 
-  // Add missing handleNewLocation method
   async handleNewLocation() {
     try {
       const { res, steps, lActivity, message, session } = this;
@@ -167,7 +163,6 @@ Reply with the category number to continue.
         longitude: message.longitude
       };
 
-      // Validate new location
       this.validateLocation(newLocation);
 
       await updateUser({
@@ -281,10 +276,30 @@ Please confirm if you want to proceed with the service request:
 
   async collectLocation() {
     const { res, steps, lActivity, phone, message } = this;
+    let locationData;
+    try {
+      locationData = typeof message === 'string' ? JSON.parse(message) : message;
+    } catch (e) {
+      return res.status(StatusCodes.BAD_REQUEST).send(
+        "❌ Please share your location using WhatsApp's location sharing feature."
+      );
+    }
+
+    if (!locationData?.latitude || !locationData?.longitude) {
+      return res.status(StatusCodes.BAD_REQUEST).send(
+        "❌ Please share your location using WhatsApp's location sharing feature."
+      );
+    }
+
+    const coordinates = {
+      type: "Point",
+      coordinates: [locationData.longitude, locationData.latitude]
+    };
+
     await updateUser({
       phone,
       address: {
-        coordinates: (message instanceof Object) ? message : { longitude: '', latitude: '' },
+        coordinates
       },
     });
 
@@ -508,9 +523,6 @@ Note: If providing a new location, please share your current location using What
             latitude: message.latitude,
             longitude: message.longitude
           };
-
-          // Validate new location
-          this.validateLocation(newLocation);
 
           if (user.address && user.address.coordinates) {
             if (!user.locationHistory) {
