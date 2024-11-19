@@ -274,51 +274,67 @@ Please confirm if you want to proceed with the service request:
   async collectLocation() {
     const { res, steps, lActivity, phone, message } = this;
     let locationData;
+
     try {
-      locationData = typeof message === 'string' ? JSON.parse(message) : message;
-    } catch (e) {
-      return res.status(StatusCodes.BAD_REQUEST).send(
-        "❌ Please share your location using WhatsApp's location sharing feature."
-      );
-    }
+      // Handle WhatsApp location message
+      // WhatsApp location messages typically come with a specific structure
+      if (message.type === 'location') {
+        locationData = message;
+      } else {
+        try {
+          locationData = typeof message === 'string' ? JSON.parse(message) : message;
+        } catch (e) {
+          return res.status(StatusCodes.BAD_REQUEST).send(
+            "❌ Please share your location using WhatsApp's location sharing feature."
+          );
+        }
+      }
 
-    if (!locationData?.latitude || !locationData?.longitude) {
-      return res.status(StatusCodes.BAD_REQUEST).send(
-        "❌ Please share your location using WhatsApp's location sharing feature."
-      );
-    }
+      if (!locationData?.latitude || !locationData?.longitude) {
+        return res.status(StatusCodes.BAD_REQUEST).send(
+          "❌ Please share your location using WhatsApp's location sharing feature."
+        );
+      }
 
-    const coordinates = {
-      type: "Point",
-      coordinates: [locationData.longitude, locationData.latitude]
-    };
+      const coordinates = {
+        type: "Point",
+        coordinates: [locationData.longitude, locationData.latitude]
+      };
 
-    await updateUser({
-      phone,
-      address: {
-        coordinates
-      },
-    });
+      // Update user with location
+      await updateUser({
+        phone,
+        address: {
+          coordinates: locationData, // Store original location data
+          physicalAddress: message.address || ''
+        }
+      });
 
-    const confirmation = `
+      const confirmation = `
 *Profile Setup Confirmation*
 
 ✅ Thank you! Your profile has been successfully set up.
 You're all set! If you need any further assistance, feel free to reach out. 😊
 `;
 
-    setImmediate(async () => {
-      const user = await getUser(phone);
-      await clientMainMenuTemplate(phone, user.firstName);
-      await setSession(phone, {
-        step: steps.SELECT_SERVICE_CATEGORY,
-        message,
-        lActivity,
-      });
-    });
+      // Use Promise.all for concurrent operations
+      await Promise.all([
+        clientMainMenuTemplate(phone, (await getUser(phone)).firstName),
+        setSession(phone, {
+          step: steps.SELECT_SERVICE_CATEGORY,
+          message,
+          lActivity,
+        })
+      ]);
 
-    return res.status(StatusCodes.OK).send(confirmation);
+      return res.status(StatusCodes.OK).send(confirmation);
+
+    } catch (error) {
+      console.error('Error in collectLocation:', error);
+      return this.handleError(error);
+    }
   }
+
 
   async handleInitialState() {
     try {
