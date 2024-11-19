@@ -27,6 +27,21 @@ class Client {
     this.messages = messages;
     this.lActivity = formatDateTime();
     this.setupCommonVariables();
+
+    this.handleError = this.handleError.bind(this);
+    this.setupClientProfile = this.setupClientProfile.bind(this);
+    this.collectFullName = this.collectFullName.bind(this);
+    this.collectNationalId = this.collectNationalId.bind(this);
+    this.collectAddress = this.collectAddress.bind(this);
+    this.collectLocation = this.collectLocation.bind(this);
+    this.selectServiceCategory = this.selectServiceCategory.bind(this);
+    this.selectService = this.selectService.bind(this);
+    this.confirmAddressAndLocation = this.confirmAddressAndLocation.bind(this);
+    this.confirmedLocationAddress = this.confirmedLocationAddress.bind(this);
+    this.handleNewLocation = this.handleNewLocation.bind(this);
+    this.handleProviderAssignment = this.handleProviderAssignment.bind(this);
+    this.handleProviderConfirmation = this.handleProviderConfirmation.bind(this);
+    this.handleDefaultState = this.handleDefaultState.bind(this);
   }
 
   validateConstructorParams(res, userResponse) {
@@ -78,6 +93,98 @@ class Client {
       throw new ValidationError('Invalid location coordinates');
     }
     return true;
+  }
+
+  handleError(error) {
+    console.error('Error in Client class:', error);
+
+    // If we have a response object, send an error response
+    if (this.res && typeof this.res.status === 'function') {
+      const errorMessage = error.message || 'An unexpected error occurred';
+      return this.res.status(StatusCodes.INTERNAL_SERVER_ERROR).send(
+        `❌ ${errorMessage}\n\nPlease try again or contact support if the problem persists.`
+      );
+    }
+
+    // Re-throw the error if we can't handle it
+    throw error;
+  }
+
+  // Add missing selectServiceCategory method
+  async selectServiceCategory() {
+    try {
+      const { res, steps, lActivity, message } = this;
+
+      const categories = await Category.find({}, { code: 1, name: 1 });
+      if (!categories.length) {
+        return res.status(StatusCodes.NOT_FOUND)
+          .send("No service categories found. Please try again later.");
+      }
+
+      const responseMessage = `
+*Available Service Categories*
+Please select a category:
+${categories.map(c => `${c.code}. *${c.name}*`).join('\n')}
+
+Reply with the category number to continue.
+      `;
+
+      await this.setSessionSafely({
+        step: steps.SELECT_SERVICE,
+        message,
+        lActivity
+      });
+
+      return res.status(StatusCodes.OK).send(responseMessage);
+    } catch (error) {
+      return this.handleError(error);
+    }
+  }
+
+  // Add missing handleNewLocation method
+  async handleNewLocation() {
+    try {
+      const { res, steps, lActivity, message, session } = this;
+
+      if (!message.type === 'location') {
+        return res.status(StatusCodes.BAD_REQUEST)
+          .send("Please share your current location using WhatsApp's location feature.");
+      }
+
+      const newLocation = {
+        latitude: message.latitude,
+        longitude: message.longitude
+      };
+
+      // Validate new location
+      this.validateLocation(newLocation);
+
+      await updateUser({
+        phone: this.phone,
+        address: {
+          coordinates: newLocation,
+          physicalAddress: message.address || ''
+        }
+      });
+
+      await this.setSessionSafely({
+        step: steps.CONFIRMED_LOC_ADDRESS,
+        message,
+        lActivity,
+        categoryId: session.categoryId,
+        serviceCode: session.serviceCode
+      });
+
+      return res.status(StatusCodes.OK).send(`
+✅ Location updated successfully!
+
+Please confirm if you want to proceed with the service request:
+1. *YES* - to continue
+2. *NO* - to update location again
+      `);
+    } catch (error) {
+      return this.handleError(error);
+    }
   }
 
   async setupClientProfile() {
