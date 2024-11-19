@@ -91,19 +91,6 @@ class Client {
     }
   }
 
-  validateLocation(location) {
-    if (!location ||
-      typeof location.latitude !== 'number' ||
-      typeof location.longitude !== 'number' ||
-      location.latitude < -90 ||
-      location.latitude > 90 ||
-      location.longitude < -180 ||
-      location.longitude > 180) {
-      throw new ValidationError('Invalid location coordinates');
-    }
-    return true;
-  }
-
   handleError(error) {
     console.error('Error in Client class:', error);
 
@@ -158,17 +145,28 @@ Reply with the category number to continue.
           .send("Please share your current location using WhatsApp's location feature.");
       }
 
-      const newLocation = {
-        latitude: message.latitude,
-        longitude: message.longitude
-      };
+      let locationData;
 
-      this.validateLocation(newLocation);
+      try {
+        locationData = typeof message === 'string' ? JSON.parse(message) : message;
+      } catch (e) {
+        return res.status(StatusCodes.BAD_REQUEST).send(
+          "❌ Please share your location using WhatsApp's location sharing feature."
+        );
+      }
+
+      // Check if location data has required properties
+      if (!locationData?.latitude || !locationData?.longitude) {
+        return res.status(StatusCodes.BAD_REQUEST).send(
+          "❌ Please share your location using WhatsApp's location sharing feature."
+        );
+      }
+
 
       await updateUser({
         phone: this.phone,
         address: {
-          coordinates: newLocation,
+          coordinates: locationData,
           physicalAddress: message.address || ''
         }
       });
@@ -519,10 +517,22 @@ Note: If providing a new location, please share your current location using What
 
         // Handle location update if new location provided
         if (message.type === 'location') {
-          const newLocation = {
-            latitude: message.latitude,
-            longitude: message.longitude
-          };
+
+          let locationData;
+          try {
+            locationData = typeof message === 'string' ? JSON.parse(message) : message;
+          } catch (e) {
+            return res.status(StatusCodes.BAD_REQUEST).send(
+              "❌ Please share your location using WhatsApp's location sharing feature."
+            );
+          }
+
+          // Check if location data has required properties
+          if (!locationData?.latitude || !locationData?.longitude) {
+            return res.status(StatusCodes.BAD_REQUEST).send(
+              "❌ Please share your location using WhatsApp's location sharing feature."
+            );
+          }
 
           if (user.address && user.address.coordinates) {
             if (!user.locationHistory) {
@@ -541,7 +551,7 @@ Note: If providing a new location, please share your current location using What
           }
 
           user.address = {
-            coordinates: newLocation,
+            coordinates: locationData,
             physicalAddress: message.address || user.address.physicalAddress
           };
 
