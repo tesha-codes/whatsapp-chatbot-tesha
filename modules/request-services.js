@@ -155,7 +155,6 @@ Reply with the category number to continue.
         );
       }
 
-      // Check if location data has required properties
       if (!locationData?.latitude || !locationData?.longitude) {
         return res.status(StatusCodes.BAD_REQUEST).send(
           "❌ Please share your location using WhatsApp's location sharing feature."
@@ -505,126 +504,206 @@ Note: If providing a new location, please share your current location using What
     }
   }
 
+//   async confirmedLocationAddress() {
+//     try {
+//       const { res, steps, lActivity, phone, message, session } = this;
+
+//       if (message.toLowerCase() === 'yes' || (message.type === 'location')) {
+//         let user = await User.findOne({ phone });
+//         if (!user) {
+//           throw new ValidationError('User not found');
+//         }
+
+//         // Handle location update if new location provided
+//         if (message.type === 'location') {
+
+//           let locationData;
+//           try {
+//             locationData = typeof message === 'string' ? JSON.parse(message) : message;
+//           } catch (e) {
+//             return res.status(StatusCodes.BAD_REQUEST).send(
+//               "❌ Please share your location using WhatsApp's location sharing feature."
+//             );
+//           }
+
+//           // Check if location data has required properties
+//           if (!locationData?.latitude || !locationData?.longitude) {
+//             return res.status(StatusCodes.BAD_REQUEST).send(
+//               "❌ Please share your location using WhatsApp's location sharing feature."
+//             );
+//           }
+
+//           if (user.address && user.address.coordinates) {
+//             if (!user.locationHistory) {
+//               user.locationHistory = [];
+//             }
+
+//             if (user.locationHistory.length >= CONSTANTS.MAX_LOCATION_HISTORY) {
+//               user.locationHistory.shift();
+//             }
+
+//             user.locationHistory.push({
+//               coordinates: user.address.coordinates,
+//               physicalAddress: user.address.physicalAddress,
+//               timestamp: new Date()
+//             });
+//           }
+
+//           user.address = {
+//             coordinates: locationData,
+//             physicalAddress: message.address || user.address.physicalAddress
+//           };
+
+//           user = await user.save();
+//         }
+
+//         const service = await Service.findOne({
+//           code: session.serviceCode,
+//           category: session.categoryId
+//         });
+
+//         if (!service) {
+//           return res.status(StatusCodes.NOT_FOUND)
+//             .send("❌ Service not found. Please try again.");
+//         }
+
+//         const reqID = "REQ" + crypto.randomBytes(3).toString("hex").toUpperCase();
+
+//         const request = await ServiceRequest.create({
+//           _id: new mongoose.Types.ObjectId(),
+//           city: user.address.city || "Unknown",
+//           requester: user._id,
+//           service: service._id,
+//           address: user.address,
+//           status: "PENDING",
+//           notes: "Awaiting service provider",
+//           id: reqID,
+//           location: {
+//             type: "Point",
+//             coordinates: [
+//               parseFloat(user.address.coordinates.longitude),
+//               parseFloat(user.address.coordinates.latitude)
+//             ]
+//           },
+//           createdAt: new Date(),
+//           searchAttempts: 0,
+//           searchTimeout: new Date(Date.now() + CONSTANTS.PROVIDER_SEARCH_TIMEOUT)
+//         });
+
+//         // Queue provider search with retry tracking
+//         await queueProviderSearch({
+//           phone,
+//           serviceId: service._id.toString(),
+//           categoryId: session.categoryId,
+//           requestId: request._id.toString(),
+//           location: user.address.coordinates,
+//           attempt: 1,
+//           maxAttempts: CONSTANTS.MAX_PROVIDER_RETRIES
+//         });
+
+//         await this.setSessionSafely({
+//           step: steps.AWAITING_PROVIDER,
+//           message,
+//           lActivity,
+//           requestId: request._id.toString()
+//         });
+
+//         const responseMessage = `
+// 📃 Thank you for your request! 
+
+// Your service request has been created successfully.
+
+// 📝 Request ID: *${reqID}*
+// 📍 Location: *${request.address.physicalAddress}*
+// 🔧 Service: *${service.title}*
+
+// ⏳ We are now searching for available service providers in your area...
+// We will notify you as soon as we find a match!
+
+// _You can check the status of your request anytime by sending "status"._
+//         `;
+
+//         return res.status(StatusCodes.OK).send(responseMessage);
+//       }
+
+//       if (message.toLowerCase() === 'no') {
+//         await this.setSessionSafely({
+//           step: steps.WAITING_NEW_LOCATION,
+//           message,
+//           lActivity,
+//           categoryId: session.categoryId,
+//           serviceCode: session.serviceCode
+//         });
+
+//         return res.status(StatusCodes.OK)
+//           .send("Please share your current location using WhatsApp's location feature.");
+//       }
+
+//       return res.status(StatusCodes.BAD_REQUEST).send(`
+// Invalid response. Please reply with:
+// 1. *YES* - if the shown location is correct
+// 2. *NO* - if you want to provide a new location
+
+// Or share your new location using WhatsApp's location feature.
+//       `);
+//     } catch (error) {
+//       console.error('Error in confirmedLocationAddress:', error);
+//       return this.handleError(error);
+//     }
+//   }
+
   async confirmedLocationAddress() {
     try {
       const { res, steps, lActivity, phone, message, session } = this;
 
-      if (message.toLowerCase() === 'yes' || (message.type === 'location')) {
+      if (message.toLowerCase() === 'yes') {
+        return await this.proceedWithServiceRequest(session);
+      }
+
+      if (message.type === 'location') {
+        let locationData;
+        try {
+          locationData = typeof message === 'string' ? JSON.parse(message) : message;
+        } catch (e) {
+          return res.status(StatusCodes.BAD_REQUEST).send(
+            "❌ Please share your location using WhatsApp's location sharing feature."
+          );
+        }
+
+        if (!locationData?.latitude || !locationData?.longitude) {
+          return res.status(StatusCodes.BAD_REQUEST).send(
+            "❌ Invalid location data. Please share your location again."
+          );
+        }
+
         let user = await User.findOne({ phone });
         if (!user) {
           throw new ValidationError('User not found');
         }
 
-        // Handle location update if new location provided
-        if (message.type === 'location') {
-
-          let locationData;
-          try {
-            locationData = typeof message === 'string' ? JSON.parse(message) : message;
-          } catch (e) {
-            return res.status(StatusCodes.BAD_REQUEST).send(
-              "❌ Please share your location using WhatsApp's location sharing feature."
-            );
+        if (user.address && user.address.coordinates) {
+          if (!user.locationHistory) {
+            user.locationHistory = [];
           }
 
-          // Check if location data has required properties
-          if (!locationData?.latitude || !locationData?.longitude) {
-            return res.status(StatusCodes.BAD_REQUEST).send(
-              "❌ Please share your location using WhatsApp's location sharing feature."
-            );
+          if (user.locationHistory.length >= CONSTANTS.MAX_LOCATION_HISTORY) {
+            user.locationHistory.shift();
           }
 
-          if (user.address && user.address.coordinates) {
-            if (!user.locationHistory) {
-              user.locationHistory = [];
-            }
-
-            if (user.locationHistory.length >= CONSTANTS.MAX_LOCATION_HISTORY) {
-              user.locationHistory.shift();
-            }
-
-            user.locationHistory.push({
-              coordinates: user.address.coordinates,
-              physicalAddress: user.address.physicalAddress,
-              timestamp: new Date()
-            });
-          }
-
-          user.address = {
-            coordinates: locationData,
-            physicalAddress: message.address || user.address.physicalAddress
-          };
-
-          user = await user.save();
+          user.locationHistory.push({
+            coordinates: user.address.coordinates,
+            physicalAddress: user.address.physicalAddress,
+            timestamp: new Date()
+          });
         }
 
-        const service = await Service.findOne({
-          code: session.serviceCode,
-          category: session.categoryId
-        });
+        user.address = {
+          coordinates: locationData,
+          physicalAddress: message.address || user.address?.physicalAddress || ''
+        };
 
-        if (!service) {
-          return res.status(StatusCodes.NOT_FOUND)
-            .send("❌ Service not found. Please try again.");
-        }
-
-        const reqID = "REQ" + crypto.randomBytes(3).toString("hex").toUpperCase();
-
-        const request = await ServiceRequest.create({
-          _id: new mongoose.Types.ObjectId(),
-          city: user.address.city || "Unknown",
-          requester: user._id,
-          service: service._id,
-          address: user.address,
-          status: "PENDING",
-          notes: "Awaiting service provider",
-          id: reqID,
-          location: {
-            type: "Point",
-            coordinates: [
-              parseFloat(user.address.coordinates.longitude),
-              parseFloat(user.address.coordinates.latitude)
-            ]
-          },
-          createdAt: new Date(),
-          searchAttempts: 0,
-          searchTimeout: new Date(Date.now() + CONSTANTS.PROVIDER_SEARCH_TIMEOUT)
-        });
-
-        // Queue provider search with retry tracking
-        await queueProviderSearch({
-          phone,
-          serviceId: service._id.toString(),
-          categoryId: session.categoryId,
-          requestId: request._id.toString(),
-          location: user.address.coordinates,
-          attempt: 1,
-          maxAttempts: CONSTANTS.MAX_PROVIDER_RETRIES
-        });
-
-        await this.setSessionSafely({
-          step: steps.AWAITING_PROVIDER,
-          message,
-          lActivity,
-          requestId: request._id.toString()
-        });
-
-        const responseMessage = `
-📃 Thank you for your request! 
-
-Your service request has been created successfully.
-
-📝 Request ID: *${reqID}*
-📍 Location: *${request.address.physicalAddress}*
-🔧 Service: *${service.title}*
-
-⏳ We are now searching for available service providers in your area...
-We will notify you as soon as we find a match!
-
-_You can check the status of your request anytime by sending "status"._
-        `;
-
-        return res.status(StatusCodes.OK).send(responseMessage);
+        await user.save();
+        return await this.proceedWithServiceRequest(session);
       }
 
       if (message.toLowerCase() === 'no') {
@@ -647,10 +726,79 @@ Invalid response. Please reply with:
 
 Or share your new location using WhatsApp's location feature.
       `);
+
     } catch (error) {
       console.error('Error in confirmedLocationAddress:', error);
       return this.handleError(error);
     }
+  }
+
+  async proceedWithServiceRequest(session) {
+    const service = await Service.findOne({
+      code: session.serviceCode,
+      category: session.categoryId
+    });
+
+    if (!service) {
+      return res.status(StatusCodes.NOT_FOUND)
+        .send("❌ Service not found. Please try again.");
+    }
+
+    const user = await User.findOne({ phone });
+    const reqID = "REQ" + crypto.randomBytes(3).toString("hex").toUpperCase();
+
+    const request = await ServiceRequest.create({
+      _id: new mongoose.Types.ObjectId(),
+      city: user.address.city || "Unknown",
+      requester: user._id,
+      service: service._id,
+      address: user.address,
+      status: "PENDING",
+      notes: "Awaiting service provider",
+      id: reqID,
+      location: {
+        type: "Point",
+        coordinates: [
+          parseFloat(user.address.coordinates.longitude),
+          parseFloat(user.address.coordinates.latitude)
+        ]
+      },
+      createdAt: new Date(),
+      searchAttempts: 0,
+      searchTimeout: new Date(Date.now() + CONSTANTS.PROVIDER_SEARCH_TIMEOUT)
+    });
+
+    await queueProviderSearch({
+      phone,
+      serviceId: service._id.toString(),
+      categoryId: session.categoryId,
+      requestId: request._id.toString(),
+      location: user.address.coordinates,
+      attempt: 1,
+      maxAttempts: CONSTANTS.MAX_PROVIDER_RETRIES
+    });
+
+    await this.setSessionSafely({
+      step: steps.AWAITING_PROVIDER,
+      message,
+      lActivity,
+      requestId: request._id.toString()
+    });
+
+    return res.status(StatusCodes.OK).send(`
+📃 Thank you for your request! 
+
+Your service request has been created successfully.
+
+📝 Request ID: *${reqID}*
+📍 Location: *${request.address.physicalAddress}*
+🔧 Service: *${service.title}*
+
+⏳ We are now searching for available service providers in your area...
+We will notify you as soon as we find a match!
+
+_You can check the status of your request anytime by sending "status"._
+    `);
   }
 
   async handleProviderAssignment() {
