@@ -16,6 +16,14 @@ const crypto = require("node:crypto");
 const { queueProviderSearch } = require("../jobs/service-provider.job");
 const CONSTANTS = require('../constants/index')
 
+
+class ValidationError extends Error {
+  constructor(message) {
+    super(message);
+    this.name = 'ValidationError';
+  }
+}
+
 class Client {
   constructor(res, userResponse, session, user, steps, messages) {
     this.validateConstructorParams(res, userResponse);
