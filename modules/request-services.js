@@ -14,6 +14,7 @@ const ServiceRequest = require("../models/request.model");
 const User = require("../models/user.model");
 const crypto = require("node:crypto");
 const { queueProviderSearch } = require("../jobs/service-provider.job");
+const CONSTANTS = require('../constants/index')
 
 class Client {
   constructor(res, userResponse, session, user, steps, messages) {
@@ -506,7 +507,7 @@ Note: If providing a new location, please share your current location using What
             }
 
             if (user.locationHistory.length >= CONSTANTS.MAX_LOCATION_HISTORY) {
-              user.locationHistory.shift(); 
+              user.locationHistory.shift();
             }
 
             user.locationHistory.push({
