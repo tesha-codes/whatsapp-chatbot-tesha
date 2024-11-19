@@ -104,6 +104,7 @@ class Client {
     throw error;
   }
 
+ 
   async selectServiceCategory() {
     try {
       const { res, steps, lActivity, message } = this;
@@ -120,8 +121,7 @@ class Client {
 Please select a category:
 ${categories.map(c => `${c.code}. *${c.name}*`).join('\n')}
 
-Reply with the category number to continue.
-      `;
+Reply with the category number to continue.`;
 
         await this.setSessionSafely({
           step: steps.SELECT_SERVICE,
@@ -364,11 +364,14 @@ You're all set! If you need any further assistance, feel free to reach out. 😊
 
   async mainEntry() {
     try {
+      // First handle initial state (registration flow)
       const initialStateResult = await this.handleInitialState();
       if (initialStateResult) return initialStateResult;
 
+      // Then handle service request flow based on session state
       const { session, steps } = this;
 
+      // Define state handlers map
       const stateHandlers = {
         [steps.SELECT_SERVICE_CATEGORY]: this.selectServiceCategory.bind(this),
         [steps.SELECT_SERVICE]: this.selectService.bind(this),
@@ -376,19 +379,20 @@ You're all set! If you need any further assistance, feel free to reach out. 😊
         [steps.CONFIRMED_LOC_ADDRESS]: this.confirmedLocationAddress.bind(this),
         [steps.WAITING_NEW_LOCATION]: this.handleNewLocation.bind(this),
         [steps.AWAITING_PROVIDER]: this.handleProviderAssignment.bind(this),
-        [steps.PROVIDER_CONFIRMATION]: this.handleProviderConfirmation.bind(this),
+        [steps.PROVIDER_CONFIRMATION]: this.handleProviderConfirmation.bind(this)
       };
 
+      // Execute appropriate handler or fall back to default
       if (stateHandlers[session.step]) {
-        await stateHandlers[session.step]();
-      } else {
-        await this.handleDefaultState();
+        return await stateHandlers[session.step]();
       }
+
+      return await this.handleDefaultState();
     } catch (error) {
-      console.error('Error in mainEntry:', error);
       return this.handleError(error);
     }
   }
+
 
   async showMainMenu() {
     try {
@@ -802,20 +806,22 @@ _You can check the status of your request anytime by sending "status"._
   }
 
   async handleProviderAssignment() {
-    const { res, steps, lActivity, phone, message, session } = this;
+    try {
+      const { res, steps, lActivity, phone, message, session } = this;
 
-    const request = await ServiceRequest.findById(session.requestId)
-      .populate('service')
-      .populate('provider');
+      const request = await ServiceRequest.findById(session.requestId)
+        .populate('service')
+        .populate('provider');
 
-    if (!request) {
-      return res.status(StatusCodes.OK)
-        .send("❌ Request not found. Please start a new service request.");
-    }
+      if (!request) {
+        return res.status(StatusCodes.NOT_FOUND)
+          .send("❌ Request not found. Please start a new service request.");
+      }
 
-    switch (request.status) {
-      case 'PROVIDER_FOUND':
-        const responseMessage = `
+      // Handle different request states
+      switch (request.status) {
+        case 'PROVIDER_FOUND':
+          const responseMessage = `
 🎉 Great news! We found a service provider for your request!
 
 👤 Provider: *${request.provider.firstName} ${request.provider.lastName}*
@@ -824,40 +830,40 @@ _You can check the status of your request anytime by sending "status"._
 
 Reply:
 1. *ACCEPT* - to confirm this provider
-2. *REJECT* - to search for another provider
-        `;
+2. *REJECT* - to search for another provider`;
 
-        await setSession(phone, {
-          step: steps.PROVIDER_CONFIRMATION,
-          message,
-          lActivity,
-          requestId: request._id.toString()
-        });
+          await this.setSessionSafely({
+            step: steps.PROVIDER_CONFIRMATION,
+            message,
+            lActivity,
+            requestId: request._id.toString()
+          });
 
-        return res.status(StatusCodes.OK).send(responseMessage);
+          return res.status(StatusCodes.OK).send(responseMessage);
 
-      case 'NO_PROVIDER_FOUND':
-        await setSession(phone, {
-          step: steps.DEFAULT_CLIENT_STATE,
-          message,
-          lActivity
-        });
+        case 'NO_PROVIDER_FOUND':
+          await this.setSessionSafely({
+            step: steps.DEFAULT_CLIENT_STATE,
+            message,
+            lActivity
+          });
 
-        return res.status(StatusCodes.OK).send(`
+          return res.status(StatusCodes.OK).send(`
 ❌ We're sorry, but we couldn't find any available service providers in your area at this time.
 
 Would you like to:
 1. Try again later
-2. Choose a different service
-        `);
+2. Choose a different service`);
 
-      case 'PENDING':
-      default:
-        return res.status(StatusCodes.OK).send(`
+        case 'PENDING':
+        default:
+          return res.status(StatusCodes.OK).send(`
 ⏳ We're still searching for a service provider...
 
-We'll notify you as soon as we find someone available!
-        `);
+We'll notify you as soon as we find someone available!`);
+      }
+    } catch (error) {
+      return this.handleError(error);
     }
   }
 
