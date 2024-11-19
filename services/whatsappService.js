@@ -245,7 +245,6 @@ const serviceProviderMainMenuTemplate = async (userMobileNumber, name) => {
     "serviceProviderMainMenu",
     userMobileNumber
   );
-  //  no template, send a regular message
   if (!templateId) {
     return sendTextMessage(
       userMobileNumber,

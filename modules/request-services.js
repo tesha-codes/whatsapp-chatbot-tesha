@@ -116,13 +116,14 @@ class Client {
     try {
       const { res, steps, lActivity, message } = this;
 
-      const categories = await Category.find({}, { code: 1, name: 1 });
-      if (!categories.length) {
-        return res.status(StatusCodes.NOT_FOUND)
-          .send("No service categories found. Please try again later.");
-      }
+      if (message.toLowerCase() === "request service") {
+        const categories = await Category.find({}, { code: 1, name: 1 });
+        if (!categories.length) {
+          return res.status(StatusCodes.NOT_FOUND)
+            .send("No service categories found. Please try again later.");
+        }
 
-      const responseMessage = `
+        const responseMessage = `
 *Available Service Categories*
 Please select a category:
 ${categories.map(c => `${c.code}. *${c.name}*`).join('\n')}
@@ -130,13 +131,14 @@ ${categories.map(c => `${c.code}. *${c.name}*`).join('\n')}
 Reply with the category number to continue.
       `;
 
-      await this.setSessionSafely({
-        step: steps.SELECT_SERVICE,
-        message,
-        lActivity
-      });
+        await this.setSessionSafely({
+          step: steps.SELECT_SERVICE,
+          message,
+          lActivity
+        });
 
-      return res.status(StatusCodes.OK).send(responseMessage);
+        return res.status(StatusCodes.OK).send(responseMessage);
+      }
     } catch (error) {
       return this.handleError(error);
     }
@@ -389,7 +391,7 @@ You're all set! If you need any further assistance, feel free to reach out. 😊
 
   async selectService() {
     try {
-      const { res, steps, lActivity, phone, message } = this;
+      const { res, steps, lActivity, phone, message, session } = this;
 
       // Validate message is a number
       const categoryCode = parseInt(message);
@@ -408,7 +410,9 @@ You're all set! If you need any further assistance, feel free to reach out. 😊
           .send("Invalid category code. Please select a valid category.");
       }
 
-      const services = await Service.find({ category: category._id });
+      let queryId = new mongoose.Types.ObjectId(category._id);
+      const services = await Service.find({ category: queryId });
+
       if (!services.length) {
         return res.status(StatusCodes.NOT_FOUND)
           .send("No services found in this category. Please try another category.");
@@ -418,23 +422,21 @@ You're all set! If you need any further assistance, feel free to reach out. 😊
 *${category.name}* 
 Please select a service from the list below:
 ${services
-          .map((s, index) => `${index + 1}. *${s.title}*\n${s.description}`)
+          .map((s, index) => `${s.code}. *${s.title}*\n${s.description}`)
           .join("\n\n")}
 
-Reply with the number of the service you'd like to hire.
-      `;
+Reply with the service code you'd like to hire.
+    `;
 
       await this.setSessionSafely({
         step: steps.CONFIRM_ADDRESS_AND_LOCATION,
         message,
         lActivity,
-        categoryId: category._id.toString(),
-        serviceCode: message
+        categoryId: category._id.toString()
       });
 
       return res.status(StatusCodes.OK).send(responseMessage);
     } catch (error) {
-      console.error('Error in selectService:', error);
       return this.handleError(error);
     }
   }
@@ -442,8 +444,13 @@ Reply with the number of the service you'd like to hire.
   async confirmAddressAndLocation() {
     try {
       const { res, steps, lActivity, phone, message, session } = this;
-      const user = await User.findOne({ phone });
+      const serviceCode = parseInt(message);
+      if (isNaN(serviceCode)) {
+        return res.status(StatusCodes.BAD_REQUEST)
+          .send("Please provide a valid service code.");
+      }
 
+      const user = await User.findOne({ phone });
       if (!user || !user.address || !user.address.coordinates) {
         return res.status(StatusCodes.BAD_REQUEST)
           .send("Please update your location first.");
@@ -467,11 +474,7 @@ Note: If providing a new location, please share your current location using What
         message,
         lActivity,
         categoryId: session.categoryId,
-        serviceCode: session.serviceCode,
-        previousLocation: {
-          coordinates: user.address.coordinates,
-          physicalAddress: user.address.physicalAddress
-        }
+        serviceCode: serviceCode 
       });
 
       return res.status(StatusCodes.OK).send(customMessage);
