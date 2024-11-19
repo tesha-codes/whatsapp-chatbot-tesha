@@ -60,6 +60,14 @@ const UserSchema = new mongoose.Schema(
       type: String,
       default: "",
     },
+    locationHistory: [{
+      coordinates: {
+        latitude: String,
+        longitude: String
+      },
+      physicalAddress: String,
+      timestamp: Date
+    }]
   },
   { timestamps: true }
 );
