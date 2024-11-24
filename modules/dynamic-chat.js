@@ -23,7 +23,6 @@ class Client {
         this.messages = messages;
         this.lActivity = formatDateTime();
         this.setupCommonVariables();
-
         this.handleError = this.handleError.bind(this);
         this.setupClientProfile = this.setupClientProfile.bind(this);
         this.collectFullName = this.collectFullName.bind(this);
@@ -32,12 +31,16 @@ class Client {
         this.collectLocation = this.collectLocation.bind(this);
     }
 
-    // This is the main entry point for the class
     async mainEntry() {
         try {
             // Handle registration flow through handleInitialState
             const initialStateResult = await this.handleInitialState();
-            if (initialStateResult) return initialStateResult;
+
+            // Only proceed to default state if initialStateResult is explicitly null
+            // This fixes the issue of registration messages being skipped
+            if (initialStateResult !== null) {
+                return initialStateResult;
+            }
 
             // If we get here, user is already registered
             return await this.handleDefaultState();
@@ -96,8 +99,9 @@ class Client {
             // Check if user exists first
             const user = await getUser(phone);
 
-            // If no user exists, start registration flow
-            if (!user) {
+            // If no user exists OR we're in the registration flow, handle registration
+            if (!user || (session && session.step !== steps.DEFAULT_CLIENT_STATE)) {
+                // If no session or in default state, show initial message
                 if (!session || session.step === steps.DEFAULT_CLIENT_STATE) {
                     return res.status(StatusCodes.OK).send(`
 Welcome to our service! 👋
@@ -105,7 +109,7 @@ To get started, you'll need to create an account.
 
 Reply with:
 *CREATE ACCOUNT* - to set up your profile
-          `);
+                    `);
                 }
 
                 // Handle registration flow states
@@ -122,15 +126,19 @@ Reply with:
                 }
             }
 
+            // Only return null if the user exists AND we're not in a registration step
             return null;
         } catch (error) {
             return this.handleError(error);
         }
     }
 
+
     async setupClientProfile() {
         const { res, steps, lActivity, phone, message } = this;
-        if (message.toLowerCase() === "create account") {
+
+        // Make the check case-insensitive and trim whitespace
+        if (message.trim().toLowerCase() === "create account") {
             await setSession(phone, {
                 step: steps.COLLECT_USER_FULL_NAME,
                 message,
