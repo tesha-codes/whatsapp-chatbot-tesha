@@ -218,115 +218,72 @@ Reply with:
     }
 
     async collectLocation() {
-        const { res, steps, lActivity, phone, message, userResponse } = this;
+        const { res, steps, lActivity, phone, message } = this;
+        let locationData;
 
         try {
-            // Handle different types of location data
-            let locationData = null;
-
-            // Case 1: Direct WhatsApp location message
-            if (userResponse?.payload?.location) {
-                locationData = userResponse.payload.location;
-            }
-            // Case 2: JSON string location data
-            else if (typeof message === 'string') {
+            // Handle different types of location input
+            if (message.type === 'location') {
+                // Direct WhatsApp location message
+                locationData = {
+                    latitude: message.latitude,
+                    longitude: message.longitude
+                };
+            } else {
                 try {
-                    const parsedMessage = JSON.parse(message);
-                    if (parsedMessage?.latitude && parsedMessage?.longitude) {
-                        locationData = parsedMessage;
-                    }
+                    // Try to parse if it's a string
+                    locationData = typeof message === 'string' ? JSON.parse(message) : message;
                 } catch (e) {
                     return res.status(StatusCodes.BAD_REQUEST).send(
-                        "❌ Invalid location format. Please share your location using WhatsApp's location sharing feature.\n\n" +
-                        "To share your location:\n" +
-                        "1. Click the '+' or attachment icon\n" +
-                        "2. Select 'Location'\n" +
-                        "3. Choose 'Send your current location'"
+                        "❌ Please share your location using WhatsApp's location sharing feature."
                     );
                 }
             }
-            
-            else if (message?.latitude && message?.longitude) {
-                locationData = message;
-            }
 
-            if (!locationData || !locationData.latitude || !locationData.longitude) {
+            // Validate location data
+            if (!locationData?.latitude || !locationData?.longitude) {
                 return res.status(StatusCodes.BAD_REQUEST).send(
-                    "❌ Please share your current location using WhatsApp's location sharing feature.\n\n" +
-                    "To share your location:\n" +
-                    "1. Click the '+' or attachment icon\n" +
-                    "2. Select 'Location'\n" +
-                    "3. Choose 'Send your current location'"
+                    "❌ Invalid location data. Please share your location using WhatsApp's location sharing feature."
                 );
             }
 
-            const coordinates = {
-                type: "Point",
-                coordinates: [locationData.longitude, locationData.latitude]
-            };
-
             try {
+                // Update user with location data
                 await updateUser({
                     phone,
                     address: {
-                        coordinates,
-                        physicalAddress: locationData.address || ''
+                        coordinates: {
+                            latitude: locationData.latitude,
+                            longitude: locationData.longitude
+                        },
+                        physicalAddress: message.address || ''
                     }
                 });
-            } catch (dbError) {
+
+                // Update session to completed state
+                await setSession(phone, {
+                    step: steps.DEFAULT_CLIENT_STATE,
+                    message,
+                    lActivity
+                });
+
+                // Send success response
+                return res.status(StatusCodes.OK).send(
+                    "✅ Location received and profile created successfully! You can now access our services."
+                );
+
+            } catch (updateError) {
+                console.error('Error updating user or session:', updateError);
                 return res.status(StatusCodes.INTERNAL_SERVER_ERROR).send(
-                    "❌ Unable to save your location. Please try again.\n\n" +
-                    "If the problem persists, please contact support."
+                    "❌ There was an error saving your location. Please try again."
                 );
             }
-
-            const updatedUser = await getUser(phone);
-            if (!updatedUser) {
-                return res.status(StatusCodes.INTERNAL_SERVER_ERROR).send(
-                    "❌ Unable to retrieve your profile information. Please try again.\n\n" +
-                    "If the problem persists, please contact support."
-                );
-            }
-
-            const confirmation = `
-*Profile Setup Confirmation* ✅
-
-Your profile has been successfully created with:
-• Name: ${updatedUser.firstName} ${updatedUser.lastName}
-• Location: Received successfully
-• Address: ${updatedUser.address?.physicalAddress || 'Not specified'}
-
-You're all set to start using our services! 🎉
-
-Loading main menu...`;
-
-            try {
-                await Promise.all([
-                    setSession(phone, {
-                        step: steps.SELECT_SERVICE_CATEGORY,
-                        message: 'Location received',
-                        lActivity,
-                    }),
-                    clientMainMenuTemplate(phone, updatedUser.firstName)
-                ]);
-            } catch (sessionError) {
-                return res.status(StatusCodes.INTERNAL_SERVER_ERROR).send(
-                    "❌ Your location was saved but we couldn't load the main menu.\n\n" +
-                    "Please try sending any message to continue."
-                );
-            }
-
-            return res.status(StatusCodes.OK).send(confirmation);
 
         } catch (error) {
-            return res.status(StatusCodes.INTERNAL_SERVER_ERROR).send(
-                "❌ Something went wrong while processing your location.\n\n" +
-                "Please try sharing your location again.\n" +
-                "If the problem persists, please contact support."
-            );
+            console.error('Error in collectLocation:', error);
+            return this.handleError(error);
         }
     }
-
 }
 
 module.exports = Client;
