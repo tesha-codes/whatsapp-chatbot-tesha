@@ -16,6 +16,7 @@ const ServiceProvider = require("./modules/provider");
 const RequestProvider = require('./models/serviceProvider.model')
 const Onboarding = require("./modules/onboarding");
 const Client = require("./modules/request-services");
+const DynamicClient = require('./modules/dynamic-chat')
 const { serviceProviderQueue } = require("./jobs/service-provider.job");
 const initializeTemplates = require("./services/initializeTemplates");
 const { onServiceRequestUpdate } = require("./controllers/request.controller");
@@ -166,16 +167,26 @@ app.post("/bot", async (req, res) => {
         if (session?.accountType) {
           // client
           if (session.accountType === "Client") {
-            console.log("Client session: ", session);
-            const client = new Client(
-              res,
+
+            // console.log("Client session: ", session);
+            // const client = new Client(
+            //   res,
+            //   userResponse,
+            //   session,
+            //   user,
+            //   steps,
+            //   messages
+            // );
+            // return await client.mainEntry();
+
+            const dynamicClient = new DynamicClient(res,
               userResponse,
               session,
               user,
               steps,
-              messages
-            );
-            return await client.mainEntry();
+              messages);
+
+              return await dynamicClient.mainEntry()
           } else {
             // service provider
             const provider = new ServiceProvider(

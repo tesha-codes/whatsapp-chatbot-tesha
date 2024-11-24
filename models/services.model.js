@@ -30,6 +30,16 @@ const ServiceReferenceSchema = new mongoose.Schema({
     }
 }, { timestamps: true });
 
-ServiceReferenceSchema.index({ title: 1, category: 1 }, { unique: true });
+ServiceReferenceSchema.index({
+    title: 'text',
+    description: 'text',
+    serviceType: 'text'
+}, {
+    weights: {
+        title: 5, 
+        description: 3,
+        serviceType: 1
+    }
+});
 
 module.exports = mongoose.model('Service', ServiceReferenceSchema);

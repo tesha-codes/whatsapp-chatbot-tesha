@@ -148,7 +148,6 @@ const clientMainMenuTemplate = async (userMobileNumber, name) => {
     "clientMainMenu",
     userMobileNumber
   );
-  //  no template, send a regular message
   if (!templateId) {
     return sendTextMessage(userMobileNumber, messages.CLIENT_MAIN_MENU);
   }

@@ -104,6 +104,58 @@ class Client {
     throw error;
   }
 
+  async handleInitialState() {
+    try {
+      const { res, session, steps, lActivity, phone, message } = this;
+
+      // Check if user exists first
+      const user = await getUser(phone);
+
+      // If no user exists, start registration flow
+      if (!user) {
+        if (!session || session.step === steps.DEFAULT_CLIENT_STATE) {
+          return res.status(StatusCodes.OK).send(`
+Welcome to our service! 👋
+To get started, you'll need to create an account.
+
+Reply with:
+*CREATE ACCOUNT* - to set up your profile
+          `);
+        }
+
+        // Handle registration flow states
+        const registrationHandlers = {
+          [steps.SETUP_CLIENT_PROFILE]: this.setupClientProfile,
+          [steps.COLLECT_USER_FULL_NAME]: this.collectFullName,
+          [steps.COLLECT_USER_ID]: this.collectNationalId,
+          [steps.COLLECT_USER_ADDRESS]: this.collectAddress,
+          [steps.COLLECT_USER_LOCATION]: this.collectLocation
+        };
+
+        if (registrationHandlers[session.step]) {
+          return await registrationHandlers[session.step].call(this);
+        }
+      }
+
+      // User exists, handle main menu and service flow
+      if (!session || session.step === steps.DEFAULT_CLIENT_STATE) {
+        await clientMainMenuTemplate(phone, user.firstName);
+        await this.setSessionSafely({
+          step: steps.SELECT_SERVICE_CATEGORY,
+          message,
+          lActivity,
+        });
+
+        return res.status(StatusCodes.OK)
+          .send(`Welcome back ${user.firstName}! 👋\nHow can I help you today?`);
+      }
+
+      return null; // Allow flow to continue to main service handling
+    } catch (error) {
+      console.error('Error in handleInitialState:', error);
+      return this.handleError(error);
+    }
+  }
  
   async selectServiceCategory() {
     try {
@@ -317,7 +369,6 @@ Please confirm if you want to proceed with the service request:
 You're all set! If you need any further assistance, feel free to reach out. 😊
 `;
 
-      // Use Promise.all for concurrent operations
       await Promise.all([
         clientMainMenuTemplate(phone, (await getUser(phone)).firstName),
         setSession(phone, {
@@ -380,27 +431,26 @@ You're all set! If you need any further assistance, feel free to reach out. 😊
 
   async mainEntry() {
     try {
-      // First handle initial state (registration flow)
+      const { session, steps } = this;
+
+      // First handle initial/registration state
       const initialStateResult = await this.handleInitialState();
       if (initialStateResult) return initialStateResult;
 
-      // Then handle service request flow based on session state
-      const { session, steps } = this;
-
-      // Define state handlers map
-      const stateHandlers = {
-        [steps.SELECT_SERVICE_CATEGORY]: this.selectServiceCategory.bind(this),
-        [steps.SELECT_SERVICE]: this.selectService.bind(this),
-        [steps.CONFIRM_ADDRESS_AND_LOCATION]: this.confirmAddressAndLocation.bind(this),
-        [steps.CONFIRMED_LOC_ADDRESS]: this.confirmedLocationAddress.bind(this),
-        [steps.WAITING_NEW_LOCATION]: this.handleNewLocation.bind(this),
-        [steps.AWAITING_PROVIDER]: this.handleProviderAssignment.bind(this),
-        [steps.PROVIDER_CONFIRMATION]: this.handleProviderConfirmation.bind(this)
+      // Then handle service request flow
+      const serviceHandlers = {
+        [steps.SELECT_SERVICE_CATEGORY]: this.selectServiceCategory,
+        [steps.SELECT_SERVICE]: this.selectService,
+        [steps.CONFIRM_ADDRESS_AND_LOCATION]: this.confirmAddressAndLocation,
+        [steps.CONFIRMED_LOC_ADDRESS]: this.confirmedLocationAddress,
+        [steps.WAITING_NEW_LOCATION]: this.handleNewLocation,
+        [steps.AWAITING_PROVIDER]: this.handleProviderAssignment,
+        [steps.PROVIDER_CONFIRMATION]: this.handleProviderConfirmation,
+        [steps.SELECT_MENU_ACTION]: this.handleMenuAction // Add this new method
       };
 
-      // Execute appropriate handler or fall back to default
-      if (stateHandlers[session.step]) {
-        return await stateHandlers[session.step]();
+      if (serviceHandlers[session.step]) {
+        return await serviceHandlers[session.step].call(this);
       }
 
       return await this.handleDefaultState();
@@ -409,6 +459,38 @@ You're all set! If you need any further assistance, feel free to reach out. 😊
     }
   }
 
+  async handleMenuAction() {
+    const { res, message, steps, lActivity } = this;
+
+    switch (message.toLowerCase()) {
+      case 'request service':
+        await this.setSessionSafely({
+          step: steps.SELECT_SERVICE_CATEGORY,
+          message,
+          lActivity
+        });
+        return await this.selectServiceCategory();
+
+      case 'update location':
+        await this.setSessionSafely({
+          step: steps.WAITING_NEW_LOCATION,
+          message,
+          lActivity
+        });
+        return res.status(StatusCodes.OK)
+          .send("Please share your current location using WhatsApp's location feature.");
+
+      case 'check status':
+        // Add status checking logic here
+        return res.status(StatusCodes.OK)
+          .send("You have no active service requests.");
+
+      default:
+        return await this.showMainMenu();
+    }
+  }
+
+  
 
   async showMainMenu() {
     try {
@@ -524,154 +606,6 @@ Note: If providing a new location, please share your current location using What
     }
   }
 
-//   async confirmedLocationAddress() {
-//     try {
-//       const { res, steps, lActivity, phone, message, session } = this;
-
-//       if (message.toLowerCase() === 'yes' || (message.type === 'location')) {
-//         let user = await User.findOne({ phone });
-//         if (!user) {
-//           throw new ValidationError('User not found');
-//         }
-
-//         // Handle location update if new location provided
-//         if (message.type === 'location') {
-
-//           let locationData;
-//           try {
-//             locationData = typeof message === 'string' ? JSON.parse(message) : message;
-//           } catch (e) {
-//             return res.status(StatusCodes.BAD_REQUEST).send(
-//               "❌ Please share your location using WhatsApp's location sharing feature."
-//             );
-//           }
-
-//           // Check if location data has required properties
-//           if (!locationData?.latitude || !locationData?.longitude) {
-//             return res.status(StatusCodes.BAD_REQUEST).send(
-//               "❌ Please share your location using WhatsApp's location sharing feature."
-//             );
-//           }
-
-//           if (user.address && user.address.coordinates) {
-//             if (!user.locationHistory) {
-//               user.locationHistory = [];
-//             }
-
-//             if (user.locationHistory.length >= CONSTANTS.MAX_LOCATION_HISTORY) {
-//               user.locationHistory.shift();
-//             }
-
-//             user.locationHistory.push({
-//               coordinates: user.address.coordinates,
-//               physicalAddress: user.address.physicalAddress,
-//               timestamp: new Date()
-//             });
-//           }
-
-//           user.address = {
-//             coordinates: locationData,
-//             physicalAddress: message.address || user.address.physicalAddress
-//           };
-
-//           user = await user.save();
-//         }
-
-//         const service = await Service.findOne({
-//           code: session.serviceCode,
-//           category: session.categoryId
-//         });
-
-//         if (!service) {
-//           return res.status(StatusCodes.NOT_FOUND)
-//             .send("❌ Service not found. Please try again.");
-//         }
-
-//         const reqID = "REQ" + crypto.randomBytes(3).toString("hex").toUpperCase();
-
-//         const request = await ServiceRequest.create({
-//           _id: new mongoose.Types.ObjectId(),
-//           city: user.address.city || "Unknown",
-//           requester: user._id,
-//           service: service._id,
-//           address: user.address,
-//           status: "PENDING",
-//           notes: "Awaiting service provider",
-//           id: reqID,
-//           location: {
-//             type: "Point",
-//             coordinates: [
-//               parseFloat(user.address.coordinates.longitude),
-//               parseFloat(user.address.coordinates.latitude)
-//             ]
-//           },
-//           createdAt: new Date(),
-//           searchAttempts: 0,
-//           searchTimeout: new Date(Date.now() + CONSTANTS.PROVIDER_SEARCH_TIMEOUT)
-//         });
-
-//         // Queue provider search with retry tracking
-//         await queueProviderSearch({
-//           phone,
-//           serviceId: service._id.toString(),
-//           categoryId: session.categoryId,
-//           requestId: request._id.toString(),
-//           location: user.address.coordinates,
-//           attempt: 1,
-//           maxAttempts: CONSTANTS.MAX_PROVIDER_RETRIES
-//         });
-
-//         await this.setSessionSafely({
-//           step: steps.AWAITING_PROVIDER,
-//           message,
-//           lActivity,
-//           requestId: request._id.toString()
-//         });
-
-//         const responseMessage = `
-// 📃 Thank you for your request! 
-
-// Your service request has been created successfully.
-
-// 📝 Request ID: *${reqID}*
-// 📍 Location: *${request.address.physicalAddress}*
-// 🔧 Service: *${service.title}*
-
-// ⏳ We are now searching for available service providers in your area...
-// We will notify you as soon as we find a match!
-
-// _You can check the status of your request anytime by sending "status"._
-//         `;
-
-//         return res.status(StatusCodes.OK).send(responseMessage);
-//       }
-
-//       if (message.toLowerCase() === 'no') {
-//         await this.setSessionSafely({
-//           step: steps.WAITING_NEW_LOCATION,
-//           message,
-//           lActivity,
-//           categoryId: session.categoryId,
-//           serviceCode: session.serviceCode
-//         });
-
-//         return res.status(StatusCodes.OK)
-//           .send("Please share your current location using WhatsApp's location feature.");
-//       }
-
-//       return res.status(StatusCodes.BAD_REQUEST).send(`
-// Invalid response. Please reply with:
-// 1. *YES* - if the shown location is correct
-// 2. *NO* - if you want to provide a new location
-
-// Or share your new location using WhatsApp's location feature.
-//       `);
-//     } catch (error) {
-//       console.error('Error in confirmedLocationAddress:', error);
-//       return this.handleError(error);
-//     }
-//   }
-
   async confirmedLocationAddress() {
     try {
       const { res, steps, lActivity, phone, message, session } = this;
@@ -754,6 +688,8 @@ Or share your new location using WhatsApp's location feature.
   }
 
   async proceedWithServiceRequest(session) {
+    const { res, message, lActivity, phone } = this;
+
     const service = await Service.findOne({
       code: session.serviceCode,
       category: session.categoryId
@@ -765,6 +701,10 @@ Or share your new location using WhatsApp's location feature.
     }
 
     const user = await User.findOne({ phone });
+    if (!user) {
+      throw new ValidationError('User not found');
+    }
+
     const reqID = "REQ" + crypto.randomBytes(3).toString("hex").toUpperCase();
 
     const request = await ServiceRequest.create({
