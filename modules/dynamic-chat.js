@@ -222,6 +222,8 @@ Reply with:
         let locationData;
 
         try {
+            console.log('Processing location data:', message);
+
             // Handle WhatsApp location message
             if (message.type === 'location') {
                 locationData = message;
@@ -229,11 +231,14 @@ Reply with:
                 try {
                     locationData = typeof message === 'string' ? JSON.parse(message) : message;
                 } catch (e) {
+                    console.error('Error parsing location data:', e);
                     return res.status(StatusCodes.BAD_REQUEST).send(
                         "❌ Please share your location using WhatsApp's location sharing feature."
                     );
                 }
             }
+
+            console.log('Parsed location data:', locationData);
 
             if (!locationData?.latitude || !locationData?.longitude) {
                 return res.status(StatusCodes.BAD_REQUEST).send(
@@ -278,6 +283,7 @@ You're all set! If you need any further assistance, feel free to reach out. 😊
             return this.handleError(error);
         }
     }
+
 }
 
 module.exports = Client;
