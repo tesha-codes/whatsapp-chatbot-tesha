@@ -1,20 +1,22 @@
 const { StatusCodes } = require("http-status-codes");
 const { setSession } = require("../utils/redis");
-const { updateUser, getUser } = require("../controllers/user.controllers");
+const {
+    createUser,
+    updateUser,
+    getUser,
+} = require("../controllers/user.controllers");
 const { formatDateTime } = require("../utils/dateUtil");
+const Category = require("../models/category.model");
 const { clientMainMenuTemplate } = require("../services/whatsappService");
-
-class ValidationError extends Error {
-    constructor(message) {
-        super(message);
-        this.name = 'ValidationError';
-    }
-}
+const Service = require("../models/services.model");
+const mongoose = require("mongoose");
+const ServiceRequest = require("../models/request.model");
+const User = require("../models/user.model");
+const crypto = require("node:crypto");
+const { queueProviderSearch } = require("../jobs/service-provider.job");
 
 class Client {
     constructor(res, userResponse, session, user, steps, messages) {
-        this.validateConstructorParams(res, userResponse);
-
         this.res = res;
         this.userResponse = userResponse;
         this.session = session;
@@ -23,136 +25,109 @@ class Client {
         this.messages = messages;
         this.lActivity = formatDateTime();
         this.setupCommonVariables();
-        this.handleError = this.handleError.bind(this);
-        this.setupClientProfile = this.setupClientProfile.bind(this);
-        this.collectFullName = this.collectFullName.bind(this);
-        this.collectNationalId = this.collectNationalId.bind(this);
-        this.collectAddress = this.collectAddress.bind(this);
-        this.collectLocation = this.collectLocation.bind(this);
-    }
-
-    async mainEntry() {
-        try {
-            // Handle registration flow through handleInitialState
-            const initialStateResult = await this.handleInitialState();
-
-            // Only proceed to default state if initialStateResult is explicitly null
-            // This fixes the issue of registration messages being skipped
-            if (initialStateResult !== null) {
-                return initialStateResult;
-            }
-
-            // If we get here, user is already registered
-            return await this.handleDefaultState();
-        } catch (error) {
-            return this.handleError(error);
-        }
-    }
-
-    // Default state handler for registered users
-    async handleDefaultState() {
-        return this.res.status(StatusCodes.OK).send(
-            "Welcome back! This is the main menu (registration flow complete)."
-        );
-    }
-
-    validateConstructorParams(res, userResponse) {
-        if (!res || typeof res.status !== 'function') {
-            throw new ValidationError('Invalid response object');
-        }
-        if (!userResponse || !userResponse.sender) {
-            throw new ValidationError('Invalid user response object');
-        }
     }
 
     setupCommonVariables() {
         const { userResponse } = this;
-
-        this.phone = userResponse?.sender?.phone?.replace(/\D/g, '');
-        if (!this.phone) {
-            throw new ValidationError('Phone number is required');
-        }
-
-        // Handle different message types
-        if (userResponse?.payload?.location) {
-            // Handle location type messages
-            this.message = {
-                type: 'location',
-                ...userResponse.payload.location
-            };
-        } else if (userResponse?.payload?.text) {
-            // Handle text messages
-            this.message = userResponse.payload.text;
-        } else if (userResponse?.payload) {
-            // Handle any other payload types
-            this.message = userResponse.payload;
-        } else {
-            this.message = "";
-        }
-
-        this.username = userResponse?.sender?.name ?? "";
-    }
-
-    handleError(error) {
-        console.error('Error in Client class:', error);
-
-        if (this.res && typeof this.res.status === 'function') {
-            const errorMessage = error.message || 'An unexpected error occurred';
-            return this.res.status(StatusCodes.INTERNAL_SERVER_ERROR).send(
-                `❌ ${errorMessage}\n\nPlease try again or contact support if the problem persists.`
-            );
-        }
-
-        throw error;
+        this.phone = userResponse.sender.phone;
+        this.message = userResponse.payload?.text || "";
+        this.username = userResponse.sender.name;
     }
 
     async handleInitialState() {
-        try {
-            const { res, session, steps, lActivity, phone, message } = this;
+        const { res, session, steps, lActivity, phone, message, user } = this;
 
-            // Check if user exists first
-            const user = await getUser(phone);
+        if (!session || session.step === steps.DEFAULT_CLIENT_STATE) {
+            // User is in the default state or has no session
+            const updatedUser = await getUser(phone);
+            await clientMainMenuTemplate(phone, updatedUser.firstName);
+            await setSession(phone, {
+                step: steps.SELECT_SERVICE_CATEGORY,
+                message,
+                lActivity,
+            });
+            return res
+                .status(StatusCodes.OK)
+                .send(`Hello there 👋 ${updatedUser.firstName}`);
+        }
 
-            // If no user exists OR we're in the registration flow, handle registration
-            if (!user || (session && session.step !== steps.DEFAULT_CLIENT_STATE)) {
-                // If no session or in default state, show initial message
-                if (!session || session.step === steps.DEFAULT_CLIENT_STATE) {
-                    return res.status(StatusCodes.OK).send(`
-Welcome to our service! 👋
-To get started, you'll need to create an account.
+        // Handle incomplete profile setup
+        if (session.step === steps.SETUP_CLIENT_PROFILE) {
+            return await this.setupClientProfile();
+        }
 
-Reply with:
-*CREATE ACCOUNT* - to set up your profile
-                    `);
-                }
+        if (session.step === steps.COLLECT_USER_FULL_NAME) {
+            return await this.collectFullName();
+        }
 
-                // Handle registration flow states
-                const registrationHandlers = {
-                    [steps.SETUP_CLIENT_PROFILE]: this.setupClientProfile,
-                    [steps.COLLECT_USER_FULL_NAME]: this.collectFullName,
-                    [steps.COLLECT_USER_ID]: this.collectNationalId,
-                    [steps.COLLECT_USER_ADDRESS]: this.collectAddress,
-                    [steps.COLLECT_USER_LOCATION]: this.collectLocation
-                };
+        if (session.step === steps.COLLECT_USER_ID) {
+            return await this.collectNationalId();
+        }
 
-                if (registrationHandlers[session.step]) {
-                    return await registrationHandlers[session.step].call(this);
-                }
-            }
+        if (session.step === steps.COLLECT_USER_ADDRESS) {
+            return await this.collectAddress();
+        }
 
-            // Only return null if the user exists AND we're not in a registration step
-            return null;
-        } catch (error) {
-            return this.handleError(error);
+        if (session.step === steps.COLLECT_USER_LOCATION) {
+            return await this.collectLocation();
+        }
+
+        // If none of the above, return null to proceed with regular flow
+        return null;
+    }
+
+    // async mainEntry() {
+    //     const { session, steps } = this;
+
+    //     switch (session.step) {
+    //         case steps.SETUP_CLIENT_PROFILE:
+    //             return await this.setupClientProfile();
+    //         case steps.COLLECT_USER_FULL_NAME:
+    //             return await this.collectFullName();
+    //         case steps.COLLECT_USER_ID:
+    //             return await this.collectNationalId();
+    //         case steps.COLLECT_USER_ADDRESS:
+    //             return await this.collectAddress();
+    //         case steps.COLLECT_USER_LOCATION:
+    //             return await this.collectLocation();
+    //         case steps.SELECT_SERVICE_CATEGORY:
+    //             return await this.selectServiceCategory();
+    //         case steps.SELECT_SERVICE:
+    //             return await this.selectService();
+    //         case steps.BOOK_SERVICE:
+    //             return await this.bookService();
+    //         default:
+    //             return await this.handleDefaultState();
+    //     }
+    // }
+
+    async mainEntry() {
+        // Handle initial state first
+        const initialStateResult = await this.handleInitialState();
+        if (initialStateResult) return initialStateResult;
+
+        // Proceed with regular flow
+        const { session, steps } = this;
+
+        switch (session.step) {
+            case steps.SELECT_SERVICE_CATEGORY:
+                await this.selectServiceCategory();
+                break;
+            case steps.SELECT_SERVICE:
+                await this.selectService();
+                break;
+            case steps.BOOK_SERVICE:
+                await this.bookService();
+                break;
+            default:
+                await this.handleDefaultState();
+                break;
         }
     }
 
-
     async setupClientProfile() {
         const { res, steps, lActivity, phone, message } = this;
-
-        // Make the check case-insensitive and trim whitespace
-        if (message.trim().toLowerCase() === "create account") {
+        if (message.toLowerCase() === "create account") {
             await setSession(phone, {
                 step: steps.COLLECT_USER_FULL_NAME,
                 message,
@@ -233,101 +208,129 @@ Reply with:
 
     async collectLocation() {
         const { res, steps, lActivity, phone, message } = this;
+        await updateUser({
+            phone,
+            address: {
+                coordinates: message,
+            },
+        });
 
-        try {
-            let locationData = null;
+        const confirmation = `
+*Profile Setup Confirmation*
 
-            // Check if message is already a location object from setupCommonVariables
-            if (message?.type === 'location') {
-                locationData = {
-                    latitude: message.latitude,
-                    longitude: message.longitude,
-                    address: message.address
-                };
-            }
-            // Handle case where location might be in payload directly
-            else if (this.userResponse?.payload?.location) {
-                locationData = {
-                    latitude: this.userResponse.payload.location.latitude,
-                    longitude: this.userResponse.payload.location.longitude,
-                    address: this.userResponse.payload.location.address || ''
-                };
-            }
-            // Try parsing string input as fallback
-            else if (typeof message === 'string') {
-                try {
-                    const parsed = JSON.parse(message);
-                    if (parsed?.latitude && parsed?.longitude) {
-                        locationData = parsed;
-                    }
-                } catch (e) {
-                    return res.status(StatusCodes.BAD_REQUEST).send(
-                        "❌ Please share your location using WhatsApp's location sharing feature.\n\n" +
-                        "To share your location:\n" +
-                        "1. Click the '+' or attachment icon\n" +
-                        "2. Select 'Location'\n" +
-                        "3. Choose 'Send your current location'"
-                    );
-                }
-            }
+✅ Thank you! Your profile has been successfully set up.
+You're all set! If you need any further assistance, feel free to reach out. 😊
+`;
 
-            // Validate location data
-            if (!locationData?.latitude || !locationData?.longitude) {
-                return res.status(StatusCodes.BAD_REQUEST).send(
-                    "❌ Please share your location using WhatsApp's location sharing feature.\n\n" +
-                    "To share your location:\n" +
-                    "1. Click the '+' or attachment icon\n" +
-                    "2. Select 'Location'\n" +
-                    "3. Choose 'Send your current location'"
-                );
-            }
-
-            // Update user with location
-            await updateUser({
-                phone,
-                address: {
-                    coordinates: {
-                        latitude: locationData.latitude,
-                        longitude: locationData.longitude
-                    },
-                    physicalAddress: locationData.address || ''
-                }
+        setImmediate(async () => {
+            const user = await getUser(phone);
+            await clientMainMenuTemplate(phone, user.firstName);
+            await setSession(phone, {
+                step: steps.SELECT_SERVICE_CATEGORY,
+                message,
+                lActivity,
             });
+        });
 
-            // Get updated user info
-            const updatedUser = await getUser(phone);
+        return res.status(StatusCodes.OK).send(confirmation);
+    }
 
-            // Prepare success message
-            const successMessage = `
-*Profile Setup Complete* ✅
-
-Your profile has been successfully created with:
-• Name: ${updatedUser.firstName} ${updatedUser.lastName}
-• Location: Received ✓
-${locationData.address ? `• Address: ${locationData.address}` : ''}
-
-You're all set to start using our services! 🎉
-Loading main menu...`;
-
-            // Update session and send templates
-            await Promise.all([
-                setSession(phone, {
-                    step: steps.SELECT_SERVICE_CATEGORY,
-                    message: 'Location received',
-                    lActivity,
-                }),
-                clientMainMenuTemplate(phone, updatedUser.firstName)
-            ]);
-
-            return res.status(StatusCodes.OK).send(successMessage);
-
-        } catch (error) {
-            console.error('Location processing error:', error);
-            return res.status(StatusCodes.INTERNAL_SERVER_ERROR).send(
-                "❌ There was an error processing your location. Please try again.\n\n" +
-                "If the problem persists, please contact support."
-            );
+    async selectServiceCategory() {
+        const { res, steps, lActivity, phone, message } = this;
+        if (message.toLowerCase() === "request service") {
+            await setSession(phone, {
+                step: steps.SELECT_SERVICE,
+                message,
+                lActivity,
+            });
+            return res
+                .status(StatusCodes.OK)
+                .send(this.messages.CLIENT_WELCOME_MESSAGE);
         }
+        // Handle other cases if needed
+    }
+
+    async selectService() {
+        const { res, steps, lActivity, phone, message } = this;
+        const category = await Category.findOne(
+            { code: +message },
+            { _id: 1, name: 1 }
+        );
+
+        let queryId = new mongoose.Types.ObjectId(category._id);
+        const services = await Service.find({ category: queryId });
+
+        let responseMessage = `
+*${category.name}* 
+Please select a service from the list below:
+${services
+                .map((s, index) => `${index + 1}. *${s.title}*\n${s.description}`)
+                .join("\n\n")}
+
+Reply with the number of the service you'd like to hire.
+    `;
+        await setSession(phone, {
+            step: steps.BOOK_SERVICE,
+            message,
+            lActivity,
+            categoryId: category._id.toString(),
+        });
+        return res.status(StatusCodes.OK).send(responseMessage);
+    }
+
+    async bookService() {
+        const { res, steps, lActivity, phone, message, session } = this;
+        const code = parseInt(message);
+        const service = await Service.findOne({
+            code,
+            category: session.categoryId,
+        });
+        const user = await User.findOne({ phone });
+
+        const reqID = "REQ" + crypto.randomBytes(3).toString("hex").toUpperCase();
+        const request = await ServiceRequest.create({
+            _id: new mongoose.Types.ObjectId(),
+            city: "Harare",
+            requester: user._id,
+            service: service._id,
+            address: user.address,
+            notes: "Service booking is still in dev",
+            id: reqID,
+        });
+
+        await request.save();
+        const responseMessage = `
+📃 Thank you, *${user.username}*! 
+
+Your request for the service has been successfully created. 
+
+📝 Your request ID is: *${reqID}*. 
+📍 Location: *${request.address.physicalAddress}*
+
+Our team will connect you with a service provider shortly. 
+Please wait...`;
+
+        await queueProviderSearch({
+            phone,
+            serviceId: service._id.toString(),
+            categoryId: session.categoryId,
+            requestId: request._id.toString(),
+        });
+
+        setSession(phone, {
+            step: steps.DEFAULT_CLIENT_STATE,
+            message,
+            lActivity,
+            serviceId: service._id.toString(),
+            requestId: request._id.toString(),
+        });
+
+        return res.status(StatusCodes.OK).send(responseMessage);
+    }
+
+    async handleDefaultState() {
+        // Handle any default state logic here
+        // This could include showing the main menu or handling unexpected states
     }
 }
 
