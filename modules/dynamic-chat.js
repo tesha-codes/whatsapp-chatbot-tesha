@@ -218,31 +218,45 @@ Reply with:
     }
 
     async collectLocation() {
-        const { res, steps, lActivity, phone, message } = this;
-        let locationData;
+        const { res, steps, lActivity, phone, message, userResponse } = this;
 
         try {
-            console.log('Processing location data:', message);
+            // Handle different types of location data
+            let locationData = null;
 
-            // Handle WhatsApp location message
-            if (message.type === 'location') {
-                locationData = message;
-            } else {
+            // Case 1: Direct WhatsApp location message
+            if (userResponse?.payload?.location) {
+                locationData = userResponse.payload.location;
+            }
+            // Case 2: JSON string location data
+            else if (typeof message === 'string') {
                 try {
-                    locationData = typeof message === 'string' ? JSON.parse(message) : message;
+                    const parsedMessage = JSON.parse(message);
+                    if (parsedMessage?.latitude && parsedMessage?.longitude) {
+                        locationData = parsedMessage;
+                    }
                 } catch (e) {
-                    console.error('Error parsing location data:', e);
                     return res.status(StatusCodes.BAD_REQUEST).send(
-                        "❌ Please share your location using WhatsApp's location sharing feature."
+                        "❌ Invalid location format. Please share your location using WhatsApp's location sharing feature.\n\n" +
+                        "To share your location:\n" +
+                        "1. Click the '+' or attachment icon\n" +
+                        "2. Select 'Location'\n" +
+                        "3. Choose 'Send your current location'"
                     );
                 }
             }
+            
+            else if (message?.latitude && message?.longitude) {
+                locationData = message;
+            }
 
-            console.log('Parsed location data:', locationData);
-
-            if (!locationData?.latitude || !locationData?.longitude) {
+            if (!locationData || !locationData.latitude || !locationData.longitude) {
                 return res.status(StatusCodes.BAD_REQUEST).send(
-                    "❌ Please share your location using WhatsApp's location sharing feature."
+                    "❌ Please share your current location using WhatsApp's location sharing feature.\n\n" +
+                    "To share your location:\n" +
+                    "1. Click the '+' or attachment icon\n" +
+                    "2. Select 'Location'\n" +
+                    "3. Choose 'Send your current location'"
                 );
             }
 
@@ -251,36 +265,65 @@ Reply with:
                 coordinates: [locationData.longitude, locationData.latitude]
             };
 
-            // Update user with location
-            await updateUser({
-                phone,
-                address: {
-                    coordinates: locationData,
-                    physicalAddress: message.address || ''
-                }
-            });
+            try {
+                await updateUser({
+                    phone,
+                    address: {
+                        coordinates,
+                        physicalAddress: locationData.address || ''
+                    }
+                });
+            } catch (dbError) {
+                return res.status(StatusCodes.INTERNAL_SERVER_ERROR).send(
+                    "❌ Unable to save your location. Please try again.\n\n" +
+                    "If the problem persists, please contact support."
+                );
+            }
+
+            const updatedUser = await getUser(phone);
+            if (!updatedUser) {
+                return res.status(StatusCodes.INTERNAL_SERVER_ERROR).send(
+                    "❌ Unable to retrieve your profile information. Please try again.\n\n" +
+                    "If the problem persists, please contact support."
+                );
+            }
 
             const confirmation = `
-*Profile Setup Confirmation*
+*Profile Setup Confirmation* ✅
 
-✅ Thank you! Your profile has been successfully set up.
-You're all set! If you need any further assistance, feel free to reach out. 😊
-`;
+Your profile has been successfully created with:
+• Name: ${updatedUser.firstName} ${updatedUser.lastName}
+• Location: Received successfully
+• Address: ${updatedUser.address?.physicalAddress || 'Not specified'}
 
-            await Promise.all([
-                clientMainMenuTemplate(phone, (await getUser(phone)).firstName),
-                setSession(phone, {
-                    step: steps.SELECT_SERVICE_CATEGORY,
-                    message,
-                    lActivity,
-                })
-            ]);
+You're all set to start using our services! 🎉
+
+Loading main menu...`;
+
+            try {
+                await Promise.all([
+                    setSession(phone, {
+                        step: steps.SELECT_SERVICE_CATEGORY,
+                        message: 'Location received',
+                        lActivity,
+                    }),
+                    clientMainMenuTemplate(phone, updatedUser.firstName)
+                ]);
+            } catch (sessionError) {
+                return res.status(StatusCodes.INTERNAL_SERVER_ERROR).send(
+                    "❌ Your location was saved but we couldn't load the main menu.\n\n" +
+                    "Please try sending any message to continue."
+                );
+            }
 
             return res.status(StatusCodes.OK).send(confirmation);
 
         } catch (error) {
-            console.error('Error in collectLocation:', error);
-            return this.handleError(error);
+            return res.status(StatusCodes.INTERNAL_SERVER_ERROR).send(
+                "❌ Something went wrong while processing your location.\n\n" +
+                "Please try sharing your location again.\n" +
+                "If the problem persists, please contact support."
+            );
         }
     }
 
