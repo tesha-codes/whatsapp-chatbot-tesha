@@ -68,14 +68,28 @@ class Client {
     setupCommonVariables() {
         const { userResponse } = this;
 
-        // Validate and normalize phone number
         this.phone = userResponse?.sender?.phone?.replace(/\D/g, '');
         if (!this.phone) {
             throw new ValidationError('Phone number is required');
         }
 
-        // Safely extract message and username
-        this.message = userResponse?.payload?.text ?? "";
+        // Handle different message types
+        if (userResponse?.payload?.location) {
+            // Handle location type messages
+            this.message = {
+                type: 'location',
+                ...userResponse.payload.location
+            };
+        } else if (userResponse?.payload?.text) {
+            // Handle text messages
+            this.message = userResponse.payload.text;
+        } else if (userResponse?.payload) {
+            // Handle any other payload types
+            this.message = userResponse.payload;
+        } else {
+            this.message = "";
+        }
+
         this.username = userResponse?.sender?.name ?? "";
     }
 
@@ -219,23 +233,40 @@ Reply with:
 
     async collectLocation() {
         const { res, steps, lActivity, phone, message } = this;
-        let locationData;
 
         try {
-            // Handle different types of location input
-            if (message.type === 'location') {
-                // Direct WhatsApp location message
+            let locationData = null;
+
+            // Check if message is already a location object from setupCommonVariables
+            if (message?.type === 'location') {
                 locationData = {
                     latitude: message.latitude,
-                    longitude: message.longitude
+                    longitude: message.longitude,
+                    address: message.address
                 };
-            } else {
+            }
+            // Handle case where location might be in payload directly
+            else if (this.userResponse?.payload?.location) {
+                locationData = {
+                    latitude: this.userResponse.payload.location.latitude,
+                    longitude: this.userResponse.payload.location.longitude,
+                    address: this.userResponse.payload.location.address || ''
+                };
+            }
+            // Try parsing string input as fallback
+            else if (typeof message === 'string') {
                 try {
-                    // Try to parse if it's a string
-                    locationData = typeof message === 'string' ? JSON.parse(message) : message;
+                    const parsed = JSON.parse(message);
+                    if (parsed?.latitude && parsed?.longitude) {
+                        locationData = parsed;
+                    }
                 } catch (e) {
                     return res.status(StatusCodes.BAD_REQUEST).send(
-                        "❌ Please share your location using WhatsApp's location sharing feature."
+                        "❌ Please share your location using WhatsApp's location sharing feature.\n\n" +
+                        "To share your location:\n" +
+                        "1. Click the '+' or attachment icon\n" +
+                        "2. Select 'Location'\n" +
+                        "3. Choose 'Send your current location'"
                     );
                 }
             }
@@ -243,45 +274,59 @@ Reply with:
             // Validate location data
             if (!locationData?.latitude || !locationData?.longitude) {
                 return res.status(StatusCodes.BAD_REQUEST).send(
-                    "❌ Invalid location data. Please share your location using WhatsApp's location sharing feature."
+                    "❌ Please share your location using WhatsApp's location sharing feature.\n\n" +
+                    "To share your location:\n" +
+                    "1. Click the '+' or attachment icon\n" +
+                    "2. Select 'Location'\n" +
+                    "3. Choose 'Send your current location'"
                 );
             }
 
-            try {
-                // Update user with location data
-                await updateUser({
-                    phone,
-                    address: {
-                        coordinates: {
-                            latitude: locationData.latitude,
-                            longitude: locationData.longitude
-                        },
-                        physicalAddress: message.address || ''
-                    }
-                });
+            // Update user with location
+            await updateUser({
+                phone,
+                address: {
+                    coordinates: {
+                        latitude: locationData.latitude,
+                        longitude: locationData.longitude
+                    },
+                    physicalAddress: locationData.address || ''
+                }
+            });
 
-                // Update session to completed state
-                await setSession(phone, {
-                    step: steps.DEFAULT_CLIENT_STATE,
-                    message,
-                    lActivity
-                });
+            // Get updated user info
+            const updatedUser = await getUser(phone);
 
-                // Send success response
-                return res.status(StatusCodes.OK).send(
-                    "✅ Location received and profile created successfully! You can now access our services."
-                );
+            // Prepare success message
+            const successMessage = `
+*Profile Setup Complete* ✅
 
-            } catch (updateError) {
-                console.error('Error updating user or session:', updateError);
-                return res.status(StatusCodes.INTERNAL_SERVER_ERROR).send(
-                    "❌ There was an error saving your location. Please try again."
-                );
-            }
+Your profile has been successfully created with:
+• Name: ${updatedUser.firstName} ${updatedUser.lastName}
+• Location: Received ✓
+${locationData.address ? `• Address: ${locationData.address}` : ''}
+
+You're all set to start using our services! 🎉
+Loading main menu...`;
+
+            // Update session and send templates
+            await Promise.all([
+                setSession(phone, {
+                    step: steps.SELECT_SERVICE_CATEGORY,
+                    message: 'Location received',
+                    lActivity,
+                }),
+                clientMainMenuTemplate(phone, updatedUser.firstName)
+            ]);
+
+            return res.status(StatusCodes.OK).send(successMessage);
 
         } catch (error) {
-            console.error('Error in collectLocation:', error);
-            return this.handleError(error);
+            console.error('Location processing error:', error);
+            return res.status(StatusCodes.INTERNAL_SERVER_ERROR).send(
+                "❌ There was an error processing your location. Please try again.\n\n" +
+                "If the problem persists, please contact support."
+            );
         }
     }
 }
