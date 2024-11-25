@@ -80,7 +80,7 @@ class ServiceProvider {
         // set up verification dashboard
         // send verification messages for verified users or unverified users
         // send with guidelines and short cuts
-        // view tasks
+        // view tasks - view tasks
         // edit profiles
         // delete account
         // billing history
