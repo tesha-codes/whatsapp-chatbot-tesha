@@ -14,6 +14,8 @@ const ServiceRequest = require("../models/request.model");
 const User = require("../models/user.model");
 const crypto = require("node:crypto");
 const { queueProviderSearch } = require("../jobs/service-provider.job");
+const aiConversationManager = require('../ai/dynamic.ai')
+
 
 class Client {
     constructor(res, userResponse, session, user, steps, messages) {
@@ -25,6 +27,7 @@ class Client {
         this.messages = messages;
         this.lActivity = formatDateTime();
         this.setupCommonVariables();
+        aiConversationManager.reset()
     }
 
     setupCommonVariables() {
@@ -51,7 +54,6 @@ class Client {
                 .send(`Hello there 👋 ${updatedUser.firstName}`);
         }
 
-        // Handle incomplete profile setup
         if (session.step === steps.SETUP_CLIENT_PROFILE) {
             return await this.setupClientProfile();
         }
@@ -76,58 +78,123 @@ class Client {
         return null;
     }
 
-    // async mainEntry() {
-    //     const { session, steps } = this;
 
-    //     switch (session.step) {
-    //         case steps.SETUP_CLIENT_PROFILE:
-    //             return await this.setupClientProfile();
-    //         case steps.COLLECT_USER_FULL_NAME:
-    //             return await this.collectFullName();
-    //         case steps.COLLECT_USER_ID:
-    //             return await this.collectNationalId();
-    //         case steps.COLLECT_USER_ADDRESS:
-    //             return await this.collectAddress();
-    //         case steps.COLLECT_USER_LOCATION:
-    //             return await this.collectLocation();
-    //         case steps.SELECT_SERVICE_CATEGORY:
-    //             return await this.selectServiceCategory();
-    //         case steps.SELECT_SERVICE:
-    //             return await this.selectService();
-    //         case steps.BOOK_SERVICE:
-    //             return await this.bookService();
-    //         default:
-    //             return await this.handleDefaultState();
-    //     }
-    // }
 
     async mainEntry() {
         // Handle initial state first
         const initialStateResult = await this.handleInitialState();
         if (initialStateResult) return initialStateResult;
 
-        // Proceed with regular flow
-        const { session, steps } = this;
+        const { res, steps, lActivity, phone, message } = this;
 
-        switch (session.step) {
-            case steps.SELECT_SERVICE_CATEGORY:
-                await this.selectServiceCategory();
-                break;
-            case steps.SELECT_SERVICE:
-                await this.selectService();
-                break;
-            case steps.BOOK_SERVICE:
-                await this.bookService();
-                break;
-            default:
-                await this.handleDefaultState();
-                break;
+        try {
+            // Use AI Conversation Manager to process the message
+            const aiResult = await aiConversationManager.processMessage(
+                message,
+                this.session.step
+            );
+
+            // Decide next steps based on AI conversation state
+            switch (aiResult.state.step) {
+                case 'CONFIRM_SERVICE_CATEGORY':
+                    await setSession(phone, {
+                        step: steps.SELECT_SERVICE_CATEGORY,
+                        message,
+                        lActivity,
+                    });
+                    break;
+
+                case 'GATHER_SERVICE_DETAILS':
+                    await setSession(phone, {
+                        step: steps.BOOK_SERVICE,
+                        message,
+                        lActivity,
+                    });
+                    break;
+
+                case 'PREPARE_SERVICE_REQUEST':
+                    // Create service request using AI-extracted details
+                    await this.createServiceRequestFromAI(aiResult.state);
+                    break;
+
+                default:
+                    await setSession(phone, {
+                        step: steps.DEFAULT_CLIENT_STATE,
+                        message,
+                        lActivity,
+                    });
+            }
+
+            return res.status(StatusCodes.OK).send(aiResult.response);
+        } catch (error) {
+            console.error('Error in main entry:', error);
+            return res.status(StatusCodes.INTERNAL_SERVER_ERROR).send('An error occurred');
         }
+    }
+
+    async createServiceRequestFromAI(aiState) {
+        const { phone } = this;
+        const { selectedService, serviceDetails } = aiState;
+
+        // Find the appropriate category and service
+        const category = await Category.findOne({
+            name: { $regex: new RegExp(selectedService, 'i') }
+        });
+
+        if (!category) {
+            throw new Error('Category not found');
+        }
+
+        const service = await Service.findOne({
+            category: category._id,
+            title: { $regex: new RegExp(selectedService, 'i') }
+        });
+
+        if (!service) {
+            throw new Error('Service not found');
+        }
+
+        const user = await User.findOne({ phone });
+        const reqID = "REQ" + crypto.randomBytes(3).toString("hex").toUpperCase();
+
+        const request = await ServiceRequest.create({
+            _id: new mongoose.Types.ObjectId(),
+            city: "Harare",
+            requester: user._id,
+            service: service._id,
+            address: user.address,
+            notes: serviceDetails.description,
+            id: reqID,
+        });
+
+        await request.save();
+
+        // Queue provider search
+        await queueProviderSearch({
+            phone,
+            serviceId: service._id.toString(),
+            categoryId: category._id.toString(),
+            requestId: request._id.toString(),
+        });
+
+        // Reset AI conversation manager
+        aiConversationManager.reset();
+
+        return `
+📃 Thank you, *${user.username}*! 
+
+Your request for ${selectedService} service has been successfully created. 
+
+📝 Your request ID is: *${reqID}*. 
+📍 Location: *${request.address.physicalAddress}*
+
+Our team will connect you with a service provider shortly. 
+Please wait...`;
     }
 
     async setupClientProfile() {
         const { res, steps, lActivity, phone, message } = this;
-        if (message.toLowerCase() === "create account") {
+        if (message.toLowerCase() === "create account" || +message === 1) {
             await setSession(phone, {
                 step: steps.COLLECT_USER_FULL_NAME,
                 message,
