@@ -1,228 +1,64 @@
-
-// const openai = require('../config/openai');
-
-// class AIConversationManager {
-//     constructor() {
-//         this.conversationHistory = [];
-//         this.currentState = {
-//             step: 'SELECT_SERVICE_CATEGORY',
-//             selectedService: null,
-//             serviceDetails: {}
-//         };
-//     }
-
-//     async processMessage(message, currentStep) {
-//         const serviceCategories = `
-// 🏠 Household Services
-// 1. Cleaning, Laundry, Home Organization, Handyman tasks, etc.
-
-// 🌳 Yard & Outdoor Services
-// 2. Lawn care, Gardening, Yard cleanup, Pool maintenance, etc.
-
-// 🛍 Errands & Shopping
-// 3. Grocery shopping, Dog walking, Household item pickups, etc.
-
-// 🛠 Skilled Tasks
-// 4. Plumbing, Electrical work, Painting, Carpentry, etc.
-
-// 🚚 Moving & Hauling
-// 5. Local moving, Junk removal, Donation pickups, etc.
-
-// 🐾 Pet Care
-// 6. Dog walking, Pet sitting, Pet grooming, etc.
-
-// 👵 Senior Care
-// 7. Companion care, Personal care, Transportation, etc.
-
-// 🏡 Home Maintenance
-// 8. HVAC maintenance, Pest control, Appliance repair, etc.
-// `;
-
-//         const systemInstructions = `
-// You are a helpful assistant that assists users in finding the right service from the following categories:
-// ${serviceCategories}
-
-// Guidelines:
-// - Extract service requests from messages in English, Shona, Ndebele, or mixed languages
-// - Keep responses short, polite, and engaging
-// - Guide the user through service selection and details
-// - Aim to understand the specific service needs clearly
-// - If the user provides an unclear request, help them narrow down their needs
-// - Reference the service categories to help users select the right service
-// `;
-
-//         const userMessage = `
-// Previous Conversation History:
-// ${this.conversationHistory.map(msg => `${msg.role}: ${msg.content}`).join('\n')}
-
-// Current User Message: "${message}"
-// Current Conversation Step: ${currentStep}
-// `;
-
-//         try {
-//             const queryResponse = await openai.chat.completions.create({
-//                 messages: [
-//                     { role: 'system', content: systemInstructions },
-//                     { role: 'user', content: userMessage },
-//                 ],
-//                 model: 'gpt-4o',
-//                 temperature: 0.7,
-//                 max_tokens: 250,
-//             });
-
-//             const dynamicMessage = queryResponse.choices[0].message;
-
-//             // Update conversation history
-//             this.conversationHistory.push(
-//                 { role: 'user', content: message },
-//                 { role: 'assistant', content: dynamicMessage.content }
-//             );
-
-//             // Update conversation state
-//             this.updateConversationState(message, dynamicMessage.content);
-
-//             return {
-//                 response: dynamicMessage.content,
-//                 state: this.currentState
-//             };
-//         } catch (error) {
-//             console.error('Error with OpenAI API:', error);
-//             return {
-//                 response: 'Sorry, something went wrong. Please try again later.',
-//                 state: this.currentState
-//             };
-//         }
-//     }
-
-//     updateConversationState(userMessage, assistantResponse) {
-//         const serviceCategories = [
-//             'household services', 'yard services', 'errands',
-//             'skilled tasks', 'moving', 'pet care', 'senior care',
-//             'home maintenance'
-//         ];
-
-//         if (this.currentState.step === 'SELECT_SERVICE_CATEGORY') {
-//             // Try to identify service category
-//             const identifiedCategory = serviceCategories.find(category =>
-//                 userMessage.toLowerCase().includes(category)
-//             );
-
-//             if (identifiedCategory) {
-//                 this.currentState.selectedService = identifiedCategory;
-//                 this.currentState.step = 'CONFIRM_SERVICE_CATEGORY';
-//             }
-//         } else if (this.currentState.step === 'CONFIRM_SERVICE_CATEGORY') {
-//             // Confirm service category
-//             if (['yes', 'confirm', 'correct'].some(word =>
-//                 userMessage.toLowerCase().includes(word))) {
-//                 this.currentState.step = 'GATHER_SERVICE_DETAILS';
-//             }
-//         } else if (this.currentState.step === 'GATHER_SERVICE_DETAILS') {
-//             // Store detailed service information
-//             this.currentState.serviceDetails = {
-//                 description: userMessage,
-//                 timestamp: new Date()
-//             };
-//             this.currentState.step = 'PREPARE_SERVICE_REQUEST';
-//         }
-
-//         return this.currentState;
-//     }
-
-//     reset() {
-//         this.conversationHistory = [];
-//         this.currentState = {
-//             step: 'SELECT_SERVICE_CATEGORY',
-//             selectedService: null,
-//             serviceDetails: {}
-//         };
-//     }
-// }
-
-// module.exports = new AIConversationManager();
-
 const openai = require('../config/openai');
 const mongoose = require('mongoose');
 
 class AIConversationManager {
     constructor() {
-        this.conversationHistory = [];
-        this.currentState = {
-            step: 'INITIAL',
-            previousStep: null,
-
-            serviceCategory: null,
-            serviceType: null,
-            serviceDetails: {
-                description: '',
-                timing: null,
-                specifics: {}
-            },
-
-            locationStatus: {
-                confirmed: false,
-                providedLocation: null,
-                profileLocation: null,
-                locationVerificationRequired: false
-            },
-
-            requestId: null,
-            requestStatus: 'PENDING'
-        }
+        this.reset();
     }
 
     /**
-     * @param {Object} params - Message processing parameters
-     * @param {string} params.message - User's message
-     * @param {Object} params.user - User profile information
-     * @param {string} params.currentStep - Current conversation step
+     * Process user message and generate AI response
+     * @param {string} message - User's message
+     * @param {string} currentStep - Current conversation step
      * @returns {Promise<Object>} AI response and updated state
      */
-    async processMessage({
-        message,
-        user,
-        currentStep
-    }) {
-        this.updateUserLocationContext(user);
-        const systemInstructions = this.prepareSystemInstructions();
-
+    async processMessage(message, currentStep) {
         try {
-            const queryResponse = await this.generateAIResponse({
+            console.log('Processing message:', message);
+            console.log('Current step:', currentStep);
+
+            // Prepare system instructions with current context
+            const systemInstructions = this.prepareSystemInstructions(currentStep);
+
+            // Generate AI response
+            const aiResponse = await this.generateAIResponse({
                 systemInstructions,
                 message
             });
 
-            const assistantResponse = queryResponse.choices[0].message.content;
-            this.updateConversationHistory(message, assistantResponse);
-            this.updateConversationState(message, assistantResponse);
+            // Update conversation history and state
+            this.updateConversationHistory(message, aiResponse.response);
+            this.updateConversationState(message, aiResponse.response);
+
+            console.log('AI Response:', JSON.stringify(aiResponse, null, 2));
 
             return {
-                response: assistantResponse,
-                state: this.currentState
+                response: aiResponse.response,
+                state: {
+                    ...this.currentState,
+                    nextStep: aiResponse.next_step
+                }
             };
         } catch (error) {
-            console.error('AI Processing Error:', error);
-            return this.handleErrorResponse(error);
-        }
-    }
+            console.error('Detailed AI Processing Error:', error);
 
-    /**
-     * @param {Object} user 
-     */
-
-    updateUserLocationContext(user) {
-        if (user && user.address) {
-            this.currentState.locationStatus.profileLocation = {
-                physicalAddress: user.address.physicalAddress || null,
-                coordinates: user.address.coordinates || null
+            // Provide a fallback response
+            return {
+                response: `I'm having trouble understanding your request. Could you please rephrase or be more specific? Error: ${error.message}`,
+                state: {
+                    ...this.currentState,
+                    step: 'ERROR_HANDLING'
+                }
             };
         }
     }
 
     /**
-     * @returns {string} 
+     * Prepare system instructions for AI
+     * @param {string} currentStep - Current conversation step
+     * @returns {string} System instructions
      */
-    prepareSystemInstructions() {
+    prepareSystemInstructions(currentStep) {
         const serviceCategories = `
 Service Categories:
 🏠 Household: Cleaning, Laundry
@@ -233,30 +69,37 @@ Service Categories:
 `;
 
         return `
-Multilingual AI Assistant for Service Requests
+AI Assistant Response Guidelines:
+- Understand requests in English, Shona, Ndebele
+- Provide clear, actionable responses
+- Extract precise service needs
+- Ask clarifying questions if needed
+- Response must include 'response' and 'next_step'
+- Be friendly and systematic
 
 Conversation Context:
-- Current Step: ${this.currentState.step}
-- Profile Location: ${JSON.stringify(this.currentState.locationStatus.profileLocation)}
-
-Guidelines:
-- Understand requests in English, Shona, Ndebele
-- Extract precise service needs
-- Ask clarifying questions
-- Guide users systematically
-- Be friendly and patient
+- Current Step: ${currentStep}
+- Service Category: ${this.currentState.serviceCategory || 'Not Selected'}
 
 ${serviceCategories}
+
+Respond in JSON format:
+{
+  "response": "Your friendly message to user",
+  "next_step": "SUGGESTED_NEXT_STEP"
+}
 `;
     }
 
     /**
-     * @param {Object} params 
-     * @returns {Promise<Object>} AI response
+     * Generate AI response using OpenAI
+     * @param {Object} params - Generation parameters
+     * @returns {Promise<Object>} Parsed AI response
      */
     async generateAIResponse({ systemInstructions, message }) {
-        return await openai.chat.completions.create({
+        const response = await openai.chat.completions.create({
             model: 'gpt-4o',
+            response_format: { type: "json_object" },
             messages: [
                 { role: 'system', content: systemInstructions },
                 ...this.getRecentConversationContext(),
@@ -265,16 +108,13 @@ ${serviceCategories}
             temperature: 0.7,
             max_tokens: 300
         });
-    }
 
-    /** 
-     * @returns {Array} 
-     */
-    getRecentConversationContext() {
-        return this.conversationHistory.slice(-4);
+        // Parse the structured response
+        return JSON.parse(response.choices[0].message.content);
     }
 
     /**
+     * Update conversation history
      * @param {string} userMessage - User's message
      * @param {string} assistantResponse - AI's response
      */
@@ -283,9 +123,23 @@ ${serviceCategories}
             { role: 'user', content: userMessage },
             { role: 'assistant', content: assistantResponse }
         );
+
+        // Limit conversation history to last 6 messages
+        if (this.conversationHistory.length > 6) {
+            this.conversationHistory = this.conversationHistory.slice(-6);
+        }
     }
 
     /**
+     * Get recent conversation context
+     * @returns {Array} Recent conversation messages
+     */
+    getRecentConversationContext() {
+        return this.conversationHistory.slice(-4);
+    }
+
+    /**
+     * Update conversation state based on messages
      * @param {string} userMessage - User's message
      * @param {string} assistantResponse - AI's response
      */
@@ -297,8 +151,8 @@ ${serviceCategories}
             'moving': ['move', 'transport', 'haul']
         };
 
-        // Service category detection
-        if (this.currentState.step === 'INITIAL') {
+        // Detect service category
+        if (!this.currentState.serviceCategory) {
             const detectedService = Object.keys(serviceKeywords).find(service =>
                 serviceKeywords[service].some(keyword =>
                     userMessage.toLowerCase().includes(keyword)
@@ -307,41 +161,41 @@ ${serviceCategories}
 
             if (detectedService) {
                 this.currentState.serviceCategory = detectedService;
+            }
+        }
+
+        // Update state based on conversation flow
+        switch (this.currentState.step) {
+            case 'INITIAL':
                 this.currentState.step = 'SERVICE_DETAILS';
-            }
+                break;
+            case 'SERVICE_DETAILS':
+                this.currentState.serviceDetails.description = userMessage;
+                this.currentState.step = 'LOCATION_VERIFICATION';
+                break;
+            case 'LOCATION_VERIFICATION':
+                if (this.isLocationConfirmation(userMessage)) {
+                    this.currentState.locationStatus.confirmed = true;
+                    this.currentState.step = 'PREPARE_REQUEST';
+                }
+                break;
+            case 'PREPARE_REQUEST':
+                this.currentState.requestId = this.generateRequestId();
+                this.currentState.requestStatus = 'READY';
+                this.currentState.step = 'COMPLETE';
+                break;
         }
+    }
 
-        // Service details gathering
-        if (this.currentState.step === 'SERVICE_DETAILS') {
-            this.currentState.serviceDetails.description = userMessage;
-            this.currentState.step = 'LOCATION_VERIFICATION';
-        }
-
-        // Location verification
-        if (this.currentState.step === 'LOCATION_VERIFICATION') {
-            // Check if user confirms existing location
-            if (['yes', 'confirm', 'correct'].some(word =>
-                userMessage.toLowerCase().includes(word))) {
-                this.currentState.locationStatus.confirmed = true;
-                this.currentState.locationStatus.providedLocation =
-                    this.currentState.locationStatus.profileLocation;
-                this.currentState.step = 'PREPARE_REQUEST';
-            }
-            // Request to change location
-            else if (['no', 'different', 'change'].some(word =>
-                userMessage.toLowerCase().includes(word))) {
-                this.currentState.locationStatus.locationVerificationRequired = true;
-                this.currentState.step = 'REQUEST_NEW_LOCATION';
-            }
-        }
-
-        // Prepare for service request
-        if (this.currentState.step === 'PREPARE_REQUEST') {
-            this.currentState.requestId = this.generateRequestId();
-            this.currentState.requestStatus = 'READY';
-        }
-
-        return this.currentState;
+    /**
+     * Check if message confirms location
+     * @param {string} message - User's message
+     * @returns {boolean} Whether location is confirmed
+     */
+    isLocationConfirmation(message) {
+        return ['yes', 'confirm', 'correct'].some(word =>
+            message.toLowerCase().includes(word)
+        );
     }
 
     /**
@@ -353,28 +207,13 @@ ${serviceCategories}
     }
 
     /**
-     * Handle error responses
-     * @param {Error} error - Processing error
-     * @returns {Object} Error response object
-     */
-    handleErrorResponse(error) {
-        return {
-            response: 'Sorry, I encountered an issue. Could you please repeat your request?',
-            error: error.message,
-            state: this.currentState
-        };
-    }
-
-    /**
      * Reset conversation state
      */
     reset() {
         this.conversationHistory = [];
         this.currentState = {
             step: 'INITIAL',
-            previousStep: null,
             serviceCategory: null,
-            serviceType: null,
             serviceDetails: {
                 description: '',
                 timing: null,
@@ -382,31 +221,11 @@ ${serviceCategories}
             },
             locationStatus: {
                 confirmed: false,
-                providedLocation: null,
-                profileLocation: null,
-                locationVerificationRequired: false
+                providedLocation: null
             },
             requestId: null,
             requestStatus: 'PENDING'
         };
-    }
-
-    /**
-     * Validate and process new location
-     * @param {Object} locationData - Location information
-     * @returns {boolean} Whether location was successfully processed
-     */
-    processNewLocation(locationData) {
-        // Validate location data
-        if (!locationData || (!locationData.coordinates && !locationData.address)) {
-            return false;
-        }
-
-        this.currentState.locationStatus.providedLocation = locationData;
-        this.currentState.locationStatus.confirmed = true;
-        this.currentState.step = 'PREPARE_REQUEST';
-
-        return true;
     }
 }
 

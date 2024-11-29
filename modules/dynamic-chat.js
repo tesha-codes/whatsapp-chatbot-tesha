@@ -27,8 +27,9 @@ class Client {
         this.messages = messages;
         this.lActivity = formatDateTime();
         this.setupCommonVariables();
-        aiConversationManager.reset()
+        aiConversationManager.reset();
     }
+
 
     setupCommonVariables() {
         const { userResponse } = this;
@@ -36,6 +37,65 @@ class Client {
         this.message = userResponse.payload?.text || "";
         this.username = userResponse.sender.name;
     }
+
+    async mainEntry() {
+        // Handle initial state first
+        const initialStateResult = await this.handleInitialState();
+        if (initialStateResult) return initialStateResult;
+
+        const { res, steps, lActivity, phone, message, user } = this;
+
+        try {
+            console.log('Processing message:', message);
+            console.log('Current session step:', this.session.step);
+
+            // Process message with AI Conversation Manager
+            const aiResult = await aiConversationManager.processMessage(
+                message,
+                this.session.step
+            );
+
+            console.log('AI Result:', JSON.stringify(aiResult, null, 2));
+
+            // Decide next steps based on AI conversation state
+            switch (aiResult.state.nextStep) {
+                case 'CONFIRM_SERVICE_CATEGORY':
+                    await setSession(phone, {
+                        step: steps.SELECT_SERVICE_CATEGORY,
+                        message,
+                        lActivity,
+                    });
+                    break;
+
+                case 'GATHER_SERVICE_DETAILS':
+                    await setSession(phone, {
+                        step: steps.BOOK_SERVICE,
+                        message,
+                        lActivity,
+                    });
+                    break;
+
+                case 'PREPARE_SERVICE_REQUEST':
+                    // Create service request using AI-extracted details
+                    await this.createServiceRequestFromAI(aiResult.state);
+                    break;
+
+                default:
+                    await setSession(phone, {
+                        step: steps.DEFAULT_CLIENT_STATE,
+                        message,
+                        lActivity,
+                    });
+            }
+
+            return res.status(StatusCodes.OK).send(aiResult.response);
+        } catch (error) {
+            console.error('Detailed error in main entry:', error);
+            return res.status(StatusCodes.INTERNAL_SERVER_ERROR)
+                .send('An error occurred: ' + error.message);
+        }
+    }
+
 
     async handleInitialState() {
         const { res, session, steps, lActivity, phone, message, user } = this;
@@ -79,66 +139,13 @@ class Client {
     }
 
 
-
-    async mainEntry() {
-        // Handle initial state first
-        const initialStateResult = await this.handleInitialState();
-        if (initialStateResult) return initialStateResult;
-
-        const { res, steps, lActivity, phone, message } = this;
-
-        try {
-            // Use AI Conversation Manager to process the message
-            const aiResult = await aiConversationManager.processMessage(
-                message,
-                this.session.step
-            );
-
-            // Decide next steps based on AI conversation state
-            switch (aiResult.state.step) {
-                case 'CONFIRM_SERVICE_CATEGORY':
-                    await setSession(phone, {
-                        step: steps.SELECT_SERVICE_CATEGORY,
-                        message,
-                        lActivity,
-                    });
-                    break;
-
-                case 'GATHER_SERVICE_DETAILS':
-                    await setSession(phone, {
-                        step: steps.BOOK_SERVICE,
-                        message,
-                        lActivity,
-                    });
-                    break;
-
-                case 'PREPARE_SERVICE_REQUEST':
-                    // Create service request using AI-extracted details
-                    await this.createServiceRequestFromAI(aiResult.state);
-                    break;
-
-                default:
-                    await setSession(phone, {
-                        step: steps.DEFAULT_CLIENT_STATE,
-                        message,
-                        lActivity,
-                    });
-            }
-
-            return res.status(StatusCodes.OK).send(aiResult.response);
-        } catch (error) {
-            console.error('Error in main entry:', error);
-            return res.status(StatusCodes.INTERNAL_SERVER_ERROR).send('An error occurred');
-        }
-    }
-
     async createServiceRequestFromAI(aiState) {
         const { phone } = this;
-        const { selectedService, serviceDetails } = aiState;
+        const { serviceCategory, serviceDetails } = aiState;
 
         // Find the appropriate category and service
         const category = await Category.findOne({
-            name: { $regex: new RegExp(selectedService, 'i') }
+            name: { $regex: new RegExp(serviceCategory, 'i') }
         });
 
         if (!category) {
@@ -147,7 +154,7 @@ class Client {
 
         const service = await Service.findOne({
             category: category._id,
-            title: { $regex: new RegExp(selectedService, 'i') }
+            title: { $regex: new RegExp(serviceCategory, 'i') }
         });
 
         if (!service) {
@@ -183,7 +190,7 @@ class Client {
         return `
 📃 Thank you, *${user.username}*! 
 
-Your request for ${selectedService} service has been successfully created. 
+Your request for ${serviceCategory} service has been successfully created. 
 
 📝 Your request ID is: *${reqID}*. 
 📍 Location: *${request.address.physicalAddress}*
