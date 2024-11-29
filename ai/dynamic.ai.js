@@ -1,10 +1,6 @@
 const openai = require('../config/openai');
-const mongoose = require('mongoose');
-const Category = require('../models/category.model'); // Ensure correct path to models
+const Category = require('../models/category.model');
 const Service = require('../models/services.model');
-const ServiceRequest = require('../models/ServiceRequest');
-const User = require('../models/User');
-const crypto = require('crypto');
 
 class AIConversationManager {
     constructor() {
