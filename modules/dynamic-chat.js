@@ -39,44 +39,35 @@ class Client {
     }
 
     async mainEntry() {
-        // Handle initial state first
         const initialStateResult = await this.handleInitialState();
         if (initialStateResult) return initialStateResult;
 
-        const { res, steps, lActivity, phone, message, user } = this;
+        const { res, steps, lActivity, phone, message } = this;
 
         try {
-            console.log('Processing message:', message);
-            console.log('Current session step:', this.session.step);
-
-            // Process message with AI Conversation Manager
             const aiResult = await aiConversationManager.processMessage(
                 message,
                 this.session.step
             );
 
-            console.log('AI Result:', JSON.stringify(aiResult, null, 2));
-
-            // Decide next steps based on AI conversation state
             switch (aiResult.state.nextStep) {
-                case 'CONFIRM_SERVICE_CATEGORY':
+                case 'SERVICE_CONFIRMATION':
                     await setSession(phone, {
-                        step: steps.SELECT_SERVICE_CATEGORY,
+                        step: steps.CONFIRM_SERVICE,
                         message,
                         lActivity,
                     });
                     break;
 
-                case 'GATHER_SERVICE_DETAILS':
+                case 'LOCATION_CONFIRMATION':
                     await setSession(phone, {
-                        step: steps.BOOK_SERVICE,
+                        step: steps.CONFIRM_LOCATION,
                         message,
                         lActivity,
                     });
                     break;
 
-                case 'PREPARE_SERVICE_REQUEST':
-                    // Create service request using AI-extracted details
+                case 'PREPARE_REQUEST':
                     await this.createServiceRequestFromAI(aiResult.state);
                     break;
 
@@ -143,7 +134,6 @@ class Client {
         const { phone } = this;
         const { serviceCategory, serviceDetails } = aiState;
 
-        // Find the appropriate category and service
         const category = await Category.findOne({
             name: { $regex: new RegExp(serviceCategory, 'i') }
         });
@@ -176,7 +166,6 @@ class Client {
 
         await request.save();
 
-        // Queue provider search
         await queueProviderSearch({
             phone,
             serviceId: service._id.toString(),
@@ -184,7 +173,6 @@ class Client {
             requestId: request._id.toString(),
         });
 
-        // Reset AI conversation manager
         aiConversationManager.reset();
 
         return `
@@ -195,7 +183,7 @@ Your request for ${serviceCategory} service has been successfully created.
 📝 Your request ID is: *${reqID}*. 
 📍 Location: *${request.address.physicalAddress}*
 
-Our team will connect you with a service provider shortly. 
+Our team is searching for an available service provider. 
 Please wait...`;
     }
 

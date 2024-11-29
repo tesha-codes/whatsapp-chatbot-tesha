@@ -13,50 +13,43 @@ class AIConversationManager {
      * @param {string} currentStep - Current conversation step
      * @returns {Promise<Object>} AI response and updated state
      */
+    
+
     async processMessage(message, currentStep) {
         try {
-            console.log('Processing message:', message);
-            console.log('Current step:', currentStep);
-
-            // Prepare system instructions with current context
             const systemInstructions = this.prepareSystemInstructions(currentStep);
 
-            // Generate AI response
+            // Generate AI response with explicit next steps
             const aiResponse = await this.generateAIResponse({
                 systemInstructions,
                 message
             });
 
-            // Update conversation history and state
-            this.updateConversationHistory(message, aiResponse.response);
-
-            // Enhanced service detection and extraction
+            // Enhanced service detection
             const serviceDetectionResult = await this.detectServiceRequest(message);
 
-            // Update conversation state
+            // Update conversation history and state
+            this.updateConversationHistory(message, aiResponse.response);
             this.updateConversationState(message, aiResponse.response);
 
-            console.log('Service Detection Result:', JSON.stringify(serviceDetectionResult, null, 2));
+            // Determine next step based on conversation state
+            const nextStep = this.determineNextStep(serviceDetectionResult);
 
-            // Prepare response and next steps
             return {
                 response: aiResponse.response,
                 state: {
                     ...this.currentState,
                     serviceDetection: serviceDetectionResult,
-                    nextStep: serviceDetectionResult.needMoreInfo
-                        ? 'GATHER_SERVICE_DETAILS'
-                        : 'PREPARE_SERVICE_REQUEST'
+                    nextStep: nextStep
                 }
             };
         } catch (error) {
-            console.error('Detailed AI Processing Error:', error);
-
+            console.error('AI Processing Error:', error);
             return {
-                response: `I'm having trouble understanding your request. Could you tell me more about the service you need?`,
+                response: `I'm having trouble understanding your request. Could you clarify the service you need?`,
                 state: {
                     ...this.currentState,
-                    nextStep: 'GATHER_SERVICE_DETAILS'
+                    nextStep: 'SERVICE_CONFIRMATION'
                 }
             };
         }
@@ -67,35 +60,26 @@ class AIConversationManager {
      * @param {string} currentStep - Current conversation step
      * @returns {string} System instructions
      */
-    prepareSystemInstructions(currentStep) {
-        const serviceCategories = `
-Service Categories:
-🏠 Household: Cleaning, Laundry
-🛠 Skilled: Plumbing, Electrical, Painting
-🚚 Moving: Local moves, Junk removal
-🐾 Pet Care: Walking, Sitting
-👵 Senior Care: Companion, Transport
-`;
 
+    prepareSystemInstructions(currentStep) {
         return `
 AI Assistant Response Guidelines:
-- Understand requests in English, Shona, Ndebele
+- Confirm service details explicitly
+- Ask for location confirmation
 - Provide clear, actionable responses
-- Extract precise service needs
-- Ask clarifying questions if needed
-- Response must include 'response' and 'next_step'
-- Be friendly and systematic
+- Handle user inputs systematically
 
-Conversation Context:
-- Current Step: ${currentStep}
-- Service Category: ${this.currentState.serviceCategory || 'Not Selected'}
+Conversation Flow:
+- Confirm Service: Verify user wants exact service
+- Get Location: Confirm user's service location
+- Prepare Request: Finalize service request details
 
-${serviceCategories}
+Current Step: ${currentStep}
 
-Respond in JSON format:
+Response Format:
 {
-  "response": "Your friendly message to user",
-  "next_step": "SUGGESTED_NEXT_STEP"
+  "response": "Friendly, clear message",
+  "next_step": "SERVICE_CONFIRMATION|LOCATION_CONFIRMATION|PREPARE_REQUEST"
 }
 `;
     }
@@ -217,38 +201,35 @@ Respond in JSON format:
         return this.conversationHistory.slice(-4);
     }
 
+
+    determineNextStep(serviceDetectionResult) {
+        if (!serviceDetectionResult.categoryDetected) {
+            return 'SERVICE_CONFIRMATION';
+        }
+        if (serviceDetectionResult.needMoreInfo) {
+            return 'SERVICE_DETAILS';
+        }
+        return 'LOCATION_CONFIRMATION';
+    }
     /**
      * Update conversation state based on service detection
      * @param {string} userMessage - User's message
      * @param {string} assistantResponse - AI's response
      */
     updateConversationState(userMessage, assistantResponse) {
-        // Update state based on service detection
-        if (this.currentState.serviceDetection) {
-            const detection = this.currentState.serviceDetection;
-
-            if (detection.categoryDetected) {
-                this.currentState.serviceCategory = detection.category;
-
-                // If only one service in category, pre-select it
-                if (detection.specificService) {
-                    this.currentState.serviceDetails.selectedService = detection.specificService;
-                }
-            }
-        }
-
-        // Existing state update logic
         switch (this.currentState.step) {
             case 'INITIAL':
-                this.currentState.step = 'SERVICE_DETAILS';
+                if (this.currentState.serviceDetection?.categoryDetected) {
+                    this.currentState.step = 'SERVICE_CONFIRMATION';
+                }
                 break;
-            case 'SERVICE_DETAILS':
-                this.currentState.serviceDetails.description = userMessage;
-                this.currentState.step = 'LOCATION_VERIFICATION';
+            case 'SERVICE_CONFIRMATION':
+                if (this.isServiceConfirmed(userMessage)) {
+                    this.currentState.step = 'LOCATION_CONFIRMATION';
+                }
                 break;
-            case 'LOCATION_VERIFICATION':
-                if (this.isLocationConfirmation(userMessage)) {
-                    this.currentState.locationStatus.confirmed = true;
+            case 'LOCATION_CONFIRMATION':
+                if (this.isLocationConfirmed(userMessage)) {
                     this.currentState.step = 'PREPARE_REQUEST';
                 }
                 break;
@@ -258,6 +239,18 @@ Respond in JSON format:
                 this.currentState.step = 'COMPLETE';
                 break;
         }
+    }
+
+    isServiceConfirmed(message) {
+        return ['yes', 'correct', 'confirm', 'ok'].some(word =>
+            message.toLowerCase().includes(word)
+        );
+    }
+
+    isLocationConfirmed(message) {
+        return ['yes', 'correct', 'confirm', 'ok'].some(word =>
+            message.toLowerCase().includes(word)
+        );
     }
 
     /**
