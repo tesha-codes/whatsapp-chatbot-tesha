@@ -1,5 +1,10 @@
 const openai = require('../config/openai');
 const mongoose = require('mongoose');
+const Category = require('../models/Category'); // Ensure correct path to models
+const Service = require('../models/Service');
+const ServiceRequest = require('../models/ServiceRequest');
+const User = require('../models/User');
+const crypto = require('crypto');
 
 class AIConversationManager {
     constructor() {
@@ -28,26 +33,34 @@ class AIConversationManager {
 
             // Update conversation history and state
             this.updateConversationHistory(message, aiResponse.response);
+
+            // Enhanced service detection and extraction
+            const serviceDetectionResult = await this.detectServiceRequest(message);
+
+            // Update conversation state
             this.updateConversationState(message, aiResponse.response);
 
-            console.log('AI Response:', JSON.stringify(aiResponse, null, 2));
+            console.log('Service Detection Result:', JSON.stringify(serviceDetectionResult, null, 2));
 
+            // Prepare response and next steps
             return {
                 response: aiResponse.response,
                 state: {
                     ...this.currentState,
-                    nextStep: aiResponse.next_step
+                    serviceDetection: serviceDetectionResult,
+                    nextStep: serviceDetectionResult.needMoreInfo
+                        ? 'GATHER_SERVICE_DETAILS'
+                        : 'PREPARE_SERVICE_REQUEST'
                 }
             };
         } catch (error) {
             console.error('Detailed AI Processing Error:', error);
 
-            // Provide a fallback response
             return {
-                response: `I'm having trouble understanding your request. Could you please rephrase or be more specific? Error: ${error.message}`,
+                response: `I'm having trouble understanding your request. Could you tell me more about the service you need?`,
                 state: {
                     ...this.currentState,
-                    step: 'ERROR_HANDLING'
+                    nextStep: 'GATHER_SERVICE_DETAILS'
                 }
             };
         }
@@ -114,6 +127,76 @@ Respond in JSON format:
     }
 
     /**
+     * Detect and extract service request details
+     * @param {string} message - User's message
+     * @returns {Promise<Object>} Service detection results
+     */
+    async detectServiceRequest(message) {
+        // Predefined service categories and keywords
+        const serviceCategories = {
+            'cleaning': ['clean', 'wash', 'cleaning', 'dust', 'vacuum', 'mop'],
+            'plumbing': ['pipe', 'water', 'toilet', 'leak', 'drain', 'flush', 'plumber'],
+            'electrical': ['light', 'socket', 'wire', 'electrical', 'repair', 'install'],
+            'moving': ['move', 'transport', 'haul', 'relocate', 'shift'],
+            'pet care': ['pet', 'dog', 'cat', 'walk', 'sit', 'groom'],
+            'senior care': ['senior', 'elderly', 'companion', 'help', 'assist']
+        };
+
+        // Normalize message
+        const normalizedMessage = message.toLowerCase();
+
+        // First, try to match a service category
+        let detectedCategory = null;
+        for (const [category, keywords] of Object.entries(serviceCategories)) {
+            if (keywords.some(keyword => normalizedMessage.includes(keyword))) {
+                detectedCategory = category;
+                break;
+            }
+        }
+
+        // If category found, attempt to find a specific service
+        if (detectedCategory) {
+            try {
+                // Find the category in the database
+                const categoryDoc = await Category.findOne({
+                    name: { $regex: new RegExp(detectedCategory, 'i') }
+                });
+
+                if (categoryDoc) {
+                    // Find services in this category
+                    const services = await Service.find({
+                        category: categoryDoc._id
+                    });
+
+                    return {
+                        categoryDetected: true,
+                        category: detectedCategory,
+                        categoryId: categoryDoc._id,
+                        services: services.map(s => s.title),
+                        needMoreInfo: services.length > 1, // Need more info if multiple services
+                        specificService: services.length === 1 ? services[0] : null
+                    };
+                }
+            } catch (error) {
+                console.error('Error in service detection:', error);
+            }
+        }
+
+        // If no clear category or service found
+        return {
+            categoryDetected: false,
+            needMoreInfo: true,
+            suggestedPrompt: `I'm not sure about the specific service you need. Could you provide more details? We offer services like:
+- Cleaning
+- Plumbing
+- Electrical repairs
+- Moving
+- Pet care
+- Senior care`
+        };
+    }
+
+    /**
      * Update conversation history
      * @param {string} userMessage - User's message
      * @param {string} assistantResponse - AI's response
@@ -139,32 +222,26 @@ Respond in JSON format:
     }
 
     /**
-     * Update conversation state based on messages
+     * Update conversation state based on service detection
      * @param {string} userMessage - User's message
      * @param {string} assistantResponse - AI's response
      */
     updateConversationState(userMessage, assistantResponse) {
-        const serviceKeywords = {
-            'cleaning': ['clean', 'wash', 'cleaner'],
-            'plumbing': ['pipe', 'water', 'toilet', 'leak'],
-            'electrical': ['light', 'socket', 'wire'],
-            'moving': ['move', 'transport', 'haul']
-        };
+        // Update state based on service detection
+        if (this.currentState.serviceDetection) {
+            const detection = this.currentState.serviceDetection;
 
-        // Detect service category
-        if (!this.currentState.serviceCategory) {
-            const detectedService = Object.keys(serviceKeywords).find(service =>
-                serviceKeywords[service].some(keyword =>
-                    userMessage.toLowerCase().includes(keyword)
-                )
-            );
+            if (detection.categoryDetected) {
+                this.currentState.serviceCategory = detection.category;
 
-            if (detectedService) {
-                this.currentState.serviceCategory = detectedService;
+                // If only one service in category, pre-select it
+                if (detection.specificService) {
+                    this.currentState.serviceDetails.selectedService = detection.specificService;
+                }
             }
         }
 
-        // Update state based on conversation flow
+        // Existing state update logic
         switch (this.currentState.step) {
             case 'INITIAL':
                 this.currentState.step = 'SERVICE_DETAILS';
@@ -217,7 +294,8 @@ Respond in JSON format:
             serviceDetails: {
                 description: '',
                 timing: null,
-                specifics: {}
+                specifics: {},
+                selectedService: null
             },
             locationStatus: {
                 confirmed: false,
