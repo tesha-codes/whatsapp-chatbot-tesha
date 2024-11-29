@@ -14,12 +14,11 @@ class AIConversationManager {
      * @returns {Promise<Object>} AI response and updated state
      */
     
-
     async processMessage(message, currentStep) {
         try {
             const systemInstructions = this.prepareSystemInstructions(currentStep);
 
-            // Generate AI response with explicit next steps
+            // Generate AI response 
             const aiResponse = await this.generateAIResponse({
                 systemInstructions,
                 message
@@ -54,6 +53,7 @@ class AIConversationManager {
             };
         }
     }
+
 
     /**
      * Prepare system instructions for AI
@@ -92,7 +92,6 @@ Response Format:
     async generateAIResponse({ systemInstructions, message }) {
         const response = await openai.chat.completions.create({
             model: 'gpt-4o',
-            response_format: { type: "json_object" },
             messages: [
                 { role: 'system', content: systemInstructions },
                 ...this.getRecentConversationContext(),
@@ -102,8 +101,10 @@ Response Format:
             max_tokens: 300
         });
 
-        // Parse the structured response
-        return JSON.parse(response.choices[0].message.content);
+        // Return the text response directly
+        return {
+            response: response.choices[0].message.content
+        };
     }
 
     /**
@@ -203,12 +204,17 @@ Response Format:
 
 
     determineNextStep(serviceDetectionResult) {
+        // More conversational approach to determining next step
         if (!serviceDetectionResult.categoryDetected) {
             return 'SERVICE_CONFIRMATION';
         }
-        if (serviceDetectionResult.needMoreInfo) {
+
+        // If multiple services in category, ask for specifics
+        if (serviceDetectionResult.services && serviceDetectionResult.services.length > 1) {
             return 'SERVICE_DETAILS';
         }
+
+        // Default to location confirmation
         return 'LOCATION_CONFIRMATION';
     }
     /**
@@ -217,19 +223,24 @@ Response Format:
      * @param {string} assistantResponse - AI's response
      */
     updateConversationState(userMessage, assistantResponse) {
+        // More flexible state management
+        const normalizedMessage = userMessage.toLowerCase();
+
         switch (this.currentState.step) {
             case 'INITIAL':
-                if (this.currentState.serviceDetection?.categoryDetected) {
+                if (this.detectServiceInMessage(normalizedMessage)) {
                     this.currentState.step = 'SERVICE_CONFIRMATION';
                 }
                 break;
             case 'SERVICE_CONFIRMATION':
-                if (this.isServiceConfirmed(userMessage)) {
+                if (this.isServiceConfirmed(normalizedMessage)) {
                     this.currentState.step = 'LOCATION_CONFIRMATION';
+                    // Store confirmed service details
+                    this.currentState.confirmedService = this.lastDetectedService;
                 }
                 break;
             case 'LOCATION_CONFIRMATION':
-                if (this.isLocationConfirmed(userMessage)) {
+                if (this.isLocationConfirmed(normalizedMessage)) {
                     this.currentState.step = 'PREPARE_REQUEST';
                 }
                 break;
@@ -241,9 +252,21 @@ Response Format:
         }
     }
 
+
     isServiceConfirmed(message) {
         return ['yes', 'correct', 'confirm', 'ok'].some(word =>
             message.toLowerCase().includes(word)
+        );
+    }
+
+    detectServiceInMessage(message) {
+        const serviceKeywords = [
+            'cleaning', 'plumbing', 'electrical', 'moving',
+            'pet care', 'senior care', 'repair', 'service'
+        ];
+
+        return serviceKeywords.some(keyword =>
+            message.includes(keyword)
         );
     }
 
