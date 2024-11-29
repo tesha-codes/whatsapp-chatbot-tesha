@@ -1,7 +1,7 @@
 const openai = require('../config/openai');
 const mongoose = require('mongoose');
-const Category = require('../models/Category'); // Ensure correct path to models
-const Service = require('../models/Service');
+const Category = require('../models/category.model'); // Ensure correct path to models
+const Service = require('../models/services.model');
 const ServiceRequest = require('../models/ServiceRequest');
 const User = require('../models/User');
 const crypto = require('crypto');
