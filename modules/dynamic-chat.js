@@ -51,15 +51,16 @@ class Client {
                 currentStep
             );
 
-            const sessionData = {
+            // Flatten the session data to work with the existing setSession function
+            const flattenedSessionData = {
                 message: message || '',
                 step: aiResult.state.step || steps.DEFAULT_CLIENT_STATE,
-                serviceCategory: aiResult.state.serviceCategory || null,
-                location: aiResult.state.location || null,
+                serviceCategory: aiResult.state.serviceCategory || '',
+                location: aiResult.state.location || '',
                 serviceDetails: JSON.stringify(aiResult.state.serviceDetails || {})
             };
 
-            await setSession(phone, sessionData);
+            await setSession(phone, flattenedSessionData);
 
             switch (aiResult.state.step) {
                 case 'PREPARE_REQUEST':
@@ -74,7 +75,6 @@ class Client {
                 .send('An error occurred: ' + error.message);
         }
     }
-
 
     async handleInitialState() {
         const { res, session, steps, lActivity, phone, message, user } = this;
@@ -320,14 +320,19 @@ ${services
 
 Reply with the number of the service you'd like to hire.
     `;
-        await setSession(phone, {
+
+        // Flatten session data
+        const flatSessionData = {
             step: steps.BOOK_SERVICE,
-            message,
-            lActivity,
-            categoryId: category._id.toString(),
-        });
+            message: message || '',
+            lActivity: lActivity || new Date().toISOString(),
+            categoryId: category._id.toString()
+        };
+
+        await setSession(phone, flatSessionData);
         return res.status(StatusCodes.OK).send(responseMessage);
     }
+
 
     async bookService() {
         const { res, steps, lActivity, phone, message, session } = this;
@@ -368,16 +373,20 @@ Please wait...`;
             requestId: request._id.toString(),
         });
 
-        setSession(phone, {
+        // Flatten session data
+        const flatSessionData = {
             step: steps.DEFAULT_CLIENT_STATE,
-            message,
-            lActivity,
+            message: message || '',
+            lActivity: lActivity || new Date().toISOString(),
             serviceId: service._id.toString(),
-            requestId: request._id.toString(),
-        });
+            requestId: request._id.toString()
+        };
+
+        await setSession(phone, flatSessionData);
 
         return res.status(StatusCodes.OK).send(responseMessage);
     }
+
 
     async handleDefaultState() {
         // Handle any default state logic here

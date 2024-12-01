@@ -144,7 +144,7 @@ Reply with:
           step: steps.SELECT_SERVICE_CATEGORY,
           message,
           lActivity,
-        });
+        });     
 
         return res.status(StatusCodes.OK)
           .send(`Welcome back ${user.firstName}! 👋\nHow can I help you today?`);
