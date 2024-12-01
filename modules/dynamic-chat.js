@@ -37,44 +37,57 @@ class Client {
     }
 
     async mainEntry() {
+        // First, handle initial state and registration
         const initialStateResult = await this.handleInitialState();
         if (initialStateResult) return initialStateResult;
 
         const { res, steps, lActivity, phone, message } = this;
         const currentStep = this.session.step || steps.DEFAULT_CLIENT_STATE;
 
-        try {
-            const aiResult = await aiConversationManager.processMessage(
-                message,
-                currentStep
-            );
+        // Only engage AI if the user is past registration and in service selection steps
+        const aiEnabledSteps = [
+            steps.SELECT_SERVICE_CATEGORY,
+            steps.SELECT_SERVICE,
+            steps.BOOK_SERVICE
+        ];
 
-            // Flatten the session data to work with the existing setSession function
-            const flattenedSessionData = {
-                message: aiResult.state.message || "",
-                step: aiResult.state.step || steps.DEFAULT_CLIENT_STATE,
-                serviceCategory: aiResult.state.serviceCategory || "",
-                location: aiResult.state.location || "",
-                serviceDetails: JSON.stringify(aiResult.state.serviceDetails || {}),
-            };
+        if (aiEnabledSteps.includes(currentStep)) {
+            try {
+                const aiResult = await aiConversationManager.processMessage(
+                    message,
+                    currentStep
+                );
 
-            await setSession(phone, flattenedSessionData);
+                // Flatten the session data to work with the existing setSession function
+                const flattenedSessionData = {
+                    message: aiResult.state.message || "",
+                    step: aiResult.state.step || currentStep,
+                    serviceCategory: aiResult.state.serviceCategory || "",
+                    location: aiResult.state.location || "",
+                    serviceDetails: JSON.stringify(aiResult.state.serviceDetails || {}),
+                };
 
-            switch (aiResult.state.step) {
-                case "PREPARE_REQUEST":
-                    await this.createServiceRequestFromAI(aiResult.state);
-                    break;
-                default:
-                    break;
+                await setSession(phone, flattenedSessionData);
+
+                switch (aiResult.state.step) {
+                    case "PREPARE_REQUEST":
+                        await this.createServiceRequestFromAI(aiResult.state);
+                        break;
+                    default:
+                        break;
+                }
+
+                return res.status(StatusCodes.OK).send(aiResult.response);
+            } catch (error) {
+                console.error("Detailed error in main entry:", error);
+                return res
+                    .status(StatusCodes.INTERNAL_SERVER_ERROR)
+                    .send("An error occurred: " + error.message);
             }
-
-            return res.status(StatusCodes.OK).send(aiResult.response);
-        } catch (error) {
-            console.error("Detailed error in main entry:", error);
-            return res
-                .status(StatusCodes.INTERNAL_SERVER_ERROR)
-                .send("An error occurred: " + error.message);
         }
+
+        // If not in AI-enabled steps, handle default state or other specific steps
+        return this.handleDefaultState();
     }
 
     async handleInitialState() {

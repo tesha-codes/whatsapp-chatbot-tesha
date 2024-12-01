@@ -10,12 +10,17 @@ class AIConversationManager {
 
     async processMessage(message, currentStep) {
         try {
-            const serviceDetectionResult = await this.detectServiceRequest(message);
+            // Only attempt service detection if in appropriate steps
+            const serviceDetectionResult = currentStep.includes('SERVICE')
+                ? await this.detectServiceRequest(message)
+                : { categoryDetected: false };
+
             const response = await this.generateContextualResponse(
                 message,
                 currentStep,
                 serviceDetectionResult
             );
+
             this.updateConversationState(message, serviceDetectionResult);
 
             return {
@@ -30,9 +35,9 @@ class AIConversationManager {
         } catch (error) {
             console.error('AI Processing Error:', error);
             return {
-                response: `I'm sorry, I'm having trouble understanding your request. Could you please provide more details about the service you need?`,
+                response: `I apologize, but I'm having trouble understanding your request. Could you please provide more details about the service you need?`,
                 state: {
-                    step: 'SERVICE_CONFIRMATION',
+                    step: currentStep, // Maintain current step
                     serviceCategory: null,
                     location: null,
                     serviceDetails: {},
@@ -44,11 +49,11 @@ class AIConversationManager {
     async generateContextualResponse(message, currentStep, serviceDetectionResult) {
         const prompt = this.buildPrompt(message, currentStep, serviceDetectionResult);
         const response = await openai.completions.create({
-            model: 'davinci-002',
+            model: 'gpt-3.5-turbo-instruct',
             prompt,
             max_tokens: 300,
             n: 1,
-            stop: ['Human:', 'Assistant:'],
+            stop: ['Human:', 'System:'],
             temperature: 0.7,
         });
 
