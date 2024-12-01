@@ -66,6 +66,7 @@ const steps = {
   ACCOUNT_STATUS_INACTIVE: "ACCOUNT_STATUS_INACTIVE",
   ACCOUNT_STATUS_SUSPENDED: "ACCOUNT_STATUS_SUSPENDED",
   SERVICE_PROVIDER_MAIN_MENU: "SERVICE_PROVIDER_MAIN_MENU",
+  AI_SERVICE_REQUEST: 'AI_SERVICE_REQUEST'
 };
 
 app.use(morgan("combined"));
@@ -179,7 +180,7 @@ app.post("/bot", async (req, res) => {
             // );
             // return await client.mainEntry();
 
-            const dynamicClient = new DynamicClient(res,
+            const dynamicClient = new Client(res,
               userResponse,
               session,
               user,

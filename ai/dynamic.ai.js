@@ -49,7 +49,7 @@ class AIConversationManager {
     async generateContextualResponse(message, currentStep, serviceDetectionResult) {
         const prompt = this.buildPrompt(message, currentStep, serviceDetectionResult);
         const response = await openai.completions.create({
-            model: 'gpt-3.5-turbo-instruct',
+            model: 'gpt-3.5-turbo-instruc',
             prompt,
             max_tokens: 300,
             n: 1,

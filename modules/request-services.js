@@ -15,6 +15,7 @@ const User = require("../models/user.model");
 const crypto = require("node:crypto");
 const { queueProviderSearch } = require("../jobs/service-provider.job");
 const CONSTANTS = require('../constants/index')
+const AIServiceRequestHandler = require('./ai-service');
 
 
 class ValidationError extends Error {
@@ -51,6 +52,9 @@ class Client {
     this.handleProviderAssignment = this.handleProviderAssignment.bind(this);
     this.handleProviderConfirmation = this.handleProviderConfirmation.bind(this);
     this.handleDefaultState = this.handleDefaultState.bind(this);
+
+    this.openaiApiKey = process.env.OPENAI_API_KEY; 
+    this.aiServiceRequestHandler = null;
   }
 
   validateConstructorParams(res, userResponse) {
@@ -437,6 +441,10 @@ You're all set! If you need any further assistance, feel free to reach out. 😊
       const initialStateResult = await this.handleInitialState();
       if (initialStateResult) return initialStateResult;
 
+
+      if (session.step === steps.AI_SERVICE_REQUEST) {
+        return await this.handleAIServiceRequest();
+      }
       // Then handle service request flow
       const serviceHandlers = {
         [steps.SELECT_SERVICE_CATEGORY]: this.selectServiceCategory,
@@ -460,16 +468,38 @@ You're all set! If you need any further assistance, feel free to reach out. 😊
   }
 
   async handleMenuAction() {
-    const { res, message, steps, lActivity } = this;
+    const { res, message, steps, lActivity, phone } = this;
 
     switch (message.toLowerCase()) {
       case 'request service':
-        await this.setSessionSafely({
-          step: steps.SELECT_SERVICE_CATEGORY,
-          message,
-          lActivity
-        });
-        return await this.selectServiceCategory();
+        try {
+          // Initialize AI-driven service request handler
+          this.aiServiceRequestHandler = new AIServiceRequestHandler(
+            this.openaiApiKey,
+            {
+              user: this.user,
+              phone: this.phone
+            }
+          );
+
+          // Start the AI-driven service request process
+          const initialResponse = await this.aiServiceRequestHandler.initializeServiceRequest();
+
+          // Update session to track AI service request state
+          await this.setSessionSafely({
+            step: steps.AI_SERVICE_REQUEST,
+            aiRequestState: initialResponse.status,
+            message,
+            lActivity
+          });
+
+          // Send the AI-generated initial message
+          return res.status(StatusCodes.OK).send(initialResponse.message);
+
+        } catch (error) {
+          console.error('Error initiating AI service request:', error);
+          return this.handleError(error);
+        }
 
       case 'update location':
         await this.setSessionSafely({
@@ -481,7 +511,6 @@ You're all set! If you need any further assistance, feel free to reach out. 😊
           .send("Please share your current location using WhatsApp's location feature.");
 
       case 'check status':
-        // Add status checking logic here
         return res.status(StatusCodes.OK)
           .send("You have no active service requests.");
 
@@ -490,7 +519,72 @@ You're all set! If you need any further assistance, feel free to reach out. 😊
     }
   }
 
+
   
+
+  async handleAIServiceRequest() {
+    const { res, message, session, steps, lActivity, phone } = this;
+
+    try {
+      // Ensure we have an active AI service request handler
+      if (!this.aiServiceRequestHandler) {
+        // Reinitialize if lost
+        this.aiServiceRequestHandler = new AIServiceRequestHandler(
+          this.openaiApiKey,
+          {
+            user: this.user,
+            phone: this.phone
+          }
+        );
+      }
+
+      // Process user's response in the AI-driven service request flow
+      const aiResponse = await this.aiServiceRequestHandler.processUserResponse(message);
+
+      // Update session based on AI response status
+      await this.setSessionSafely({
+        step: steps.AI_SERVICE_REQUEST,
+        aiRequestState: aiResponse.status,
+        message,
+        lActivity,
+        ...(aiResponse.requestId && { requestId: aiResponse.requestId })
+      });
+
+      // Handle different response statuses
+      switch (aiResponse.status) {
+        case 'NEED_CATEGORY':
+          // If categories are provided, format them nicely
+          if (aiResponse.categories) {
+            const categoryList = aiResponse.categories
+              .map((cat, index) => `${index + 1}. ${cat.name}`)
+              .join('\n');
+
+            return res.status(StatusCodes.OK).send(
+              `${aiResponse.message}\n\nAvailable Categories:\n${categoryList}`
+            );
+          }
+          return res.status(StatusCodes.OK).send(aiResponse.message);
+
+        case 'NEED_LOCATION':
+          return res.status(StatusCodes.OK).send(
+            `${aiResponse.message}\n\nPlease share your location using WhatsApp's location feature.`
+          );
+
+        case 'REQUEST_CREATED':
+          // Similar to original proceedWithServiceRequest logic
+          return res.status(StatusCodes.OK).send(
+            `🎉 ${aiResponse.message}\n\nRequest ID: ${aiResponse.requestId}`
+          );
+
+        default:
+          return res.status(StatusCodes.OK).send(aiResponse.message);
+      }
+
+    } catch (error) {
+      console.error('Error in AI service request flow:', error);
+      return this.handleError(error);
+    }
+  }
 
   async showMainMenu() {
     try {
