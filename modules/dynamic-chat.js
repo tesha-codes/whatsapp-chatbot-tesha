@@ -14,9 +14,7 @@ const ServiceRequest = require("../models/request.model");
 const User = require("../models/user.model");
 const crypto = require("node:crypto");
 const { queueProviderSearch } = require("../jobs/service-provider.job");
-const aiConversationManager = require('../ai/dynamic.ai');
-
-
+const aiConversationManager = require("../ai/dynamic.ai");
 
 class Client {
     constructor(res, userResponse, session, user, steps, messages) {
@@ -53,26 +51,29 @@ class Client {
 
             // Flatten the session data to work with the existing setSession function
             const flattenedSessionData = {
-                message: message || '',
+                message: aiResult.state.message || "",
                 step: aiResult.state.step || steps.DEFAULT_CLIENT_STATE,
-                serviceCategory: aiResult.state.serviceCategory || '',
-                location: aiResult.state.location || '',
-                serviceDetails: JSON.stringify(aiResult.state.serviceDetails || {})
+                serviceCategory: aiResult.state.serviceCategory || "",
+                location: aiResult.state.location || "",
+                serviceDetails: JSON.stringify(aiResult.state.serviceDetails || {}),
             };
 
             await setSession(phone, flattenedSessionData);
 
             switch (aiResult.state.step) {
-                case 'PREPARE_REQUEST':
+                case "PREPARE_REQUEST":
                     await this.createServiceRequestFromAI(aiResult.state);
+                    break;
+                default:
                     break;
             }
 
             return res.status(StatusCodes.OK).send(aiResult.response);
         } catch (error) {
-            console.error('Detailed error in main entry:', error);
-            return res.status(StatusCodes.INTERNAL_SERVER_ERROR)
-                .send('An error occurred: ' + error.message);
+            console.error("Detailed error in main entry:", error);
+            return res
+                .status(StatusCodes.INTERNAL_SERVER_ERROR)
+                .send("An error occurred: " + error.message);
         }
     }
 
@@ -84,8 +85,8 @@ class Client {
             await clientMainMenuTemplate(phone, updatedUser.firstName);
             await setSession(phone, {
                 step: steps.SELECT_SERVICE_CATEGORY,
-                message: message || '',
-                lActivity: lActivity || new Date().toISOString()
+                message: message || "",
+                lActivity: lActivity || new Date().toISOString(),
             });
             return res
                 .status(StatusCodes.OK)
@@ -121,20 +122,20 @@ class Client {
         const location = aiState.location;
 
         const category = await Category.findOne({
-            name: { $regex: new RegExp(serviceCategory, 'i') }
+            name: { $regex: new RegExp(serviceCategory, "i") },
         });
 
         if (!category) {
-            throw new Error('Category not found');
+            throw new Error("Category not found");
         }
 
         const service = await Service.findOne({
             category: category._id,
-            title: { $regex: new RegExp(serviceCategory, 'i') }
+            title: { $regex: new RegExp(serviceCategory, "i") },
         });
 
         if (!service) {
-            throw new Error('Service not found');
+            throw new Error("Service not found");
         }
 
         const user = await User.findOne({ phone });
@@ -146,7 +147,7 @@ class Client {
             requester: user._id,
             service: service._id,
             address: {
-                physicalAddress: location
+                physicalAddress: location,
             },
             notes: "Service request from AI conversation",
             id: reqID,
@@ -174,7 +175,6 @@ Your request for ${serviceCategory} service has been successfully created.
 Our team is searching for an available service provider. 
 Please wait...`;
     }
-
 
     async setupClientProfile() {
         const { res, steps, lActivity, phone, message } = this;
@@ -324,15 +324,14 @@ Reply with the number of the service you'd like to hire.
         // Flatten session data
         const flatSessionData = {
             step: steps.BOOK_SERVICE,
-            message: message || '',
+            message: message || "",
             lActivity: lActivity || new Date().toISOString(),
-            categoryId: category._id.toString()
+            categoryId: category._id.toString(),
         };
 
         await setSession(phone, flatSessionData);
         return res.status(StatusCodes.OK).send(responseMessage);
     }
-
 
     async bookService() {
         const { res, steps, lActivity, phone, message, session } = this;
@@ -376,17 +375,16 @@ Please wait...`;
         // Flatten session data
         const flatSessionData = {
             step: steps.DEFAULT_CLIENT_STATE,
-            message: message || '',
+            message: message || "",
             lActivity: lActivity || new Date().toISOString(),
             serviceId: service._id.toString(),
-            requestId: request._id.toString()
+            requestId: request._id.toString(),
         };
 
         await setSession(phone, flatSessionData);
 
         return res.status(StatusCodes.OK).send(responseMessage);
     }
-
 
     async handleDefaultState() {
         // Handle any default state logic here

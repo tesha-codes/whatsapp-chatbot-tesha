@@ -11,13 +11,11 @@ class AIConversationManager {
     async processMessage(message, currentStep) {
         try {
             const serviceDetectionResult = await this.detectServiceRequest(message);
-
             const response = await this.generateContextualResponse(
                 message,
                 currentStep,
                 serviceDetectionResult
             );
-
             this.updateConversationState(message, serviceDetectionResult);
 
             return {
@@ -26,109 +24,93 @@ class AIConversationManager {
                     step: response.nextStep,
                     serviceCategory: this.currentState.serviceCategory,
                     location: this.currentState.location,
-                    serviceDetails: response.serviceDetails || {}
-                }
+                    serviceDetails: response.serviceDetails || {},
+                },
             };
         } catch (error) {
             console.error('AI Processing Error:', error);
             return {
-                response: `I'm having trouble understanding your request. Could you clarify the service you need?`,
+                response: `I'm sorry, I'm having trouble understanding your request. Could you please provide more details about the service you need?`,
                 state: {
                     step: 'SERVICE_CONFIRMATION',
                     serviceCategory: null,
                     location: null,
-                    serviceDetails: {}
-                }
+                    serviceDetails: {},
+                },
             };
         }
     }
 
     async generateContextualResponse(message, currentStep, serviceDetectionResult) {
-        switch (this.currentState.step) {
-            case 'INITIAL':
-                if (serviceDetectionResult.categoryDetected) {
-                    return {
-                        text: `I understand you're looking for a ${serviceDetectionResult.category} service. 
-Is this correct? Please confirm with 'yes' or provide more details.`,
-                        nextStep: 'SERVICE_CONFIRMATION',
-                        serviceDetails: {
-                            category: serviceDetectionResult.category
-                        }
-                    };
-                }
-                return {
-                    text: `I'm not sure about the specific service you need. Could you provide more details? 
-We offer services like:
-- Cleaning
-- Plumbing
-- Electrical repairs
-- Moving
-- Pet care
-- Senior care`,
-                    nextStep: 'SERVICE_CONFIRMATION'
-                };
+        const prompt = this.buildPrompt(message, currentStep, serviceDetectionResult);
+        const response = await openai.completions.create({
+            model: 'text-davinci-003',
+            prompt,
+            max_tokens: 300,
+            n: 1,
+            stop: ['Human:', 'Assistant:'],
+            temperature: 0.7,
+        });
 
-            case 'SERVICE_CONFIRMATION':
-                if (this.isServiceConfirmed(message)) {
-                    return {
-                        text: `Great! Could you please share your current location or address where you need the ${this.currentState.serviceCategory} service?`,
-                        nextStep: 'LOCATION_CONFIRMATION',
-                        serviceDetails: {
-                            category: this.currentState.serviceCategory
-                        }
-                    };
-                }
-                return {
-                    text: 'Let\'s try again. What service do you need?',
-                    nextStep: 'INITIAL'
-                };
+        const generatedResponse = response.choices[0].text.trim();
+        const nextStep = this.determineNextStep(currentStep, serviceDetectionResult);
+        const serviceDetails = this.extractServiceDetails(generatedResponse);
 
-            case 'LOCATION_CONFIRMATION':
-                if (this.isValidLocation(message)) {
-                    return {
-                        text: `You've provided the location: ${message}. 
-Is this correct? Please confirm with 'yes' or provide a different location.`,
-                        nextStep: 'PREPARE_REQUEST',
-                        serviceDetails: {
-                            category: this.currentState.serviceCategory,
-                            location: message
-                        }
-                    };
-                }
-                return {
-                    text: 'Please provide a valid location or address.',
-                    nextStep: 'LOCATION_CONFIRMATION'
-                };
+        return {
+            text: generatedResponse,
+            nextStep,
+            serviceDetails,
+        };
+    }
 
-            case 'PREPARE_REQUEST':
-                if (this.isLocationConfirmed(message)) {
-                    return {
-                        text: `Thank you for confirming! 
+    buildPrompt(message, currentStep, serviceDetectionResult) {
+        let prompt = `The user has said: "${message}". The current conversation step is "${currentStep}".`;
 
-🔍 Service Request Details:
-- Service Category: ${this.currentState.serviceCategory}
-- Location: ${this.currentState.location}
-
-Our team is now searching for an available service provider. Please wait...`,
-                        nextStep: 'REQUEST_SUBMITTED',
-                        serviceDetails: {
-                            category: this.currentState.serviceCategory,
-                            location: this.currentState.location,
-                            description: 'Service request from conversation'
-                        }
-                    };
-                }
-                return {
-                    text: 'Could you confirm your location again?',
-                    nextStep: 'LOCATION_CONFIRMATION'
-                };
-
-            default:
-                return {
-                    text: 'Something went wrong. Let\'s start over. What service do you need?',
-                    nextStep: 'INITIAL'
-                };
+        if (serviceDetectionResult.categoryDetected) {
+            prompt += ` The user has requested a ${serviceDetectionResult.category} service.`;
+        } else {
+            prompt += ' The user has not specified a service yet.';
         }
+
+        prompt += `
+    Based on the user's message and the current step, generate a helpful and context-appropriate response. The response should:
+    - Confirm the service the user is requesting (if detected)
+    - Request the user's location if the service is confirmed
+    - Confirm the location with the user
+    - Provide next steps for creating a service request
+    - Be written in a friendly and conversational tone
+
+    Response:
+    `;
+
+        return prompt;
+    }
+
+    determineNextStep(currentStep, serviceDetectionResult) {
+        switch (currentStep) {
+            case 'INITIAL':
+                return serviceDetectionResult.categoryDetected
+                    ? 'SERVICE_CONFIRMATION'
+                    : 'SERVICE_CONFIRMATION';
+            case 'SERVICE_CONFIRMATION':
+                return 'LOCATION_CONFIRMATION';
+            case 'LOCATION_CONFIRMATION':
+                return 'PREPARE_REQUEST';
+            case 'PREPARE_REQUEST':
+                return 'REQUEST_SUBMITTED';
+            default:
+                return 'INITIAL';
+        }
+    }
+
+    extractServiceDetails(response) {
+        const categoryMatch = response.match(/a ([a-z]+) service/);
+        const locationMatch = response.match(/location: ([^.]+)/);
+
+        return {
+            category: categoryMatch?.[1] || null,
+            location: locationMatch?.[1] || null,
+        };
     }
 
     async detectServiceRequest(message) {
@@ -138,7 +120,7 @@ Our team is now searching for an available service provider. Please wait...`,
             'electrical': ['light', 'socket', 'wire', 'electrical', 'repair', 'install'],
             'moving': ['move', 'transport', 'haul', 'relocate', 'shift'],
             'pet care': ['pet', 'dog', 'cat', 'walk', 'sit', 'groom'],
-            'senior care': ['senior', 'elderly', 'companion', 'help', 'assist']
+            'senior care': ['senior', 'elderly', 'companion', 'help', 'assist'],
         };
 
         const normalizedMessage = message.toLowerCase();
@@ -154,14 +136,14 @@ Our team is now searching for an available service provider. Please wait...`,
         if (detectedCategory) {
             try {
                 const categoryDoc = await Category.findOne({
-                    name: { $regex: new RegExp(detectedCategory, 'i') }
+                    name: { $regex: new RegExp(detectedCategory, 'i') },
                 });
 
                 if (categoryDoc) {
                     return {
                         categoryDetected: true,
                         category: detectedCategory,
-                        categoryId: categoryDoc._id
+                        categoryId: categoryDoc._id,
                     };
                 }
             } catch (error) {
@@ -171,7 +153,7 @@ Our team is now searching for an available service provider. Please wait...`,
 
         return {
             categoryDetected: false,
-            needMoreInfo: true
+            needMoreInfo: true,
         };
     }
 
@@ -224,7 +206,7 @@ Our team is now searching for an available service provider. Please wait...`,
         this.currentState = {
             step: 'INITIAL',
             serviceCategory: null,
-            location: null
+            location: null,
         };
     }
 }
