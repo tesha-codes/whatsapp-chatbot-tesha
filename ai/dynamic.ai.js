@@ -69,86 +69,43 @@ class AIConversationManager {
     }
 
     buildPrompt(message, currentStep, serviceDetectionResult) {
-        const languageContextKeywords = {
-            cleaning: {
-                english: ['clean', 'wash', 'cleaning', 'dust', 'vacuum', 'mop'],
-                shona: ['sadzira', 'hlamba', 'kunatsira', 'bvisa nguchu'],
-                ndebele: ['hlanza', 'geza', 'songa', 'sucutsa']
-            },
-            plumbing: {
-                english: ['pipe', 'water', 'toilet', 'leak', 'drain', 'flush', 'plumber'],
-                shona: ['mvura', 'chimoto', 'pfipe', 'ngochani'],
-                ndebele: ['amanzi', 'umtshWellington', 'i-paipi', 'hluma']
-            },
-            electrical: {
-                english: ['light', 'socket', 'wire', 'electrical', 'repair', 'install'],
-                shona: ['mweya', 'kuwirira', 'kurongedzera'],
-                ndebele: ['isibane', 'i-sokethi', 'yenza']
-            }
-        };
-
-        // Normalize and preprocess the message
-        const normalizedMessage = message.toLowerCase()
-            .replace(/[^\w\s]/gi, '')  // Remove punctuation
-            .trim();
-
-        // Enhanced intent detection across languages
-        let detectedIntent = null;
-        Object.entries(languageContextKeywords).forEach(([category, keywords]) => {
-            const allKeywords = [
-                ...keywords.english,
-                ...keywords.shona,
-                ...keywords.ndebele
-            ];
-
-            if (allKeywords.some(keyword => normalizedMessage.includes(keyword))) {
-                detectedIntent = category;
-            }
-        });
-
-        // Construct a more context-aware and linguistically sensitive prompt
-        let prompt = `Conversation Context:
-- User Message: "${message}"
-- Current Step: "${currentStep}"
-- Language Detection: Mixed language input detected
+        let prompt = `Detailed Conversation Context:
+- Original User Message: "${message}"
+- Current Conversation Step: "${currentStep}"
+- Multilingual Communication Detected
 
 Service Intent Analysis:`;
 
-        if (detectedIntent) {
+        if (serviceDetectionResult.categoryDetected) {
             prompt += `
-- Detected Service Category: ${detectedIntent}
-- Potential Language Mix: Detected multilingual communication`;
+- Detected Service Category: ${serviceDetectionResult.category}
+- Confidence: High
+- Language Interpretation: Mixed-language input successfully processed`;
         } else {
             prompt += `
-- No clear service intent detected
-- Possible reasons:
-  * Ambiguous language use
-  * Complex or colloquial expression`;
+- No Clear Service Intent Detected
+- Possible Reasons:
+  * Complex or ambiguous language use
+  * Service not in predefined categories
+  * Unique service request`;
         }
 
         prompt += `
 
-Response Generation Guidelines:
-1. Understand the user's intent across potential language barriers
-2. If service is unclear, ask clarifying questions gently
-3. Be patient and supportive in communication
-4. Offer multilingual support if possible
-5. Guide the user to specify their service need clearly
-6. Use simple, clear language
-7. Be conversational and friendly
+Communication Guidelines:
+1. Understand user's intent across language barriers
+2. Be patient and supportive
+3. Ask clarifying questions if service is unclear
+4. Guide user towards precise service request
+5. Offer multilingual understanding
 
-Recommended Response Strategy:
-- If service detected: Confirm and seek clarification
-- If service unclear: Ask gentle, open-ended questions
-- Maintain a helpful, understanding tone
+Response Objectives:
+- Confirm or clarify service type
+- Request specific details if needed
+- Maintain friendly, helpful tone
+- Provide clear next steps
 
-Required Response Elements:
-- Clear acknowledgment of user's message
-- Request for any missing information
-- Guidance towards service request
-- Friendly, inclusive language
-
-Response:
+Recommended Response:
 `;
 
         return prompt;
@@ -183,22 +140,64 @@ Response:
 
     async detectServiceRequest(message) {
         const serviceCategories = {
-            'cleaning': ['clean', 'wash', 'cleaning', 'dust', 'vacuum', 'mop'],
-            'plumbing': ['pipe', 'water', 'toilet', 'leak', 'drain', 'flush', 'plumber'],
-            'electrical': ['light', 'socket', 'wire', 'electrical', 'repair', 'install'],
-            'moving': ['move', 'transport', 'haul', 'relocate', 'shift'],
-            'pet care': ['pet', 'dog', 'cat', 'walk', 'sit', 'groom'],
-            'senior care': ['senior', 'elderly', 'companion', 'help', 'assist'],
+            'yard work': {
+                english: ['yard', 'garden', 'landscaping', 'lawn', 'grass', 'outdoor', 'work'],
+                shona: ['minda', 'mabasa', 'kushandira', 'kusesa', 'kubika'],
+                ndebele: ['indawo', 'umhlaba', 'sebenza', 'hlonza']
+            },
+            'cleaning': {
+                english: ['clean', 'wash', 'cleaning', 'dust', 'vacuum', 'mop'],
+                shona: ['sadzira', 'hlamba', 'kunatsira', 'bvisa nguchu'],
+                ndebele: ['hlanza', 'geza', 'songa', 'sucutsa']
+            },
+            'plumbing': {
+                english: ['pipe', 'water', 'toilet', 'leak', 'drain', 'flush', 'plumber'],
+                shona: ['mvura', 'chimoto', 'pfipe', 'ngochani'],
+                ndebele: ['amanzi', 'umtshWellington', 'i-paipi', 'hluma']
+            },
+            'electrical': {
+                english: ['light', 'socket', 'wire', 'electrical', 'repair', 'install'],
+                shona: ['mweya', 'kuwirira', 'kurongedzera'],
+                ndebele: ['isibane', 'i-sokethi', 'yenza']
+            },
+            'moving': {
+                english: ['move', 'transport', 'haul', 'relocate', 'shift'],
+                shona: ['pfuura', 'kuenda', 'kutakura'],
+                ndebele: ['shayela', 'pendula', 'huqhela']
+            },
+            'pet care': {
+                english: ['pet', 'dog', 'cat', 'walk', 'sit', 'groom'],
+                shona: ['mbato', 'imbwa', 'gobvu', 'kuchengeta'],
+                ndebele: ['isilwane', 'inja', 'ikati', 'lindela']
+            }
         };
 
-        const normalizedMessage = message.toLowerCase();
+        // Normalize the message
+        const normalizedMessage = message.toLowerCase()
+            .replace(/[^\w\s]/gi, '')  // Remove punctuation
+            .trim();
 
+        // Enhanced detection with multilingual support
         let detectedCategory = null;
-        for (const [category, keywords] of Object.entries(serviceCategories)) {
-            if (keywords.some(keyword => normalizedMessage.includes(keyword))) {
+        Object.entries(serviceCategories).forEach(([category, keywords]) => {
+            const allKeywords = [
+                ...keywords.english,
+                ...keywords.shona,
+                ...keywords.ndebele
+            ];
+
+            if (allKeywords.some(keyword => normalizedMessage.includes(keyword))) {
                 detectedCategory = category;
-                break;
             }
+        });
+
+        // Specific handling for mixed-language yard work request
+        if (!detectedCategory &&
+            (normalizedMessage.includes('yard work') ||
+                normalizedMessage.includes('yard') ||
+                normalizedMessage.includes('minda') ||
+                normalizedMessage.includes('kusesa'))) {
+            detectedCategory = 'yard work';
         }
 
         if (detectedCategory) {
