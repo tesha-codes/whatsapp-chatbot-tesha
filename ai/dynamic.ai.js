@@ -44,7 +44,7 @@ class AIConversationManager {
     async generateContextualResponse(message, currentStep, serviceDetectionResult) {
         const prompt = this.buildPrompt(message, currentStep, serviceDetectionResult);
         const response = await openai.completions.create({
-            model: 'text-davinci-003',
+            model: 'davinci-002',
             prompt,
             max_tokens: 300,
             n: 1,
@@ -64,24 +64,87 @@ class AIConversationManager {
     }
 
     buildPrompt(message, currentStep, serviceDetectionResult) {
-        let prompt = `The user has said: "${message}". The current conversation step is "${currentStep}".`;
+        const languageContextKeywords = {
+            cleaning: {
+                english: ['clean', 'wash', 'cleaning', 'dust', 'vacuum', 'mop'],
+                shona: ['sadzira', 'hlamba', 'kunatsira', 'bvisa nguchu'],
+                ndebele: ['hlanza', 'geza', 'songa', 'sucutsa']
+            },
+            plumbing: {
+                english: ['pipe', 'water', 'toilet', 'leak', 'drain', 'flush', 'plumber'],
+                shona: ['mvura', 'chimoto', 'pfipe', 'ngochani'],
+                ndebele: ['amanzi', 'umtshWellington', 'i-paipi', 'hluma']
+            },
+            electrical: {
+                english: ['light', 'socket', 'wire', 'electrical', 'repair', 'install'],
+                shona: ['mweya', 'kuwirira', 'kurongedzera'],
+                ndebele: ['isibane', 'i-sokethi', 'yenza']
+            }
+        };
 
-        if (serviceDetectionResult.categoryDetected) {
-            prompt += ` The user has requested a ${serviceDetectionResult.category} service.`;
+        // Normalize and preprocess the message
+        const normalizedMessage = message.toLowerCase()
+            .replace(/[^\w\s]/gi, '')  // Remove punctuation
+            .trim();
+
+        // Enhanced intent detection across languages
+        let detectedIntent = null;
+        Object.entries(languageContextKeywords).forEach(([category, keywords]) => {
+            const allKeywords = [
+                ...keywords.english,
+                ...keywords.shona,
+                ...keywords.ndebele
+            ];
+
+            if (allKeywords.some(keyword => normalizedMessage.includes(keyword))) {
+                detectedIntent = category;
+            }
+        });
+
+        // Construct a more context-aware and linguistically sensitive prompt
+        let prompt = `Conversation Context:
+- User Message: "${message}"
+- Current Step: "${currentStep}"
+- Language Detection: Mixed language input detected
+
+Service Intent Analysis:`;
+
+        if (detectedIntent) {
+            prompt += `
+- Detected Service Category: ${detectedIntent}
+- Potential Language Mix: Detected multilingual communication`;
         } else {
-            prompt += ' The user has not specified a service yet.';
+            prompt += `
+- No clear service intent detected
+- Possible reasons:
+  * Ambiguous language use
+  * Complex or colloquial expression`;
         }
 
         prompt += `
-    Based on the user's message and the current step, generate a helpful and context-appropriate response. The response should:
-    - Confirm the service the user is requesting (if detected)
-    - Request the user's location if the service is confirmed
-    - Confirm the location with the user
-    - Provide next steps for creating a service request
-    - Be written in a friendly and conversational tone
 
-    Response:
-    `;
+Response Generation Guidelines:
+1. Understand the user's intent across potential language barriers
+2. If service is unclear, ask clarifying questions gently
+3. Be patient and supportive in communication
+4. Offer multilingual support if possible
+5. Guide the user to specify their service need clearly
+6. Use simple, clear language
+7. Be conversational and friendly
+
+Recommended Response Strategy:
+- If service detected: Confirm and seek clarification
+- If service unclear: Ask gentle, open-ended questions
+- Maintain a helpful, understanding tone
+
+Required Response Elements:
+- Clear acknowledgment of user's message
+- Request for any missing information
+- Guidance towards service request
+- Friendly, inclusive language
+
+Response:
+`;
 
         return prompt;
     }
