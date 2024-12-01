@@ -14,7 +14,8 @@ const ServiceRequest = require("../models/request.model");
 const User = require("../models/user.model");
 const crypto = require("node:crypto");
 const { queueProviderSearch } = require("../jobs/service-provider.job");
-const aiConversationManager = require('../ai/dynamic.ai')
+const aiConversationManager = require('../ai/dynamic.ai');
+
 
 
 class Client {
@@ -51,10 +52,10 @@ class Client {
             );
 
             const sessionData = {
-                message,
+                message: message || '',
                 step: aiResult.state.step || steps.DEFAULT_CLIENT_STATE,
-                serviceCategory: aiResult.state.serviceCategory,
-                location: aiResult.state.location,
+                serviceCategory: aiResult.state.serviceCategory || null,
+                location: aiResult.state.location || null,
                 serviceDetails: JSON.stringify(aiResult.state.serviceDetails || {})
             };
 
@@ -79,13 +80,12 @@ class Client {
         const { res, session, steps, lActivity, phone, message, user } = this;
 
         if (!session || session.step === steps.DEFAULT_CLIENT_STATE) {
-            // User is in the default state or has no session
             const updatedUser = await getUser(phone);
             await clientMainMenuTemplate(phone, updatedUser.firstName);
             await setSession(phone, {
                 step: steps.SELECT_SERVICE_CATEGORY,
-                message,
-                lActivity,
+                message: message || '',
+                lActivity: lActivity || new Date().toISOString()
             });
             return res
                 .status(StatusCodes.OK)
@@ -112,10 +112,8 @@ class Client {
             return await this.collectLocation();
         }
 
-        // If none of the above, return null to proceed with regular flow
         return null;
     }
-
 
     async createServiceRequestFromAI(aiState) {
         const { phone } = this;
