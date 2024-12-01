@@ -1,6 +1,7 @@
 const openai = require('../config/openai');
 const Category = require('../models/category.model');
 const Service = require('../models/services.model');
+const User = require('../models/user.model');
 
 class AIConversationManager {
     constructor() {
@@ -13,33 +14,27 @@ class AIConversationManager {
      * @param {string} currentStep - Current conversation step
      * @returns {Promise<Object>} AI response and updated state
      */
-    
     async processMessage(message, currentStep) {
         try {
-            const systemInstructions = this.prepareSystemInstructions(currentStep);
-
-            // Generate AI response 
-            const aiResponse = await this.generateAIResponse({
-                systemInstructions,
-                message
-            });
-
-            // Enhanced service detection
+            // Detect service request details
             const serviceDetectionResult = await this.detectServiceRequest(message);
 
-            // Update conversation history and state
-            this.updateConversationHistory(message, aiResponse.response);
-            this.updateConversationState(message, aiResponse.response);
+            // Generate appropriate response based on current conversation state
+            const response = await this.generateContextualResponse(
+                message,
+                currentStep,
+                serviceDetectionResult
+            );
 
-            // Determine next step based on conversation state
-            const nextStep = this.determineNextStep(serviceDetectionResult);
+            // Update conversation state
+            this.updateConversationState(message, serviceDetectionResult);
 
             return {
-                response: aiResponse.response,
+                response: response.text,
                 state: {
                     ...this.currentState,
                     serviceDetection: serviceDetectionResult,
-                    nextStep: nextStep
+                    nextStep: response.nextStep
                 }
             };
         } catch (error) {
@@ -54,57 +49,91 @@ class AIConversationManager {
         }
     }
 
-
     /**
-     * Prepare system instructions for AI
+     * Generate contextual response based on conversation state
+     * @param {string} message - User's message
      * @param {string} currentStep - Current conversation step
-     * @returns {string} System instructions
+     * @param {Object} serviceDetectionResult - Detected service details
+     * @returns {Promise<Object>} Response object with text and next step
      */
+    async generateContextualResponse(message, currentStep, serviceDetectionResult) {
+        // Different response logic based on current conversation state
+        switch (this.currentState.step) {
+            case 'INITIAL':
+                // Service not yet confirmed
+                if (serviceDetectionResult.categoryDetected) {
+                    return {
+                        text: `I understand you're looking for a ${serviceDetectionResult.category} service. 
+Is this correct? Please confirm with 'yes' or provide more details.`,
+                        nextStep: 'SERVICE_CONFIRMATION'
+                    };
+                }
+                return {
+                    text: `I'm not sure about the specific service you need. Could you provide more details? 
+We offer services like:
+- Cleaning
+- Plumbing
+- Electrical repairs
+- Moving
+- Pet care
+- Senior care`,
+                    nextStep: 'SERVICE_CONFIRMATION'
+                };
 
-    prepareSystemInstructions(currentStep) {
-        return `
-AI Assistant Response Guidelines:
-- Confirm service details explicitly
-- Ask for location confirmation
-- Provide clear, actionable responses
-- Handle user inputs systematically
+            case 'SERVICE_CONFIRMATION':
+                // Service confirmed, ask for location
+                if (this.isServiceConfirmed(message)) {
+                    return {
+                        text: `Great! Could you please share your current location or address where you need the ${this.currentState.serviceCategory} service?`,
+                        nextStep: 'LOCATION_CONFIRMATION'
+                    };
+                }
+                // If not confirmed, restart service detection
+                return {
+                    text: 'Let\'s try again. What service do you need?',
+                    nextStep: 'INITIAL'
+                };
 
-Conversation Flow:
-- Confirm Service: Verify user wants exact service
-- Get Location: Confirm user's service location
-- Prepare Request: Finalize service request details
+            case 'LOCATION_CONFIRMATION':
+                // Location provided, confirm details
+                if (this.isValidLocation(message)) {
+                    return {
+                        text: `You've provided the location: ${message}. 
+Is this correct? Please confirm with 'yes' or provide a different location.`,
+                        nextStep: 'PREPARE_REQUEST'
+                    };
+                }
+                return {
+                    text: 'Please provide a valid location or address.',
+                    nextStep: 'LOCATION_CONFIRMATION'
+                };
 
-Current Step: ${currentStep}
+            case 'PREPARE_REQUEST':
+                // Location confirmed, prepare service request
+                if (this.isLocationConfirmed(message)) {
+                    return {
+                        text: `Thank you for confirming! 
 
-Response Format:
-{
-  "response": "Friendly, clear message",
-  "next_step": "SERVICE_CONFIRMATION|LOCATION_CONFIRMATION|PREPARE_REQUEST"
-}
-`;
-    }
+🔍 Service Request Details:
+- Service Category: ${this.currentState.serviceCategory}
+- Location: ${this.currentState.location}
 
-    /**
-     * Generate AI response using OpenAI
-     * @param {Object} params - Generation parameters
-     * @returns {Promise<Object>} Parsed AI response
-     */
-    async generateAIResponse({ systemInstructions, message }) {
-        const response = await openai.chat.completions.create({
-            model: 'gpt-4o',
-            messages: [
-                { role: 'system', content: systemInstructions },
-                ...this.getRecentConversationContext(),
-                { role: 'user', content: message }
-            ],
-            temperature: 0.7,
-            max_tokens: 300
-        });
+Our team is now searching for an available service provider. Please wait...`,
+                        nextStep: 'REQUEST_SUBMITTED'
+                    };
+                }
+                // If location not confirmed, ask again
+                return {
+                    text: 'Could you confirm your location again?',
+                    nextStep: 'LOCATION_CONFIRMATION'
+                };
 
-        // Return the text response directly
-        return {
-            response: response.choices[0].message.content
-        };
+            default:
+                return {
+                    text: 'Something went wrong. Let\'s start over. What service do you need?',
+                    nextStep: 'INITIAL'
+                };
+        }
     }
 
     /**
@@ -138,24 +167,15 @@ Response Format:
         // If category found, attempt to find a specific service
         if (detectedCategory) {
             try {
-                // Find the category in the database
                 const categoryDoc = await Category.findOne({
                     name: { $regex: new RegExp(detectedCategory, 'i') }
                 });
 
                 if (categoryDoc) {
-                    // Find services in this category
-                    const services = await Service.find({
-                        category: categoryDoc._id
-                    });
-
                     return {
                         categoryDetected: true,
                         category: detectedCategory,
-                        categoryId: categoryDoc._id,
-                        services: services.map(s => s.title),
-                        needMoreInfo: services.length > 1, // Need more info if multiple services
-                        specificService: services.length === 1 ? services[0] : null
+                        categoryId: categoryDoc._id
                     };
                 }
             } catch (error) {
@@ -163,113 +183,73 @@ Response Format:
             }
         }
 
-        // If no clear category or service found
+        // If no clear category found
         return {
             categoryDetected: false,
-            needMoreInfo: true,
-            suggestedPrompt: `I'm not sure about the specific service you need. Could you provide more details? We offer services like:
-- Cleaning
-- Plumbing
-- Electrical repairs
-- Moving
-- Pet care
-- Senior care`
+            needMoreInfo: true
         };
     }
 
     /**
-     * Update conversation history
-     * @param {string} userMessage - User's message
-     * @param {string} assistantResponse - AI's response
+     * Update conversation state
+     * @param {string} message - User's message
+     * @param {Object} serviceDetectionResult - Detected service details
      */
-    updateConversationHistory(userMessage, assistantResponse) {
-        this.conversationHistory.push(
-            { role: 'user', content: userMessage },
-            { role: 'assistant', content: assistantResponse }
-        );
-
-        // Limit conversation history to last 6 messages
-        if (this.conversationHistory.length > 6) {
-            this.conversationHistory = this.conversationHistory.slice(-6);
-        }
-    }
-
-    /**
-     * Get recent conversation context
-     * @returns {Array} Recent conversation messages
-     */
-    getRecentConversationContext() {
-        return this.conversationHistory.slice(-4);
-    }
-
-
-    determineNextStep(serviceDetectionResult) {
-        // More conversational approach to determining next step
-        if (!serviceDetectionResult.categoryDetected) {
-            return 'SERVICE_CONFIRMATION';
-        }
-
-        // If multiple services in category, ask for specifics
-        if (serviceDetectionResult.services && serviceDetectionResult.services.length > 1) {
-            return 'SERVICE_DETAILS';
-        }
-
-        // Default to location confirmation
-        return 'LOCATION_CONFIRMATION';
-    }
-    /**
-     * Update conversation state based on service detection
-     * @param {string} userMessage - User's message
-     * @param {string} assistantResponse - AI's response
-     */
-    updateConversationState(userMessage, assistantResponse) {
-        // More flexible state management
-        const normalizedMessage = userMessage.toLowerCase();
-
+    updateConversationState(message, serviceDetectionResult) {
         switch (this.currentState.step) {
             case 'INITIAL':
-                if (this.detectServiceInMessage(normalizedMessage)) {
+                if (serviceDetectionResult.categoryDetected) {
+                    this.currentState.serviceCategory = serviceDetectionResult.category;
                     this.currentState.step = 'SERVICE_CONFIRMATION';
                 }
                 break;
             case 'SERVICE_CONFIRMATION':
-                if (this.isServiceConfirmed(normalizedMessage)) {
+                if (this.isServiceConfirmed(message)) {
                     this.currentState.step = 'LOCATION_CONFIRMATION';
-                    // Store confirmed service details
-                    this.currentState.confirmedService = this.lastDetectedService;
                 }
                 break;
             case 'LOCATION_CONFIRMATION':
-                if (this.isLocationConfirmed(normalizedMessage)) {
+                if (this.isValidLocation(message)) {
+                    this.currentState.location = message;
                     this.currentState.step = 'PREPARE_REQUEST';
                 }
                 break;
             case 'PREPARE_REQUEST':
-                this.currentState.requestId = this.generateRequestId();
-                this.currentState.requestStatus = 'READY';
-                this.currentState.step = 'COMPLETE';
+                if (this.isLocationConfirmed(message)) {
+                    this.currentState.step = 'REQUEST_SUBMITTED';
+                }
                 break;
         }
     }
 
+    /**
+     * Validate location input
+     * @param {string} message - User's location input
+     * @returns {boolean} Whether location is valid
+     */
+    isValidLocation(message) {
+        // Basic location validation
+        return message.length > 5 &&
+            !message.toLowerCase().includes('confirm') &&
+            !message.toLowerCase().includes('yes');
+    }
 
+    /**
+     * Check if service is confirmed
+     * @param {string} message - User's confirmation message
+     * @returns {boolean} Whether service is confirmed
+     */
     isServiceConfirmed(message) {
         return ['yes', 'correct', 'confirm', 'ok'].some(word =>
             message.toLowerCase().includes(word)
         );
     }
 
-    detectServiceInMessage(message) {
-        const serviceKeywords = [
-            'cleaning', 'plumbing', 'electrical', 'moving',
-            'pet care', 'senior care', 'repair', 'service'
-        ];
-
-        return serviceKeywords.some(keyword =>
-            message.includes(keyword)
-        );
-    }
-
+    /**
+     * Check if location is confirmed
+     * @param {string} message - User's confirmation message
+     * @returns {boolean} Whether location is confirmed
+     */
     isLocationConfirmed(message) {
         return ['yes', 'correct', 'confirm', 'ok'].some(word =>
             message.toLowerCase().includes(word)
@@ -277,44 +257,14 @@ Response Format:
     }
 
     /**
-     * Check if message confirms location
-     * @param {string} message - User's message
-     * @returns {boolean} Whether location is confirmed
-     */
-    isLocationConfirmation(message) {
-        return ['yes', 'confirm', 'correct'].some(word =>
-            message.toLowerCase().includes(word)
-        );
-    }
-
-    /**
-     * Generate unique request identifier
-     * @returns {string} Unique request ID
-     */
-    generateRequestId() {
-        return `REQ${Math.random().toString(36).substr(2, 9).toUpperCase()}`;
-    }
-
-    /**
      * Reset conversation state
      */
     reset() {
-        this.conversationHistory = [];
         this.currentState = {
             step: 'INITIAL',
             serviceCategory: null,
-            serviceDetails: {
-                description: '',
-                timing: null,
-                specifics: {},
-                selectedService: null
-            },
-            locationStatus: {
-                confirmed: false,
-                providedLocation: null
-            },
-            requestId: null,
-            requestStatus: 'PENDING'
+            location: null,
+            requestDetails: null
         };
     }
 }
