@@ -21,7 +21,7 @@ class Client {
     constructor(res, userResponse, session, user, steps, messages) {
         this.res = res;
         this.userResponse = userResponse;
-        this.session = session;
+        this.session = session || {};
         this.user = user;
         this.steps = steps;
         this.messages = messages;
@@ -29,7 +29,6 @@ class Client {
         this.setupCommonVariables();
         aiConversationManager.reset();
     }
-
 
     setupCommonVariables() {
         const { userResponse } = this;
@@ -43,40 +42,28 @@ class Client {
         if (initialStateResult) return initialStateResult;
 
         const { res, steps, lActivity, phone, message } = this;
+        const currentStep = this.session.step || steps.DEFAULT_CLIENT_STATE;
 
         try {
             const aiResult = await aiConversationManager.processMessage(
                 message,
-                this.session.step
+                currentStep
             );
 
-            switch (aiResult.state.nextStep) {
-                case 'SERVICE_CONFIRMATION':
-                    await setSession(phone, {
-                        step: steps.CONFIRM_SERVICE,
-                        message,
-                        lActivity,
-                    });
-                    break;
+            const sessionData = {
+                message,
+                step: aiResult.state.step || steps.DEFAULT_CLIENT_STATE,
+                serviceCategory: aiResult.state.serviceCategory,
+                location: aiResult.state.location,
+                serviceDetails: JSON.stringify(aiResult.state.serviceDetails || {})
+            };
 
-                case 'LOCATION_CONFIRMATION':
-                    await setSession(phone, {
-                        step: steps.CONFIRM_LOCATION,
-                        message,
-                        lActivity,
-                    });
-                    break;
+            await setSession(phone, sessionData);
 
+            switch (aiResult.state.step) {
                 case 'PREPARE_REQUEST':
                     await this.createServiceRequestFromAI(aiResult.state);
                     break;
-
-                default:
-                    await setSession(phone, {
-                        step: steps.DEFAULT_CLIENT_STATE,
-                        message,
-                        lActivity,
-                    });
             }
 
             return res.status(StatusCodes.OK).send(aiResult.response);
@@ -132,7 +119,8 @@ class Client {
 
     async createServiceRequestFromAI(aiState) {
         const { phone } = this;
-        const { serviceCategory, serviceDetails } = aiState;
+        const serviceCategory = aiState.serviceCategory;
+        const location = aiState.location;
 
         const category = await Category.findOne({
             name: { $regex: new RegExp(serviceCategory, 'i') }
@@ -159,8 +147,10 @@ class Client {
             city: "Harare",
             requester: user._id,
             service: service._id,
-            address: user.address,
-            notes: serviceDetails.description,
+            address: {
+                physicalAddress: location
+            },
+            notes: "Service request from AI conversation",
             id: reqID,
         });
 
@@ -181,11 +171,12 @@ class Client {
 Your request for ${serviceCategory} service has been successfully created. 
 
 📝 Your request ID is: *${reqID}*. 
-📍 Location: *${request.address.physicalAddress}*
+📍 Location: *${location}*
 
 Our team is searching for an available service provider. 
 Please wait...`;
     }
+
 
     async setupClientProfile() {
         const { res, steps, lActivity, phone, message } = this;
