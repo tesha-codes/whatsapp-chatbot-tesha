@@ -13,14 +13,17 @@ const { messages } = require("./modules/client");
 const serviceRouter = require("./routes/service.routes");
 const Category = require("./models/category.model");
 const ServiceProvider = require("./modules/provider");
-const RequestProvider = require('./models/serviceProvider.model')
+const RequestProvider = require("./models/serviceProvider.model");
 const Onboarding = require("./modules/onboarding");
 const Client = require("./modules/request-services");
-const DynamicClient = require('./modules/dynamic-chat')
+const DynamicClient = require("./modules/dynamic-chat");
 const { serviceProviderQueue } = require("./jobs/service-provider.job");
 const initializeTemplates = require("./services/initializeTemplates");
 const { onServiceRequestUpdate } = require("./controllers/request.controller");
 const User = require("./models/user.model");
+const { register, metrics } = require("./monitoring/metrics");
+const logger = require("./monitoring/logger");
+const metricsMiddleware = require("./monitoring/middleware");
 
 const app = express();
 const PORT = process.env.PORT || 3000;
@@ -49,9 +52,9 @@ const steps = {
   DEFAULT_CLIENT_STATE: "DEFAULT_CLIENT_STATE",
   CONFIRM_ADDRESS_AND_LOCATION: "CONFIRM_ADDRESS_AND_LOCATION",
   CONFIRMED_LOC_ADDRESS: "CONFIRMED_LOC_&_ADDRESS",
-  WAITING_NEW_LOCATION: 'WAITING_NEW_LOCATION',
-  AWAITING_PROVIDER: 'AWAITING_PROVIDER',
-  PROVIDER_CONFIRMATION: 'PROVIDER_CONFIRMATION',
+  WAITING_NEW_LOCATION: "WAITING_NEW_LOCATION",
+  AWAITING_PROVIDER: "AWAITING_PROVIDER",
+  PROVIDER_CONFIRMATION: "PROVIDER_CONFIRMATION",
   SELECT_SERVICE: "SELECT_SERVICE",
   COLLECT_PROVIDER_FULL_NAME: "COLLECT_PROVIDER_FULL_NAME",
   PROVIDER_COLLECT_LOCATION: "PROVIDER_COLLECT_LOCATION",
@@ -66,12 +69,13 @@ const steps = {
   ACCOUNT_STATUS_INACTIVE: "ACCOUNT_STATUS_INACTIVE",
   ACCOUNT_STATUS_SUSPENDED: "ACCOUNT_STATUS_SUSPENDED",
   SERVICE_PROVIDER_MAIN_MENU: "SERVICE_PROVIDER_MAIN_MENU",
-  AI_SERVICE_REQUEST: 'AI_SERVICE_REQUEST'
+  AI_SERVICE_REQUEST: "AI_SERVICE_REQUEST",
 };
 
 app.use(morgan("combined"));
 app.use(bodyParser.urlencoded({ extended: false }));
 app.use(express.json());
+app.use(metricsMiddleware);
 
 // Express adapter for BullBoard
 const serverAdapter = new ExpressAdapter();
@@ -87,7 +91,7 @@ serverAdapter.setBasePath("/admin/queues");
 app.use("/admin/queues", serverAdapter.getRouter());
 
 app.get("/", async (request, response) => {
-  console.log('Served')
+  console.log("Served");
   response
     .status(StatusCodes.OK)
     .json({ message: "Never stray from the way." });
@@ -105,39 +109,54 @@ app.post("/add/categories", async (request, response) => {
   }
 });
 
-app.post('/request/update/:requestId', async (request, response, next) => {
+app.post("/request/update/:requestId", async (request, response, next) => {
   try {
-    const _id = request.params.requestId
+    const _id = request.params.requestId;
     const serviceRequest = await onServiceRequestUpdate(_id, request.body);
-    response.status(StatusCodes.ACCEPTED).json({ serviceRequest })
+    response.status(StatusCodes.ACCEPTED).json({ serviceRequest });
   } catch (error) {
-    response.status(StatusCodes.BAD_GATEWAY).json({ error })
+    response.status(StatusCodes.BAD_GATEWAY).json({ error });
   }
 });
 
-app.post('/insert/service/providers', async (request, response) => {
+app.post("/insert/service/providers", async (request, response) => {
   try {
-    const results = await RequestProvider.insertMany(request.body)
-    response.status(StatusCodes.ACCEPTED).json({ results })
+    const results = await RequestProvider.insertMany(request.body);
+    response.status(StatusCodes.ACCEPTED).json({ results });
   } catch (error) {
-    response.status(StatusCodes.BAD_GATEWAY).json({ error })
+    response.status(StatusCodes.BAD_GATEWAY).json({ error });
   }
 });
 
-app.post('/insert/users', async (request, response) => {
+app.post("/insert/users", async (request, response) => {
   try {
     console.log(request.body);
     const results = await User.insertMany(request.body);
-    response.status(StatusCodes.ACCEPTED).json({results})
+    response.status(StatusCodes.ACCEPTED).json({ results });
   } catch (error) {
-    response.status(StatusCodes.BAD_GATEWAY).json({ error })
+    response.status(StatusCodes.BAD_GATEWAY).json({ error });
   }
-})
+});
+
+// : prometheus metrics
+app.get("/metrics", async (req, res) => {
+  try {
+    res.set("Content-Type", register.contentType);
+    const metrics = await register.metrics();
+    res.send(metrics);
+  } catch (error) {
+    logger.error("Error collecting metrics", { error: error.message });
+    res.status(500).send(error.message);
+  }
+});
 
 app.post("/bot", async (req, res) => {
   try {
     const userResponse = req.body.payload;
-    console.log("User response: ", userResponse);
+    logger.info("Bot request received", {
+      phone: userResponse?.sender?.phone,
+      source: userResponse?.source,
+    });
     if (userResponse && userResponse.source) {
       const phone = userResponse.sender.phone;
       // get session
@@ -163,12 +182,11 @@ app.post("/bot", async (req, res) => {
           console.log("No sessions found.....");
           return await onboard.existingUserWithoutSession();
         }
-        
+
         // existing users with session with account type
         if (session?.accountType) {
           // client
           if (session.accountType === "Client") {
-
             // console.log("Client session: ", session);
             // const client = new Client(
             //   res,
@@ -180,14 +198,16 @@ app.post("/bot", async (req, res) => {
             // );
             // return await client.mainEntry();
 
-            const dynamicClient = new Client(res,
+            const dynamicClient = new Client(
+              res,
               userResponse,
               session,
               user,
               steps,
-              messages);
+              messages
+            );
 
-              return await dynamicClient.mainEntry()
+            return await dynamicClient.mainEntry();
           } else {
             // service provider
             const provider = new ServiceProvider(
@@ -207,10 +227,17 @@ app.post("/bot", async (req, res) => {
       }
     }
 
+    botRequestCounter.labels("success").inc();
+    logger.info("Bot request completed successfully");
     // Acknowledge callback requests
     return res.status(StatusCodes.OK).send("Callback received:)");
   } catch (error) {
     console.error("Error in /bot route:", error);
+    botRequestCounter.labels("error").inc();
+    logger.error("Bot request failed", {
+      error: error.message,
+      stack: error.stack,
+    });
     return res
       .status(StatusCodes.OK)
       .send(
@@ -240,6 +267,7 @@ process.on("SIGTERM", async () => {
 });
 process.on("SIGINT", async () => {
   console.log("Received SIGINT signal. Starting graceful shutdown...");
+  logger.info("Server shutting down");
   await shutdown();
   process.exit(0);
 });

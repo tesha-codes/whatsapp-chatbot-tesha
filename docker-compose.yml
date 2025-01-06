@@ -41,6 +41,10 @@ services:
       - redis-insight:/db
     networks:
       - app-network
+    environment:
+      - REDIS_URI=redis://:${REDIS_PASSWORD}@redis:6379
+    depends_on:
+      - redis
 
   prometheus:
     image: prom/prometheus:latest
