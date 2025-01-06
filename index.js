@@ -222,8 +222,8 @@ app.post("/bot", async (req, res) => {
 app.listen(PORT, function () {
   console.log(`Warming up the server 🔥🔥...`);
   connectDb(process.env.MONGO_URL)
-    .then(async (response) => {
-      console.log(`Successfully connected to ${response.db.databaseName} ✅✅`);
+    .then(async () => {
+      console.log(`Database connection successfully established ✅✅`);
       console.log(`Server now running on port ${PORT} 👍👌😁😁`);
       // initalize templates
       await initializeTemplates();
