@@ -7,7 +7,7 @@ const register = new Registry();
 const collectDefaultMetrics = promClient.collectDefaultMetrics;
 collectDefaultMetrics({ register });
 
-// Custom metrics
+// : Custom metrics
 const metrics = {
   httpRequestDuration: new promClient.Histogram({
     name: "http_request_duration_seconds",
