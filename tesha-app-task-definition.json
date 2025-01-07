@@ -218,6 +218,22 @@
         "rootDirectory": "/grafana-data",
         "transitEncryption": "ENABLED"
       }
+    },
+    {
+      "name": "loki-data",
+      "efsVolumeConfiguration": {
+        "fileSystemId": "fs-0b98764883b3f3edd",
+        "rootDirectory": "/loki-data",
+        "transitEncryption": "ENABLED"
+      }
+    },
+    {
+      "name": "promtail-data",
+      "efsVolumeConfiguration": {
+        "fileSystemId": "fs-0b98764883b3f3edd",
+        "rootDirectory": "/promtail-data",
+        "transitEncryption": "ENABLED"
+      }
     }
   ],
   "requiresCompatibilities": ["FARGATE"],
