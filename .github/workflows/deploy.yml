@@ -68,7 +68,12 @@ jobs:
         run: |
           # Build the Docker image using Docker Compose
           docker compose build
-          docker tag docker.io/library/whatsapp-chatbot-tesha-app:latest $ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG
+          
+          # Get the image ID from docker compose
+          IMAGE_ID=$(docker images --filter "reference=whatsapp-chatbot-tesha-app" --format "{{.ID}}" | head -n 1)
+          
+          # Tag the image properly
+          docker tag $IMAGE_ID $ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG
 
       - name: Push Docker image to Amazon ECR
         run: |
