@@ -1,10 +1,11 @@
-version: '3.8'
+version: "3.8"
 
 services:
   app:
     build:
       context: .
       dockerfile: Dockerfile
+    image: tesha-bot-app:latest
     env_file:
       - .env
     environment:
@@ -41,11 +42,11 @@ services:
     ports:
       - "8001:8001"
     volumes:
-      - redis-insight-data:/db 
+      - redis-insight-data:/db
     depends_on:
       - redis
     networks:
-      - app-network  
+      - app-network
 
   prometheus:
     image: prom/prometheus:latest
@@ -89,7 +90,7 @@ services:
 
 volumes:
   redis-data:
-  redis-insight-data: 
+  redis-insight-data:
   prometheus-data:
   grafana-data:
 
