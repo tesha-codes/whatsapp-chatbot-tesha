@@ -118,7 +118,7 @@
       "image": "grafana/grafana:latest",
       "portMappings": [
         {
-          "containerPort": 3000,
+          "containerPort": 3001,
           "hostPort": 3001,
           "protocol": "tcp"
         }
