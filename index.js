@@ -229,7 +229,7 @@ app.post("/bot", async (req, res) => {
 
     botRequestCounter.labels("success").inc();
     logger.info("Bot request completed successfully");
-    // Acknowledge callback requests
+    // : Acknowledge callback requests
     return res.status(StatusCodes.OK).send("Callback received:)");
   } catch (error) {
     console.error("Error in /bot route:", error);
