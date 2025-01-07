@@ -1,3 +1,5 @@
+version: '3.8'
+
 services:
   app:
     build:
@@ -34,17 +36,16 @@ services:
       - app-network
 
   redis-insight:
-    image: redislabs/redisinsight:latest
+    image: redislabs/redisinsight:1.13.0
+    restart: always
     ports:
       - "8001:8001"
     volumes:
-      - redis-insight:/db
-    networks:
-      - app-network
-    environment:
-      - REDIS_URI=redis://:${REDIS_PASSWORD}@redis:6379
+      - redis-insight-data:/db 
     depends_on:
       - redis
+    networks:
+      - app-network  
 
   prometheus:
     image: prom/prometheus:latest
@@ -66,7 +67,7 @@ services:
       - grafana-data:/var/lib/grafana
     environment:
       - GF_SECURITY_ADMIN_PASSWORD=${GRAFANA_PASSWORD}
-      - GF_SECURITY_ADMIN_USER=admin
+      - GF_SECURITY_ADMIN_USER=${GRAFANA_USERNAME}
     networks:
       - app-network
 
@@ -88,7 +89,7 @@ services:
 
 volumes:
   redis-data:
-  redis-insight:
+  redis-insight-data: 
   prometheus-data:
   grafana-data:
 
