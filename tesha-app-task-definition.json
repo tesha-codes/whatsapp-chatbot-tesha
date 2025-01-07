@@ -14,11 +14,19 @@
         }
       ],
       "essential": true,
-      "environment": [],
-      "environmentFiles": [],
-      "mountPoints": [],
-      "volumesFrom": [],
-      "ulimits": [],
+      "environmentFiles": [
+        {
+          "value": "arn:aws:s3:::tesha-bot/.env",
+          "type": "s3"
+        }
+      ],
+      "mountPoints": [
+        {
+          "sourceVolume": "redis-data",
+          "containerPath": "/data",
+          "readOnly": false
+        }
+      ],
       "logConfiguration": {
         "logDriver": "awslogs",
         "options": {
@@ -28,18 +36,190 @@
           "max-buffer-size": "25m",
           "awslogs-region": "af-south-1",
           "awslogs-stream-prefix": "ecs"
-        },
-        "secretOptions": []
-      },
-      "systemControls": []
+        }
+      }
+    },
+    {
+      "name": "redis",
+      "image": "redis:latest",
+      "essential": true,
+      "portMappings": [
+        {
+          "containerPort": 6379,
+          "hostPort": 6379,
+          "protocol": "tcp"
+        }
+      ],
+      "mountPoints": [
+        {
+          "sourceVolume": "redis-data",
+          "containerPath": "/data",
+          "readOnly": false
+        }
+      ],
+      "environmentFiles": [
+        {
+          "value": "arn:aws:s3:::tesha-bot/.env",
+          "type": "s3"
+        }
+      ],
+      "command": ["redis-server", "--requirepass", "${REDIS_PASSWORD}"]
+    },
+    {
+      "name": "redis-insight",
+      "image": "redislabs/redisinsight:1.13.0",
+      "portMappings": [
+        {
+          "containerPort": 8001,
+          "hostPort": 8001,
+          "protocol": "tcp"
+        }
+      ],
+      "mountPoints": [
+        {
+          "sourceVolume": "redis-insight-data",
+          "containerPath": "/db",
+          "readOnly": false
+        }
+      ],
+      "environmentFiles": [
+        {
+          "value": "arn:aws:s3:::tesha-bot/.env",
+          "type": "s3"
+        }
+      ]
+    },
+    {
+      "name": "prometheus",
+      "image": "prom/prometheus:latest",
+      "portMappings": [
+        {
+          "containerPort": 9090,
+          "hostPort": 9090,
+          "protocol": "tcp"
+        }
+      ],
+      "mountPoints": [
+        {
+          "sourceVolume": "prometheus-data",
+          "containerPath": "/prometheus",
+          "readOnly": false
+        }
+      ],
+      "environmentFiles": [
+        {
+          "value": "arn:aws:s3:::tesha-bot/.env",
+          "type": "s3"
+        }
+      ]
+    },
+    {
+      "name": "grafana",
+      "image": "grafana/grafana:latest",
+      "portMappings": [
+        {
+          "containerPort": 3000,
+          "hostPort": 3001,
+          "protocol": "tcp"
+        }
+      ],
+      "mountPoints": [
+        {
+          "sourceVolume": "grafana-data",
+          "containerPath": "/var/lib/grafana",
+          "readOnly": false
+        }
+      ],
+      "environmentFiles": [
+        {
+          "value": "arn:aws:s3:::tesha-bot/.env",
+          "type": "s3"
+        }
+      ]
+    },
+    {
+      "name": "loki",
+      "image": "grafana/loki:latest",
+      "portMappings": [
+        {
+          "containerPort": 3100,
+          "hostPort": 3100,
+          "protocol": "tcp"
+        }
+      ],
+      "mountPoints": [
+        {
+          "sourceVolume": "loki-data",
+          "containerPath": "/loki",
+          "readOnly": false
+        }
+      ],
+      "environmentFiles": [
+        {
+          "value": "arn:aws:s3:::tesha-bot/.env",
+          "type": "s3"
+        }
+      ],
+      "command": ["-config.file=/etc/loki/local-config.yaml"]
+    },
+
+    {
+      "name": "promtail",
+      "image": "grafana/promtail:latest",
+      "mountPoints": [
+        {
+          "sourceVolume": "promtail-data",
+          "containerPath": "/var/log",
+          "readOnly": false
+        }
+      ],
+      "environmentFiles": [
+        {
+          "value": "arn:aws:s3:::tesha-bot/.env",
+          "type": "s3"
+        }
+      ],
+      "command": ["-config.file=/etc/promtail/config.yml"]
     }
   ],
   "family": "tesha-app-task-definition",
   "taskRoleArn": "arn:aws:iam::825172087354:role/ECSTaskExecutionRole",
   "executionRoleArn": "arn:aws:iam::825172087354:role/ECSTaskExecutionRole",
   "networkMode": "awsvpc",
-  "volumes": [],
-  "placementConstraints": [],
+  "volumes": [
+    {
+      "name": "redis-data",
+      "efsVolumeConfiguration": {
+        "fileSystemId": "fs-0b98764883b3f3edd",
+        "rootDirectory": "/redis-data",
+        "transitEncryption": "ENABLED"
+      }
+    },
+    {
+      "name": "redis-insight-data",
+      "efsVolumeConfiguration": {
+        "fileSystemId": "fs-0b98764883b3f3edd",
+        "rootDirectory": "/redis-insight-data",
+        "transitEncryption": "ENABLED"
+      }
+    },
+    {
+      "name": "prometheus-data",
+      "efsVolumeConfiguration": {
+        "fileSystemId": "fs-0b98764883b3f3edd",
+        "rootDirectory": "/prometheus-data",
+        "transitEncryption": "ENABLED"
+      }
+    },
+    {
+      "name": "grafana-data",
+      "efsVolumeConfiguration": {
+        "fileSystemId": "fs-0b98764883b3f3edd",
+        "rootDirectory": "/grafana-data",
+        "transitEncryption": "ENABLED"
+      }
+    }
+  ],
   "requiresCompatibilities": ["FARGATE"],
   "cpu": "1024",
   "memory": "3072",

@@ -13,6 +13,9 @@ env:
   ECS_CLUSTER: DevCluster2
   ECS_TASK_DEFINITION: tesha-app-task-definition.json
   CONTAINER_NAME: tesha-app
+  VPC_ID: vpc-0f6ee18f91deb487e
+  SECURITY_GROUP_ID: sg-0308754c8f4c198b5
+  EFS_ID: fs-0b98764883b3f3edd
 
 jobs:
   integration-check:
@@ -42,7 +45,6 @@ jobs:
   deploy:
     name: Deploy to Amazon ECS
     runs-on: ubuntu-latest
-    # environment: production
     needs: integration-check
 
     steps:
@@ -60,17 +62,72 @@ jobs:
         id: login-ecr
         uses: aws-actions/amazon-ecr-login@v1
 
+      - name: Setup EFS filesystem
+        id: setup-efs
+        run: |
+          # Check if EFS exists with specific tag
+          EFS_ID=$(aws efs describe-file-systems --query 'FileSystems[?Tags[?Key==`Name` && Value==`tesha-app-efs`]].FileSystemId' --output text)
+
+          if [ -z "$EFS_ID" ]; then
+            echo "Creating new EFS filesystem..."
+            # Create EFS filesystem
+            EFS_ID=$(aws efs create-file-system \
+              --performance-mode generalPurpose \
+              --throughput-mode bursting \
+              --encrypted \
+              --tags Key=Name,Value=tesha-app-efs \
+              --query 'FileSystemId' \
+              --output text)
+            
+            # Wait for EFS to be available
+            aws efs wait file-system-available --file-system-id $EFS_ID
+            
+            # Get VPC subnet IDs
+            SUBNET_IDS=$(aws ec2 describe-subnets \
+              --filters Name=vpc-id,Values=${{ env.VPC_ID }} \
+              --query 'Subnets[*].SubnetId' \
+              --output text)
+            
+            # Create mount targets in each subnet
+            for SUBNET_ID in $SUBNET_IDS; do
+              aws efs create-mount-target \
+                --file-system-id $EFS_ID \
+                --subnet-id $SUBNET_ID \
+                --security-groups ${{ env.SECURITY_GROUP_ID }}
+            done
+            
+            # Create required directories
+            aws efs create-access-point \
+              --file-system-id $EFS_ID \
+              --posix-user Uid=1000,Gid=1000 \
+              --root-directory Path=/redis-data
+            
+            aws efs create-access-point \
+              --file-system-id $EFS_ID \
+              --posix-user Uid=1000,Gid=1000 \
+              --root-directory Path=/redis-insight-data
+            
+            aws efs create-access-point \
+              --file-system-id $EFS_ID \
+              --posix-user Uid=1000,Gid=1000 \
+              --root-directory Path=/prometheus-data
+            
+            aws efs create-access-point \
+              --file-system-id $EFS_ID \
+              --posix-user Uid=1000,Gid=1000 \
+              --root-directory Path=/grafana-data
+          fi
+
+          echo "EFS_ID=$EFS_ID" >> $GITHUB_ENV
+
       - name: Build Docker image using Docker Compose
         id: build-image
         env:
           ECR_REGISTRY: ${{ steps.login-ecr.outputs.registry }}
           IMAGE_TAG: ${{ github.sha }}
         run: |
-          # Build and tag the Docker image
           docker compose build
-          # Get the image ID of the built image
           IMAGE_ID=$(docker images --format "{{.ID}}" whatsapp-chatbot-tesha-app:latest)
-          # Tag the image properly
           docker tag $IMAGE_ID $ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG
 
       - name: Push Docker image to Amazon ECR
@@ -82,13 +139,17 @@ jobs:
           docker push $ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG
           echo "image=$ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG" >> "$GITHUB_OUTPUT"
 
+      - name: Update task definition with EFS ID
+        run: |
+          sed -i "s/YOUR_EFS_ID/${{ env.EFS_ID }}/g" ${{ env.ECS_TASK_DEFINITION }}
+
       - name: Fill in the new image ID in the Amazon ECS task definition
         id: task-def
         uses: aws-actions/amazon-ecs-render-task-definition@v1
         with:
           task-definition: ${{ env.ECS_TASK_DEFINITION }}
           container-name: ${{ env.CONTAINER_NAME }}
-          image: ${{ steps.push-image.outputs.image }} 
+          image: ${{ steps.push-image.outputs.image }}
 
       - name: Deploy Amazon ECS task definition
         uses: aws-actions/amazon-ecs-deploy-task-definition@v1
