@@ -8,7 +8,7 @@ on:
 
 env:
   AWS_REGION: af-south-1
-  ECR_REPOSITORY: 825172087354.dkr.ecr.af-south-1.amazonaws.com/tesha-app
+  ECR_REPOSITORY: tesha-app
   ECS_SERVICE: tesha-app-service
   ECS_CLUSTER: DevCluster2
   ECS_TASK_DEFINITION: tesha-app-task-definition-revision1.json
