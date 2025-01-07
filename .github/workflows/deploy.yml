@@ -1,0 +1,93 @@
+name: Integration Check & Deploy to AWS ECS
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+env:
+  AWS_REGION: af-south-1
+  ECR_REPOSITORY: 825172087354.dkr.ecr.af-south-1.amazonaws.com/tesha-app
+  ECS_SERVICE: tesha-app-service
+  ECS_CLUSTER: DevCluster2
+  ECS_TASK_DEFINITION: tesha-app-task-definition-revision1.json
+  CONTAINER_NAME: tesha-app
+
+jobs:
+  integration-check:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v3
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v3
+        with:
+          node-version: "20.x"
+
+      - name: Verify package.json
+        run: node -e "JSON.parse(require('fs').readFileSync('package.json'))"
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Check for obvious syntax errors
+        run: |
+          for file in $(find . -name "*.js" -not -path "./node_modules/*"); do
+            node -c "$file" || exit 1
+          done
+
+  deploy:
+    name: Deploy to Amazon ECS
+    runs-on: ubuntu-latest
+    # environment: production
+    needs: integration-check
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v3
+
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v2
+        with:
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-region: ${{ env.AWS_REGION }}
+
+      - name: Login to Amazon ECR
+        id: login-ecr
+        uses: aws-actions/amazon-ecr-login@v1
+
+      - name: Build Docker image using Docker Compose
+        id: build-image
+        env:
+          ECR_REGISTRY: ${{ steps.login-ecr.outputs.registry }}
+          IMAGE_TAG: ${{ github.sha }}
+        run: |
+          # Build the Docker image using Docker Compose
+          docker compose build
+          docker tag app:latest $ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG
+
+      - name: Push Docker image to Amazon ECR
+        run: |
+          # Push the Docker image to Amazon ECR
+          docker push $ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG
+          echo "image=$ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG" >> $GITHUB_OUTPUT
+
+      - name: Fill in the new image ID in the Amazon ECS task definition
+        id: task-def
+        uses: aws-actions/amazon-ecs-render-task-definition@v1
+        with:
+          task-definition: ${{ env.ECS_TASK_DEFINITION }}
+          container-name: ${{ env.CONTAINER_NAME }}
+          image: ${{ steps.build-image.outputs.image }}
+
+      - name: Deploy Amazon ECS task definition
+        uses: aws-actions/amazon-ecs-deploy-task-definition@v1
+        with:
+          task-definition: ${{ steps.task-def.outputs.task-definition }}
+          service: ${{ env.ECS_SERVICE }}
+          cluster: ${{ env.ECS_CLUSTER }}
+          wait-for-service-stability: true
