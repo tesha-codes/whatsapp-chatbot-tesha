@@ -7,7 +7,7 @@
       "environment": [
         {
           "name": "REDIS_URL",
-          "value": "redis://:MjQM$3NXaXaXaXaXy3dzeGreenEhe@localhost:6379"
+          "value": "redis://default:MjQM$3NXaXaXaXaXy3dzeGreenEhe@localhost:6379"
         }
       ],
       "portMappings": [
