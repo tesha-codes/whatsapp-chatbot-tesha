@@ -1,15 +1,9 @@
-require("dotenv").config();
 const { Queue, Worker } = require("bullmq");
-
-const Redis = require("ioredis");
-
-// Parse Redis URL and create connection
-const connection = new Redis(process.env.REDIS_URL, {
-  maxRetriesPerRequest: null,
-});
+const { redisConnection } = require("./redis-connection");
 
 function setupQueue(queueName, processFunction, options = {}) {
-  // Create a new BullMQ queue with proper connection
+  const connection = redisConnection.getIORedisClient();
+
   const queue = new Queue(queueName, {
     connection,
     defaultJobOptions: {
@@ -24,7 +18,6 @@ function setupQueue(queueName, processFunction, options = {}) {
     ...options,
   });
 
-  // Create a worker to process jobs
   const worker = new Worker(
     queueName,
     async (job) => {
@@ -41,7 +34,6 @@ function setupQueue(queueName, processFunction, options = {}) {
     }
   );
 
-  // Set up worker event handlers
   worker.on("completed", (job) => {
     console.log(`Job ${job.id} in queue ${queueName} completed`);
   });
@@ -57,14 +49,12 @@ function setupQueue(queueName, processFunction, options = {}) {
     console.error(`Error in queue ${queueName}:`, error);
   });
 
-  // Return both queue and worker for more control
   return { queue, worker, connection };
 }
 
-// Add a job to the queue
 async function addJob(queue, jobName, data, options = {}) {
   try {
-    const job = await queue.add(jobName, data, ...options);
+    const job = await queue.add(jobName, data, options);
     console.log(`Added job ${job.id} to queue`);
     return job;
   } catch (error) {
