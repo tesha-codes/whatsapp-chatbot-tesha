@@ -4,12 +4,6 @@
       "name": "tesha-app",
       "image": "825172087354.dkr.ecr.af-south-1.amazonaws.com/tesha-app",
       "cpu": 0,
-      "environment": [
-        {
-          "name": "REDIS_URL",
-          "value": "redis://default:MjQM$3NXaXaXaXaXy3dzeGreenEhe@localhost:6379"
-        }
-      ],
       "portMappings": [
         {
           "name": "tesha-app-9000-tcp",
