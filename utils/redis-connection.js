@@ -6,7 +6,6 @@ class RedisConnection {
     this.nodeRedisClient = null;
     this.ioRedisClient = null;
   }
-
   async getNodeRedisClient() {
     if (!this.nodeRedisClient) {
       this.nodeRedisClient = createClient({
