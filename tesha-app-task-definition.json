@@ -186,17 +186,6 @@
   "taskRoleArn": "arn:aws:iam::825172087354:role/ECSTaskExecutionRole",
   "executionRoleArn": "arn:aws:iam::825172087354:role/ECSTaskExecutionRole",
   "networkMode": "awsvpc",
-  "networkConfiguration": {
-    "awsvpcConfiguration": {
-      "subnets": [
-        "subnet-0d5fd8ba252686fa4",
-        "subnet-0a2e7a7d082a92351",
-        "subnet-0ccb0ed26017baf38"
-      ],
-      "securityGroups": ["sg-0308754c8f4c198b5"],
-      "assignPublicIp": "ENABLED"
-    }
-  },
   "volumes": [
     {
       "name": "redis-data",
