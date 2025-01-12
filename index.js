@@ -21,9 +21,6 @@ const { serviceProviderQueue } = require("./jobs/service-provider.job");
 const initializeTemplates = require("./services/initializeTemplates");
 const { onServiceRequestUpdate } = require("./controllers/request.controller");
 const User = require("./models/user.model");
-const { register, metrics } = require("./monitoring/metrics");
-const logger = require("./monitoring/logger");
-const metricsMiddleware = require("./monitoring/middleware");
 
 const app = express();
 const PORT = process.env.PORT || 3000;
@@ -75,7 +72,6 @@ const steps = {
 app.use(morgan("combined"));
 app.use(bodyParser.urlencoded({ extended: false }));
 app.use(express.json());
-app.use(metricsMiddleware);
 
 // Express adapter for BullBoard
 const serverAdapter = new ExpressAdapter();
@@ -138,25 +134,10 @@ app.post("/insert/users", async (request, response) => {
   }
 });
 
-// : prometheus metrics
-app.get("/metrics", async (req, res) => {
-  try {
-    res.set("Content-Type", register.contentType);
-    const metrics = await register.metrics();
-    res.send(metrics);
-  } catch (error) {
-    logger.error("Error collecting metrics", { error: error.message });
-    res.status(500).send(error.message);
-  }
-});
-
 app.post("/bot", async (req, res) => {
   try {
     const userResponse = req.body.payload;
-    logger.info("Bot request received", {
-      phone: userResponse?.sender?.phone,
-      source: userResponse?.source,
-    });
+    console.log("User response: ", userResponse);
     if (userResponse && userResponse.source) {
       const phone = userResponse.sender.phone;
       // get session
@@ -227,17 +208,10 @@ app.post("/bot", async (req, res) => {
       }
     }
 
-    botRequestCounter.labels("success").inc();
-    logger.info("Bot request completed successfully");
     // Acknowledge callback requests
     return res.status(StatusCodes.OK).send("Callback received:)");
   } catch (error) {
     console.error("Error in /bot route:", error);
-    botRequestCounter.labels("error").inc();
-    logger.error("Bot request failed", {
-      error: error.message,
-      stack: error.stack,
-    });
     return res
       .status(StatusCodes.OK)
       .send(
@@ -267,7 +241,6 @@ process.on("SIGTERM", async () => {
 });
 process.on("SIGINT", async () => {
   console.log("Received SIGINT signal. Starting graceful shutdown...");
-  logger.info("Server shutting down");
   await shutdown();
   process.exit(0);
 });
