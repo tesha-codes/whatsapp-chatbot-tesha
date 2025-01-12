@@ -50,20 +50,20 @@
           "protocol": "tcp"
         }
       ],
+      "environment": [
+        {
+          "name": "REDIS_PASSWORD",
+          "value": "${REDIS_PASSWORD}"
+        }
+      ],
+      "command": ["redis-server", "--requirepass", "${REDIS_PASSWORD}"],
       "mountPoints": [
         {
           "sourceVolume": "redis-data",
           "containerPath": "/data",
           "readOnly": false
         }
-      ],
-      "environmentFiles": [
-        {
-          "value": "arn:aws:s3:::tesha-bot/.env",
-          "type": "s3"
-        }
-      ],
-      "command": ["redis-server", "--requirepass", "${REDIS_PASSWORD}"]
+      ]
     },
     {
       "name": "redis-insight",
@@ -186,6 +186,17 @@
   "taskRoleArn": "arn:aws:iam::825172087354:role/ECSTaskExecutionRole",
   "executionRoleArn": "arn:aws:iam::825172087354:role/ECSTaskExecutionRole",
   "networkMode": "awsvpc",
+  "networkConfiguration": {
+    "awsvpcConfiguration": {
+      "subnets": [
+        "subnet-0d5fd8ba252686fa4",
+        "subnet-0a2e7a7d082a92351",
+        "subnet-0ccb0ed26017baf38"
+      ],
+      "securityGroups": ["sg-0308754c8f4c198b5"],
+      "assignPublicIp": "ENABLED"
+    }
+  },
   "volumes": [
     {
       "name": "redis-data",

@@ -1,14 +1,5 @@
-require("dotenv").config();
 const Redis = require("ioredis");
 const { createClient } = require("redis");
-
-const { REDIS_URL, REDIS_PROD_URL, SESSION_TTL } = process.env;
-
-const redis_url =
-  process.env.NODE_ENV === "production" ? REDIS_PROD_URL : REDIS_URL;
-
-// Redis session settings default to 24 hours unless set otherwise.s
-const SESSION_EXPIRATION = SESSION_TTL || 24 * 60 * 60;
 
 class RedisConnection {
   constructor() {
@@ -16,46 +7,36 @@ class RedisConnection {
     this.ioRedisClient = null;
   }
 
-  // Get or create node-redis client (for sessions)
   async getNodeRedisClient() {
     if (!this.nodeRedisClient) {
       this.nodeRedisClient = createClient({
-        url: redis_url,
+        url: process.env.REDIS_URL,
         password: process.env.REDIS_PASSWORD,
       });
 
-      this.nodeRedisClient.on("error", (err) =>
-        console.log("Redis Client Error", err)
-      );
-      this.nodeRedisClient.on("connect", () =>
-        console.log("Connected to Redis🔥🔥🔥...")
-      );
+      this.nodeRedisClient.on("error", (err) => {
+        console.error("Redis Client Error:", err);
+      });
 
-      await this.nodeRedisClient.connect().catch(console.error);
+      await this.nodeRedisClient.connect();
     }
     return this.nodeRedisClient;
   }
 
-  // Get or create ioRedis client (for Bull)
   getIORedisClient() {
     if (!this.ioRedisClient) {
-      this.ioRedisClient = new Redis(redis_url, {
-        maxRetriesPerRequest: null,
+      this.ioRedisClient = new Redis({
+        host: "redis",
+        port: 6379,
         password: process.env.REDIS_PASSWORD,
-        enableReadyCheck: true,
-        retryStrategy: (times) => {
-          return Math.min(times * 50, 2000);
-        },
+        maxRetriesPerRequest: null,
+        retryStrategy: (times) => Math.min(times * 50, 2000),
+      });
+
+      this.ioRedisClient.on("error", (err) => {
+        console.error("IORedis Error:", err);
       });
     }
     return this.ioRedisClient;
   }
 }
-
-// Create singleton instance
-const redisConnection = new RedisConnection();
-
-module.exports = {
-  redisConnection,
-  SESSION_EXPIRATION,
-};
