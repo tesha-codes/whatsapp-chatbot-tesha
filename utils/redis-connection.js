@@ -4,7 +4,8 @@ const { createClient } = require("redis");
 
 const { REDIS_URL, REDIS_PROD_URL, SESSION_TTL } = process.env;
 
-const redis_url = process.env.NODE_ENV === 'production' ? REDIS_PROD_URL : REDIS_URL;
+const redis_url =
+  process.env.NODE_ENV === "production" ? REDIS_PROD_URL : REDIS_URL;
 
 // Redis session settings default to 24 hours unless set otherwise.s
 const SESSION_EXPIRATION = SESSION_TTL || 24 * 60 * 60;
@@ -18,7 +19,10 @@ class RedisConnection {
   // Get or create node-redis client (for sessions)
   async getNodeRedisClient() {
     if (!this.nodeRedisClient) {
-      this.nodeRedisClient = createClient({ url: redis_url });
+      this.nodeRedisClient = createClient({
+        url: redis_url,
+        password: process.env.REDIS_PASSWORD,
+      });
 
       this.nodeRedisClient.on("error", (err) =>
         console.log("Redis Client Error", err)
@@ -37,6 +41,11 @@ class RedisConnection {
     if (!this.ioRedisClient) {
       this.ioRedisClient = new Redis(redis_url, {
         maxRetriesPerRequest: null,
+        password: process.env.REDIS_PASSWORD,
+        enableReadyCheck: true,
+        retryStrategy: (times) => {
+          return Math.min(times * 50, 2000);
+        },
       });
     }
     return this.ioRedisClient;
