@@ -6,7 +6,7 @@ const { REDIS_URL, REDIS_PROD_URL, SESSION_TTL } = process.env;
 
 const redis_url = process.env.NODE_ENV === 'production' ? REDIS_PROD_URL : REDIS_URL;
 
-// Redis session settings default to 24 hours unless set otherwise
+// Redis session settings default to 24 hours unless set otherwise.s
 const SESSION_EXPIRATION = SESSION_TTL || 24 * 60 * 60;
 
 class RedisConnection {
