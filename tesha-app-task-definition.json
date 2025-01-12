@@ -4,6 +4,16 @@
       "name": "tesha-app",
       "image": "825172087354.dkr.ecr.af-south-1.amazonaws.com/tesha-app",
       "cpu": 0,
+      "environment": [
+        {
+          "name": "REDIS_PASSWORD",
+          "value": "MjQM$3NXaXaXaXaXy3dzeGreenEhe"
+        },
+        {
+          "name": "REDIS_URL",
+          "value": "redis://:MjQM$3NXaXaXaXaXy3dzeGreenEhe@redis:6379"
+        }
+      ],
       "portMappings": [
         {
           "name": "tesha-app-9000-tcp",
@@ -43,6 +53,13 @@
       "name": "redis",
       "image": "redis:latest",
       "essential": true,
+      "command": ["sh", "-c", "redis-server --requirepass \"$REDIS_PASSWORD\""],
+      "environment": [
+        {
+          "name": "REDIS_PASSWORD",
+          "value": "MjQM$3NXaXaXaXaXy3dzeGreenEhe"
+        }
+      ],
       "portMappings": [
         {
           "containerPort": 6379,
@@ -50,20 +67,17 @@
           "protocol": "tcp"
         }
       ],
-      "environment": [
-        {
-          "name": "REDIS_PASSWORD",
-          "value": "${REDIS_PASSWORD}"
+      "logConfiguration": {
+        "logDriver": "awslogs",
+        "options": {
+          "awslogs-group": "/ecs/tesha-app-task-definition",
+          "mode": "non-blocking",
+          "awslogs-create-group": "true",
+          "max-buffer-size": "25m",
+          "awslogs-region": "af-south-1",
+          "awslogs-stream-prefix": "ecs"
         }
-      ],
-      "command": ["redis-server", "--requirepass", "${REDIS_PASSWORD}"],
-      "mountPoints": [
-        {
-          "sourceVolume": "redis-data",
-          "containerPath": "/data",
-          "readOnly": false
-        }
-      ]
+      }
     },
     {
       "name": "redis-insight",
