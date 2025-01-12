@@ -12,6 +12,10 @@
         {
           "name": "REDIS_URL",
           "value": "redis://:MjQM$3NXaXaXaXaXy3dzeGreenEhe@redis:6379"
+        },
+        {
+          "name": "NODE_ENV",
+          "value": "production"
         }
       ],
       "portMappings": [
