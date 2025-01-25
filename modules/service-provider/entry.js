@@ -1,18 +1,18 @@
 const { StatusCodes } = require("http-status-codes");
-const { formatDateTime } = require("../utils/dateUtil");
-const { setSession } = require("../utils/redis");
-const { updateUser } = require("../controllers/user.controllers");
+const { formatDateTime } = require("../../utils/dateUtil");
+const { setSession } = require("../../utils/redis");
+const { updateUser } = require("../../controllers/user.controllers");
 const {
   sendMediaImageMessage,
   serviceProviderMainMenuTemplate,
-} = require("../services/whatsappService");
+} = require("../../services/whatsappService");
 const {
   createServiceProvider,
   updateProvider,
-} = require("../controllers/serviceProvider.controller");
-const Category = require("../models/category.model");
-const Service = require("../models/services.model");
-const { uploadToS3 } = require("../utils/uploadToS3");
+} = require("../../controllers/serviceProvider.controller");
+const Category = require("../../models/category.model");
+const Service = require("../../models/services.model");
+const { uploadToS3 } = require("../../utils/uploadToS3");
 
 class ServiceProvider {
   constructor(res, userResponse, session, user, steps, messages) {
@@ -77,13 +77,13 @@ class ServiceProvider {
           return this.handleAccountStatusInactive();
         case steps.SERVICE_PROVIDER_MAIN_MENU:
           return this.handleServiceProviderMainMenu();
-        // set up verification dashboard
-        // send verification messages for verified users or unverified users
-        // send with guidelines and short cuts
-        // view tasks - view tasks
+        // set up verification dashboard - skip for now
+        // send verification messages for verified users or unverified users - skip for now
+        // send with guidelines and short cuts - skip for now
+        // view tasks - view tasks - show pending tasks, completed tasks, cancelled tasks, all tasks
         // edit profiles
         // delete account
-        // billing history
+        // billing history - for now skip, its a future feature
         default:
           return res
             .status(StatusCodes.ACCEPTED)
