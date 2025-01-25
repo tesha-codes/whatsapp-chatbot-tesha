@@ -134,6 +134,14 @@ app.post("/insert/users", async (request, response) => {
   }
 });
 
+// health check
+app.get("/health", (req, res) => {
+  res.status(200).json({
+    status: "ok",
+    timestamp: Date.now(),
+  });
+});
+
 app.post("/bot", async (req, res) => {
   try {
     const userResponse = req.body.payload;

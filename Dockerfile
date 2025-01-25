@@ -1,20 +1,46 @@
-# Use official Node.js image
-FROM node:18-alpine
+# Stage 1: Build and dependencies
+FROM node:18-alpine AS builder
 
-# Set working directory in the container
 WORKDIR /app
 
-# Copy package.json and package-lock.json
+# Copy package files first for better caching
 COPY package*.json ./
 
-# Install dependencies
-RUN npm install
+# Install production-only dependencies
+RUN npm ci --only=production
 
-# Copy the rest of the application code
-COPY . .
+# Stage 2: Final image
+FROM node:18-alpine
 
-# Expose the port the app runs on
+WORKDIR /app
+
+# Create non-root user
+RUN addgroup -S appgroup && \
+    adduser -S appuser -G appgroup && \
+    chown -R appuser:appgroup /app
+
+# Copy production dependencies from builder
+COPY --from=builder --chown=appuser:appgroup /app/node_modules ./node_modules
+
+# Copy application files
+COPY --chown=appuser:appgroup . .
+
+# Install curl for health checks
+RUN apk add --no-cache curl
+
+# Health check configuration
+HEALTHCHECK --interval=30s --timeout=3s --start-period=5s --retries=3 \
+    CMD curl --fail http://localhost:9000/health || exit 1
+
+# Environment variables
+ENV NODE_ENV production
+ENV PORT 9000
+
+# Expose port
 EXPOSE 9000
 
-# Command to run the application
-CMD ["npm", "start"]
+# Switch to non-root user
+USER appuser
+
+# Start command
+CMD ["node", "index.js"]
