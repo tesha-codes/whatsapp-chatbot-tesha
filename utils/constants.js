@@ -3,7 +3,7 @@ dotenv.config();
 //
 const { APP_NAME } = process.env;
 
-const BASE_URL = "https://api.gupshup.io/sm/api/v1";
+const BASE_URL = "https://api.gupshup.io/wa/api/v1";
 const USER_OPTIN_URL = `${BASE_URL}/app/opt/in/${APP_NAME}`;
 const TEXT_MSG_URL = `${BASE_URL}/msg`;
 const TEMPLATE_MSG_URL = `${BASE_URL}/template/msg`;
