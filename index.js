@@ -187,7 +187,7 @@ app.post("/bot", async (req, res) => {
             // );
             // return await client.mainEntry();
 
-            const dynamicClient = new Client(
+            const dynamicClient = new DynamicClient(
               res,
               userResponse,
               session,

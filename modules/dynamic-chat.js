@@ -1,10 +1,6 @@
 const { StatusCodes } = require("http-status-codes");
 const { setSession } = require("../utils/redis");
-const {
-    createUser,
-    updateUser,
-    getUser,
-} = require("../controllers/user.controllers");
+const { createUser, updateUser, getUser } = require("../controllers/user.controllers");
 const { formatDateTime } = require("../utils/dateUtil");
 const Category = require("../models/category.model");
 const { clientMainMenuTemplate } = require("../services/whatsappService");
@@ -14,8 +10,338 @@ const ServiceRequest = require("../models/request.model");
 const User = require("../models/user.model");
 const crypto = require("node:crypto");
 const { queueProviderSearch } = require("../jobs/service-provider.job");
-const aiConversationManager = require("../ai/dynamic.ai");
+const OpenAI = require("openai");
+require("dotenv").config();
 
+// Initialize OpenAI
+const openai = new OpenAI({
+    apiKey: process.env.OPENAI_API_KEY,
+});
+
+// AI Conversation Manager
+class AIConversationManager {
+    constructor() {
+        this.state = 'start';
+        this.context = {};
+    }
+
+    async processMessage(userInput, currentStep) {
+        userInput = userInput.trim().toLowerCase();
+
+        if (['exit', 'quit', 'stop', 'cancel'].includes(userInput)) {
+            return this.resetConversation();
+        }
+
+        const intent = await this.interpretUserIntent(userInput, currentStep);
+
+        if (intent.includes('exit') || intent.includes('cancel')) {
+            return this.resetConversation();
+        }
+
+        switch (this.state) {
+            case 'start':
+                return await this.handleStart(userInput);
+            case 'location':
+                return await this.handleLocationCapture(userInput);
+            case 'providers':
+                return await this.handleProviderSelection(userInput);
+            case 'time':
+                return await this.handleTimeSelection(userInput);
+            case 'confirm':
+                return await this.handleConfirmation(userInput, intent);
+            case 'feedback':
+                return await this.handleFeedback(userInput);
+            default:
+                return this.provideHelp();
+        }
+    }
+
+    resetConversation() {
+        this.state = 'start';
+        this.context = {};
+        return { response: "Booking process cancelled. What service would you like to book today?", state: this.state };
+    }
+
+    provideHelp() {
+        return { response: "I'm here to help you book a service. Could you clarify what you'd like to do?", state: this.state };
+    }
+
+    async handleStart(userInput) {
+        const serviceType = await this.detectServiceIntent(userInput);
+
+        if (serviceType) {
+            this.context.service = serviceType;
+            this.state = 'location';
+            return { response: `Great! I'll help you find a ${serviceType}. What's your location?`, state: this.state };
+        }
+
+        return { response: "I can help with services like gardening, cleaning, tutoring, and more. What service do you need?", state: this.state };
+    }
+
+    async handleLocationCapture(userInput) {
+        const location = this.extractLocation(userInput);
+
+        if (location) {
+            this.context.location = location;
+            this.state = 'providers';
+
+            this.context.providers = await this.generateProviders();
+
+            return {
+                response: `Here are ${this.context.service} professionals near ${location}:\n\n` +
+                    this.formatProviderList(this.context.providers) +
+                    "\n\nSelect a provider by their ID.",
+                state: this.state
+            };
+        }
+
+        return { response: "Could you specify your location?", state: this.state };
+    }
+
+    async handleProviderSelection(userInput) {
+        const selectedProvider = this.context.providers.find(p =>
+            p.id.toLowerCase() === userInput.toLowerCase());
+
+        if (selectedProvider) {
+            this.context.selectedProvider = selectedProvider;
+            this.state = 'time';
+
+            this.context.availableSlots = this.generateTimeSlots();
+
+            return {
+                response: `${selectedProvider.name}'s available times:\n\n` +
+                    this.formatTimeSlots(this.context.availableSlots) +
+                    "\n\nChoose a time slot number or type 'change' to see other providers.",
+                state: this.state
+            };
+        }
+
+        return { response: "Please select a valid provider ID.", state: this.state };
+    }
+
+    async handleTimeSelection(userInput) {
+        if (userInput === 'change') {
+            this.state = 'providers';
+            return {
+                response: `Here are the providers again:\n\n` +
+                    this.formatProviderList(this.context.providers) +
+                    "\n\nSelect a provider by their ID.",
+                state: this.state
+            };
+        }
+
+        const slotIndex = parseInt(userInput) - 1;
+
+        if (slotIndex >= 0 && slotIndex < this.context.availableSlots.length) {
+            this.context.selectedTime = this.context.availableSlots[slotIndex];
+            this.state = 'confirm';
+
+            return {
+                response: `Booking details:\n\n` +
+                    this.formatBookingConfirmation() +
+                    "\n\nConfirm booking? (yes/no)",
+                state: this.state
+            };
+        }
+
+        return { response: "Invalid time slot. Choose a number from the list or type 'change'.", state: this.state };
+    }
+
+    async handleConfirmation(userInput, intent) {
+        if (intent.includes('no') || intent.includes('different')) {
+            if (this.context.providers && this.context.providers.length > 1) {
+                this.state = 'providers';
+                return {
+                    response: `No worries! Let's look at the providers again:\n\n` +
+                        this.formatProviderList(this.context.providers) +
+                        "\n\nWould you like to select a different provider?",
+                    state: this.state
+                };
+            } else if (this.context.service) {
+                this.state = 'start';
+                return {
+                    response: `I understand you're not satisfied. Let's start over.\n\n` +
+                        `We were looking for a ${this.context.service}. Would you like to continue or choose a different service?`,
+                    state: this.state
+                };
+            } else {
+                return this.resetConversation();
+            }
+        }
+
+        if (intent.includes('yes') || intent.includes('confirm')) {
+            this.state = 'feedback';
+            return {
+                response: `Booking confirmed! 🎉\n\n` +
+                    this.formatFinalBooking() +
+                    "\n\nHow was your experience? (Great/Good/Okay/Poor)",
+                state: this.state
+            };
+        }
+
+        return { response: "I'm not sure what you mean. Would you like to confirm the booking (yes/no)?", state: this.state };
+    }
+
+    async handleFeedback(userInput) {
+        this.context.feedback = userInput.trim().toLowerCase();
+        return { response: "Thanks for your feedback! Have a great day.", state: 'start' };
+    }
+
+    async detectServiceIntent(userInput) {
+        const services = ['handyman', 'plumber', 'electrician', 'cleaner', 'tutor',
+            'massage therapist', 'hairdresser', 'beautician',
+            'personal trainer', 'chef', 'gardener', 'painter', 'carpenter'];
+
+        try {
+            const response = await openai.chat.completions.create({
+                model: "gpt-3.5-turbo",
+                messages: [
+                    {
+                        role: "system",
+                        content: `Based on the user's input, classify the service they need from this list: ${services.join(', ')}. If unsure, respond with "unknown".`
+                    },
+                    {
+                        role: "user",
+                        content: userInput
+                    }
+                ],
+                max_tokens: 20
+            });
+
+            const serviceType = response.choices[0].message.content.trim().toLowerCase();
+            return services.includes(serviceType) ? serviceType : null;
+        } catch (error) {
+            console.error("Service detection error:", error);
+            return null;
+        }
+    }
+
+    extractLocation(userInput) {
+        const locationPatterns = [
+            /i\s*(?:am|'m)\s*(?:in|at)\s*(.+)/i,
+            /located\s*(?:in|at)\s*(.+)/i
+        ];
+
+        for (const pattern of locationPatterns) {
+            const match = userInput.match(pattern);
+            if (match) return match[1].trim();
+        }
+
+        return userInput.trim();
+    }
+
+    async generateProviders() {
+        const providers = [];
+        const count = Math.floor(Math.random() * 3) + 2;
+
+        for (let i = 0; i < count; i++) {
+            const specialty = await this.generateProviderSpecialties(this.context.service);
+            providers.push({
+                id: `P${i + 1}`,
+                name: this.generateName(),
+                specialty: specialty,
+                rate: `$${Math.floor(Math.random() * 50) + 30}/hr`,
+                rating: (4 + Math.random()).toFixed(1),
+                distance: this.calculateDistance(),
+                phone: `+1-555-${Math.floor(Math.random() * 9000) + 1000}`
+            });
+        }
+
+        return providers;
+    }
+
+    generateName() {
+        const firstNames = ['John', 'Maria', 'David', 'Sarah', 'Emma', 'Michael'];
+        const lastNames = ['Smith', 'Johnson', 'Williams', 'Brown', 'Jones'];
+        return `${firstNames[Math.floor(Math.random() * firstNames.length)]} ${lastNames[Math.floor(Math.random() * lastNames.length)]}`;
+    }
+
+    formatProviderList(providers) {
+        return providers.map(p =>
+            `ID: ${p.id} - ${p.name}\n` +
+            `🔧 Specialty: ${p.specialty}\n` +
+            `💰 Rate: ${p.rate} | ⭐ Rating: ${p.rating}\n` +
+            `🗺️ Distance: ${p.distance}`
+        ).join('\n\n');
+    }
+
+    generateTimeSlots() {
+        const baseSlots = ['9:00 AM', '10:00 AM', '11:00 AM', '2:00 PM', '3:00 PM', '4:00 PM'];
+        return baseSlots.filter(() => Math.random() > 0.3);
+    }
+
+    formatTimeSlots(slots) {
+        return slots.map((slot, index) =>
+            `${index + 1}. ${slot}`
+        ).join('\n');
+    }
+
+    formatBookingConfirmation() {
+        return `Provider: ${this.context.selectedProvider.name}\n` +
+            `Service: ${this.context.service}\n` +
+            `Time: ${this.context.selectedTime}\n` +
+            `Rate: ${this.context.selectedProvider.rate}`;
+    }
+
+    formatFinalBooking() {
+        return `Provider: ${this.context.selectedProvider.name}\n` +
+            `Contact: ${this.context.selectedProvider.phone}\n` +
+            `Service: ${this.context.service}\n` +
+            `Time: ${this.context.selectedTime}\n` +
+            `Location: ${this.context.location}`;
+    }
+
+    calculateDistance() {
+        return `${(Math.random() * 15).toFixed(1)} km`;
+    }
+
+    async generateProviderSpecialties(serviceType) {
+        try {
+            const response = await openai.chat.completions.create({
+                model: "gpt-3.5-turbo",
+                messages: [
+                    {
+                        role: "system",
+                        content: `Generate a concise, professional 3-5 word specialty for a ${serviceType} professional.`
+                    }
+                ],
+                max_tokens: 20
+            });
+            return response.choices[0].message.content.trim();
+        } catch (error) {
+            return "General Services";
+        }
+    }
+
+    async interpretUserIntent(userInput, currentState) {
+        try {
+            const response = await openai.chat.completions.create({
+                model: "gpt-3.5-turbo",
+                messages: [
+                    {
+                        role: "system",
+                        content: "Analyze the user's input and determine their intent. Consider the current conversation state and provide a clear interpretation."
+                    },
+                    {
+                        role: "user",
+                        content: `Current state: ${currentState}\nUser input: ${userInput}`
+                    }
+                ],
+                max_tokens: 100
+            });
+
+            return response.choices[0].message.content.trim().toLowerCase();
+        } catch (error) {
+            console.error("Intent interpretation error:", error);
+            return 'unknown';
+        }
+    }
+}
+
+// Initialize AI Conversation Manager
+const aiConversationManager = new AIConversationManager();
+
+// Client Class
 class Client {
     constructor(res, userResponse, session, user, steps, messages) {
         this.res = res;
@@ -26,7 +352,6 @@ class Client {
         this.messages = messages;
         this.lActivity = formatDateTime();
         this.setupCommonVariables();
-        aiConversationManager.reset();
     }
 
     setupCommonVariables() {
