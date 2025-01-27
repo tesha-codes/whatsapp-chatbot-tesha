@@ -184,7 +184,11 @@ class AIConversationManager {
 
     async handleFeedback(userInput) {
         this.context.feedback = userInput.trim().toLowerCase();
-        return { response: "Thanks for your feedback! Have a great day.", state: 'start' };
+        this.state = 'start'; // Reset the state to start
+        return {
+            response: "Thanks for your feedback! You can now book another service or edit your profile.",
+            state: this.state
+        };
     }
 
     async detectServiceIntent(userInput) {
@@ -398,6 +402,14 @@ class Client {
                     case "PREPARE_REQUEST":
                         await this.createServiceRequestFromAI(aiResult.state);
                         break;
+                    case "start": // Handle the reset state after feedback
+                        await clientMainMenuTemplate(phone, this.user.firstName);
+                        await setSession(phone, {
+                            step: steps.DEFAULT_CLIENT_STATE,
+                            message: "",
+                            lActivity: new Date().toISOString(),
+                        });
+                        break;
                     default:
                         break;
                 }
@@ -449,6 +461,17 @@ class Client {
 
         if (session.step === steps.COLLECT_USER_LOCATION) {
             return await this.collectLocation();
+        }
+
+        // Handle feedback state transition
+        if (session.step === steps.SELECT_SERVICE_CATEGORY && this.context.feedback) {
+            await clientMainMenuTemplate(phone, user.firstName);
+            await setSession(phone, {
+                step: steps.DEFAULT_CLIENT_STATE,
+                message: "",
+                lActivity: new Date().toISOString(),
+            });
+            return res.status(StatusCodes.OK).send(this.messages.CLIENT_WELCOME_MESSAGE);
         }
 
         return null;
@@ -725,7 +748,15 @@ Please wait...`;
     }
 
     async handleDefaultState() {
-        // Handle any default state logic here
+        const { res, steps, lActivity, phone, message, user } = this;
+
+        // If the user is in the default state, show the main menu
+        if (this.session.step === steps.DEFAULT_CLIENT_STATE) {
+            await clientMainMenuTemplate(phone, user.firstName);
+            return res.status(StatusCodes.OK).send(this.messages.CLIENT_WELCOME_MESSAGE);
+        }
+
+        // Handle any other default state logic here
         // This could include showing the main menu or handling unexpected states
     }
 }
