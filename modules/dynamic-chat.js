@@ -56,7 +56,6 @@ class AIConversationManager {
         }
     }
 
-
     resetConversation() {
         this.state = 'start';
         this.context = {};
@@ -223,7 +222,6 @@ class AIConversationManager {
         return { response: "I'm not sure what you mean. Would you like to confirm the booking (yes/no)?", state: this.state };
     }
 
-
     async handleFeedback(userInput) {
         this.context.feedback = userInput.trim().toLowerCase();
         this.state = 'start'; // Reset the state to start
@@ -260,20 +258,6 @@ class AIConversationManager {
             console.error("Service detection error:", error);
             return null;
         }
-    }
-
-    extractLocation(userInput) {
-        const locationPatterns = [
-            /i\s*(?:am|'m)\s*(?:in|at)\s*(.+)/i,
-            /located\s*(?:in|at)\s*(.+)/i
-        ];
-
-        for (const pattern of locationPatterns) {
-            const match = userInput.match(pattern);
-            if (match) return match[1].trim();
-        }
-
-        return userInput.trim();
     }
 
     async generateProviders() {
@@ -519,7 +503,6 @@ class Client {
         // If not in AI-enabled steps, handle default state or other specific steps
         return this.handleDefaultState();
     }
-
 
     async createServiceRequestFromAI(aiState) {
         const { phone } = this;
@@ -805,4 +788,4 @@ Please wait...`;
     }
 }
 
-module.exports = Client;
+module.exports = Client
