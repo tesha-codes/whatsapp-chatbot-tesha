@@ -355,6 +355,7 @@ class Client {
         this.steps = steps;
         this.messages = messages;
         this.lActivity = formatDateTime();
+        this.context = {}; // Initialize context to avoid undefined errors
         this.setupCommonVariables();
     }
 
@@ -363,6 +364,56 @@ class Client {
         this.phone = userResponse.sender.phone;
         this.message = userResponse.payload?.text || "";
         this.username = userResponse.sender.name;
+    }
+
+    async handleInitialState() {
+        const { res, session, steps, lActivity, phone, message, user } = this;
+
+        if (!session || session.step === steps.DEFAULT_CLIENT_STATE) {
+            const updatedUser = await getUser(phone);
+            await clientMainMenuTemplate(phone, updatedUser.firstName);
+            await setSession(phone, {
+                step: steps.SELECT_SERVICE_CATEGORY,
+                message: message || "",
+                lActivity: lActivity || new Date().toISOString(),
+            });
+            return res
+                .status(StatusCodes.OK)
+                .send(`Hello there 👋 ${updatedUser.firstName}`);
+        }
+
+        if (session.step === steps.SETUP_CLIENT_PROFILE) {
+            return await this.setupClientProfile();
+        }
+
+        if (session.step === steps.COLLECT_USER_FULL_NAME) {
+            return await this.collectFullName();
+        }
+
+        if (session.step === steps.COLLECT_USER_ID) {
+            return await this.collectNationalId();
+        }
+
+        if (session.step === steps.COLLECT_USER_ADDRESS) {
+            return await this.collectAddress();
+        }
+
+        if (session.step === steps.COLLECT_USER_LOCATION) {
+            return await this.collectLocation();
+        }
+
+        // Handle feedback state transition
+        if (session.step === steps.SELECT_SERVICE_CATEGORY && this.context?.feedback) {
+            await clientMainMenuTemplate(phone, user.firstName);
+            await setSession(phone, {
+                step: steps.DEFAULT_CLIENT_STATE,
+                message: "",
+                lActivity: new Date().toISOString(),
+            });
+            return res.status(StatusCodes.OK).send(this.messages.CLIENT_WELCOME_MESSAGE);
+        }
+
+        return null;
     }
 
     async mainEntry() {
@@ -427,55 +478,6 @@ class Client {
         return this.handleDefaultState();
     }
 
-    async handleInitialState() {
-        const { res, session, steps, lActivity, phone, message, user } = this;
-
-        if (!session || session.step === steps.DEFAULT_CLIENT_STATE) {
-            const updatedUser = await getUser(phone);
-            await clientMainMenuTemplate(phone, updatedUser.firstName);
-            await setSession(phone, {
-                step: steps.SELECT_SERVICE_CATEGORY,
-                message: message || "",
-                lActivity: lActivity || new Date().toISOString(),
-            });
-            return res
-                .status(StatusCodes.OK)
-                .send(`Hello there 👋 ${updatedUser.firstName}`);
-        }
-
-        if (session.step === steps.SETUP_CLIENT_PROFILE) {
-            return await this.setupClientProfile();
-        }
-
-        if (session.step === steps.COLLECT_USER_FULL_NAME) {
-            return await this.collectFullName();
-        }
-
-        if (session.step === steps.COLLECT_USER_ID) {
-            return await this.collectNationalId();
-        }
-
-        if (session.step === steps.COLLECT_USER_ADDRESS) {
-            return await this.collectAddress();
-        }
-
-        if (session.step === steps.COLLECT_USER_LOCATION) {
-            return await this.collectLocation();
-        }
-
-        // Handle feedback state transition
-        if (session.step === steps.SELECT_SERVICE_CATEGORY && this.context.feedback) {
-            await clientMainMenuTemplate(phone, user.firstName);
-            await setSession(phone, {
-                step: steps.DEFAULT_CLIENT_STATE,
-                message: "",
-                lActivity: new Date().toISOString(),
-            });
-            return res.status(StatusCodes.OK).send(this.messages.CLIENT_WELCOME_MESSAGE);
-        }
-
-        return null;
-    }
 
     async createServiceRequestFromAI(aiState) {
         const { phone } = this;
