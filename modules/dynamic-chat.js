@@ -56,6 +56,7 @@ class AIConversationManager {
         }
     }
 
+
     resetConversation() {
         this.state = 'start';
         this.context = {};
@@ -79,8 +80,23 @@ class AIConversationManager {
     }
 
     async handleLocationCapture(userInput) {
-        const location = this.extractLocation(userInput);
+        // Check if the user shared a geo-location (e.g., latitude and longitude)
+        const geoLocation = this.extractGeoLocation(userInput);
+        if (geoLocation) {
+            this.context.location = geoLocation;
+            this.state = 'providers';
 
+            this.context.providers = await this.generateProviders();
+
+            return {
+                response: `Here are ${this.context.service} professionals near your location:\n\n` +
+                    this.formatProviderList(this.context.providers) +
+                    "\n\nSelect a provider by their ID.",
+                state: this.state
+            };
+        }
+
+        const location = this.extractLocation(userInput);
         if (location) {
             this.context.location = location;
             this.state = 'providers';
@@ -95,7 +111,7 @@ class AIConversationManager {
             };
         }
 
-        return { response: "Could you specify your location?", state: this.state };
+        return { response: "Could you specify your location? You can share your location or type it out.", state: this.state };
     }
 
     async handleProviderSelection(userInput) {
@@ -117,6 +133,31 @@ class AIConversationManager {
         }
 
         return { response: "Please select a valid provider ID.", state: this.state };
+    }
+
+    extractGeoLocation(userInput) {
+        const geoPattern = /(-?\d+\.\d+),\s*(-?\d+\.\d+)/;
+        const match = userInput.match(geoPattern);
+        if (match) {
+            const [latitude, longitude] = match.slice(1);
+            return { latitude, longitude };
+        }
+        return null;
+    }
+
+    extractLocation(userInput) {
+        const locationPatterns = [
+            /i\s*(?:am|'m)\s*(?:in|at)\s*(.+)/i,
+            /located\s*(?:in|at)\s*(.+)/i,
+            /my\s+location\s+is\s+(.+)/i
+        ];
+
+        for (const pattern of locationPatterns) {
+            const match = userInput.match(pattern);
+            if (match) return match[1].trim();
+        }
+
+        return userInput.trim();
     }
 
     async handleTimeSelection(userInput) {
@@ -181,6 +222,7 @@ class AIConversationManager {
 
         return { response: "I'm not sure what you mean. Would you like to confirm the booking (yes/no)?", state: this.state };
     }
+
 
     async handleFeedback(userInput) {
         this.context.feedback = userInput.trim().toLowerCase();
