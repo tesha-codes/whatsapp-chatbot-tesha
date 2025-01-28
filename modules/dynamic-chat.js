@@ -135,11 +135,11 @@ class AIConversationManager {
     }
 
     extractGeoLocation(userInput) {
-        const geoPattern = /(-?\d+\.\d+),\s*(-?\d+\.\d+)/;
-        const match = userInput.match(geoPattern);
-        if (match) {
-            const [latitude, longitude] = match.slice(1);
-            return { latitude, longitude };
+        if (userInput.payload && userInput.payload.latitude && userInput.payload.longitude) {
+            return {
+                latitude: userInput.payload.latitude,
+                longitude: userInput.payload.longitude
+            };
         }
         return null;
     }
@@ -473,319 +473,261 @@ class Client {
                     serviceDetails: JSON.stringify(aiResult.state.serviceDetails || {}),
                 };
 
-                await setSession(phone, flattenedSessionData);
 
-                switch (aiResult.state.step) {
-                    case "PREPARE_REQUEST":
-                        await this.createServiceRequestFromAI(aiResult.state);
-                        break;
-                    case "start": // Handle the reset state after feedback
-                        await clientMainMenuTemplate(phone, this.user.firstName);
-                        await setSession(phone, {
-                            step: steps.DEFAULT_CLIENT_STATE,
-                            message: "",
-                            lActivity: new Date().toISOString(),
-                        });
-                        break;
-                    default:
-                        break;
-                }
+                await setSession(phone, {
+                    ...flattenedSessionData,
+                    lActivity: lActivity || new Date().toISOString(),
+                });
 
                 return res.status(StatusCodes.OK).send(aiResult.response);
             } catch (error) {
-                console.error("Detailed error in main entry:", error);
-                return res
-                    .status(StatusCodes.INTERNAL_SERVER_ERROR)
-                    .send("An error occurred: " + error.message);
+                console.error("AI Conversation Error:", error);
+                return res.status(StatusCodes.INTERNAL_SERVER_ERROR).send("An error occurred while processing your request.");
             }
         }
 
-        // If not in AI-enabled steps, handle default state or other specific steps
-        return this.handleDefaultState();
+        // Handle other steps (non-AI steps)
+        switch (currentStep) {
+            case steps.SELECT_SERVICE_CATEGORY:
+                return await this.handleServiceCategorySelection();
+            case steps.SELECT_SERVICE:
+                return await this.handleServiceSelection();
+            case steps.BOOK_SERVICE:
+                return await this.handleServiceBooking();
+            default:
+                return res.status(StatusCodes.OK).send(this.messages.CLIENT_WELCOME_MESSAGE);
+        }
     }
 
-    async createServiceRequestFromAI(aiState) {
-        const { phone } = this;
-        const serviceCategory = aiState.serviceCategory;
-        const location = aiState.location;
+    async handleServiceCategorySelection() {
+        const { res, phone, message, lActivity } = this;
 
-        const category = await Category.findOne({
-            name: { $regex: new RegExp(serviceCategory, "i") },
-        });
+        // Fetch available service categories from the database
+        const categories = await Category.find({});
+        const categoryList = categories.map(cat => `- ${cat.name}`).join('\n');
 
-        if (!category) {
-            throw new Error("Category not found");
+        if (!message) {
+            await setSession(phone, {
+                step: steps.SELECT_SERVICE_CATEGORY,
+                message: "",
+                lActivity: lActivity || new Date().toISOString(),
+            });
+            return res.status(StatusCodes.OK).send(
+                `Please select a service category:\n\n${categoryList}`
+            );
         }
 
-        const service = await Service.findOne({
-            category: category._id,
-            title: { $regex: new RegExp(serviceCategory, "i") },
-        });
+        const selectedCategory = categories.find(cat =>
+            cat.name.toLowerCase() === message.trim().toLowerCase()
+        );
 
-        if (!service) {
-            throw new Error("Service not found");
+        if (!selectedCategory) {
+            return res.status(StatusCodes.OK).send(
+                "Invalid category. Please select a valid category from the list:\n\n" +
+                categoryList
+            );
         }
 
-        const user = await User.findOne({ phone });
-        const reqID = "REQ" + crypto.randomBytes(3).toString("hex").toUpperCase();
-
-        const request = await ServiceRequest.create({
-            _id: new mongoose.Types.ObjectId(),
-            city: "Harare",
-            requester: user._id,
-            service: service._id,
-            address: {
-                physicalAddress: location,
-            },
-            notes: "Service request from AI conversation",
-            id: reqID,
+        await setSession(phone, {
+            step: steps.SELECT_SERVICE,
+            serviceCategory: selectedCategory.name,
+            lActivity: lActivity || new Date().toISOString(),
         });
 
-        await request.save();
+        return res.status(StatusCodes.OK).send(
+            `You selected: ${selectedCategory.name}. Now, let's choose a specific service.`
+        );
+    }
 
-        await queueProviderSearch({
-            phone,
-            serviceId: service._id.toString(),
-            categoryId: category._id.toString(),
-            requestId: request._id.toString(),
+    async handleServiceSelection() {
+        const { res, phone, message, lActivity, session } = this;
+
+        // Fetch services under the selected category
+        const services = await Service.find({ category: session.serviceCategory });
+        const serviceList = services.map(service => `- ${service.name}`).join('\n');
+
+        if (!message) {
+            return res.status(StatusCodes.OK).send(
+                `Please select a service:\n\n${serviceList}`
+            );
+        }
+
+        const selectedService = services.find(service =>
+            service.name.toLowerCase() === message.trim().toLowerCase()
+        );
+
+        if (!selectedService) {
+            return res.status(StatusCodes.OK).send(
+                "Invalid service. Please select a valid service from the list:\n\n" +
+                serviceList
+            );
+        }
+
+        await setSession(phone, {
+            step: steps.BOOK_SERVICE,
+            serviceDetails: JSON.stringify(selectedService),
+            lActivity: lActivity || new Date().toISOString(),
         });
 
-        aiConversationManager.reset();
+        return res.status(StatusCodes.OK).send(
+            `You selected: ${selectedService.name}. Let's proceed to book this service.`
+        );
+    }
 
-        return `
-📃 Thank you, *${user.username}*! 
+    async handleServiceBooking() {
+        const { res, phone, message, lActivity, session } = this;
 
-Your request for ${serviceCategory} service has been successfully created. 
+        const serviceDetails = JSON.parse(session.serviceDetails);
 
-📝 Your request ID is: *${reqID}*. 
-📍 Location: *${location}*
+        if (!message) {
+            return res.status(StatusCodes.OK).send(
+                `You're about to book: ${serviceDetails.name}.\n\n` +
+                "Please confirm by typing 'yes' or cancel by typing 'no'."
+            );
+        }
 
-Our team is searching for an available service provider. 
-Please wait...`;
+        if (message.trim().toLowerCase() === 'yes') {
+            // Create a new service request
+            const serviceRequest = new ServiceRequest({
+                user: this.user._id,
+                service: serviceDetails._id,
+                status: 'pending',
+                createdAt: new Date(),
+            });
+
+            await serviceRequest.save();
+
+            await setSession(phone, {
+                step: steps.DEFAULT_CLIENT_STATE,
+                lActivity: lActivity || new Date().toISOString(),
+            });
+
+            return res.status(StatusCodes.OK).send(
+                `Your booking for ${serviceDetails.name} has been confirmed! 🎉\n\n` +
+                "You can now check your bookings or book another service."
+            );
+        } else if (message.trim().toLowerCase() === 'no') {
+            await setSession(phone, {
+                step: steps.SELECT_SERVICE_CATEGORY,
+                lActivity: lActivity || new Date().toISOString(),
+            });
+
+            return res.status(StatusCodes.OK).send(
+                "Booking cancelled. Let's start over."
+            );
+        } else {
+            return res.status(StatusCodes.OK).send(
+                "Invalid input. Please type 'yes' to confirm or 'no' to cancel."
+            );
+        }
     }
 
     async setupClientProfile() {
-        const { res, steps, lActivity, phone, message } = this;
-        if (message.toLowerCase() === "create account" || +message === 1) {
-            await setSession(phone, {
-                step: steps.COLLECT_USER_FULL_NAME,
-                message,
-                lActivity,
-            });
-            return res.status(StatusCodes.OK).send(this.messages.GET_FULL_NAME);
-        } else {
-            await setSession(phone, {
-                step: steps.DEFAULT_CLIENT_STATE,
-                message,
-                lActivity,
-            });
-            return res
-                .status(StatusCodes.OK)
-                .send(
-                    "❌ You have cancelled creating profile. You need to have a profile to be able to request services. "
-                );
-        }
+        const { res, phone, lActivity } = this;
+
+        await setSession(phone, {
+            step: steps.COLLECT_USER_FULL_NAME,
+            lActivity: lActivity || new Date().toISOString(),
+        });
+
+        return res.status(StatusCodes.OK).send(
+            "Let's set up your profile. What's your full name?"
+        );
     }
 
     async collectFullName() {
-        const { res, steps, lActivity, phone, message } = this;
-        if (message.length < 5) {
-            return res
-                .status(StatusCodes.OK)
-                .send(
-                    "❌ Name and surname provided is too short. Please re-enter your full name, name(s) first and then surname second."
-                );
-        }
-        const userNames = message.split(" ");
-        const lastName = userNames[userNames.length - 1];
-        const firstName = message.replace(lastName, " ").trim();
+        const { res, phone, message, lActivity } = this;
 
-        await updateUser({ phone, firstName, lastName });
+        if (!message) {
+            return res.status(StatusCodes.OK).send(
+                "Please provide your full name."
+            );
+        }
+
         await setSession(phone, {
             step: steps.COLLECT_USER_ID,
-            message,
-            lActivity,
+            fullName: message.trim(),
+            lActivity: lActivity || new Date().toISOString(),
         });
-        return res.status(StatusCodes.OK).send(this.messages.GET_NATIONAL_ID);
+
+        return res.status(StatusCodes.OK).send(
+            "Thanks! Now, please provide your national ID number."
+        );
     }
 
     async collectNationalId() {
-        const { res, steps, lActivity, phone, message } = this;
-        const pattern = /^(\d{2})-(\d{7})-([A-Z])-(\d{2})$/;
-        if (!pattern.test(message)) {
-            return res
-                .status(StatusCodes.OK)
-                .send(
-                    "❌ Invalid National Id format, please provide id in the format specified in the example."
-                );
+        const { res, phone, message, lActivity } = this;
+
+        if (!message) {
+            return res.status(StatusCodes.OK).send(
+                "Please provide your national ID number."
+            );
         }
 
-        await updateUser({ phone, nationalId: message });
         await setSession(phone, {
             step: steps.COLLECT_USER_ADDRESS,
-            message,
-            lActivity,
+            nationalId: message.trim(),
+            lActivity: lActivity || new Date().toISOString(),
         });
-        return res.status(StatusCodes.OK).send(this.messages.GET_ADDRESS);
+
+        return res.status(StatusCodes.OK).send(
+            "Thanks! Now, please provide your address."
+        );
     }
 
     async collectAddress() {
-        const { res, steps, lActivity, phone, message } = this;
-        await updateUser({
-            phone,
-            address: {
-                physicalAddress: message,
-            },
-        });
+        const { res, phone, message, lActivity } = this;
+
+        if (!message) {
+            return res.status(StatusCodes.OK).send(
+                "Please provide your address."
+            );
+        }
+
         await setSession(phone, {
             step: steps.COLLECT_USER_LOCATION,
-            message,
-            lActivity,
+            address: message.trim(),
+            lActivity: lActivity || new Date().toISOString(),
         });
-        return res.status(StatusCodes.OK).send(this.messages.GET_LOCATION);
+
+        return res.status(StatusCodes.OK).send(
+            "Thanks! Now, please share your location."
+        );
     }
 
     async collectLocation() {
-        const { res, steps, lActivity, phone, message } = this;
-        await updateUser({
-            phone,
-            address: {
-                coordinates: message,
-            },
-        });
+        const { res, phone, message, lActivity, session } = this;
 
-        const confirmation = `
-*Profile Setup Confirmation*
-
-✅ Thank you! Your profile has been successfully set up.
-You're all set! If you need any further assistance, feel free to reach out. 😊
-`;
-
-        setImmediate(async () => {
-            const user = await getUser(phone);
-            await clientMainMenuTemplate(phone, user.firstName);
-            await setSession(phone, {
-                step: steps.SELECT_SERVICE_CATEGORY,
-                message,
-                lActivity,
-            });
-        });
-
-        return res.status(StatusCodes.OK).send(confirmation);
-    }
-
-    async selectServiceCategory() {
-        const { res, steps, lActivity, phone, message } = this;
-        if (message.toLowerCase() === "request service") {
-            await setSession(phone, {
-                step: steps.SELECT_SERVICE,
-                message,
-                lActivity,
-            });
-            return res
-                .status(StatusCodes.OK)
-                .send(this.messages.CLIENT_WELCOME_MESSAGE);
+        if (!message) {
+            return res.status(StatusCodes.OK).send(
+                "Please share your location."
+            );
         }
-        // Handle other cases if needed
-    }
 
-    async selectService() {
-        const { res, steps, lActivity, phone, message } = this;
-        const category = await Category.findOne(
-            { code: +message },
-            { _id: 1, name: 1 }
-        );
+        const location = this.extractLocation(message);
+        if (!location) {
+            return res.status(StatusCodes.OK).send(
+                "Invalid location. Please share your location again."
+            );
+        }
 
-        let queryId = new mongoose.Types.ObjectId(category._id);
-        const services = await Service.find({ category: queryId });
-
-        let responseMessage = `
-*${category.name}* 
-Please select a service from the list below:
-${services
-                .map((s, index) => `${index + 1}. *${s.title}*\n${s.description}`)
-                .join("\n\n")}
-
-Reply with the number of the service you'd like to hire.
-    `;
-
-        // Flatten session data
-        const flatSessionData = {
-            step: steps.BOOK_SERVICE,
-            message: message || "",
-            lActivity: lActivity || new Date().toISOString(),
-            categoryId: category._id.toString(),
-        };
-
-        await setSession(phone, flatSessionData);
-        return res.status(StatusCodes.OK).send(responseMessage);
-    }
-
-    async bookService() {
-        const { res, steps, lActivity, phone, message, session } = this;
-        const code = parseInt(message);
-        const service = await Service.findOne({
-            code,
-            category: session.categoryId,
-        });
-        const user = await User.findOne({ phone });
-
-        const reqID = "REQ" + crypto.randomBytes(3).toString("hex").toUpperCase();
-        const request = await ServiceRequest.create({
-            _id: new mongoose.Types.ObjectId(),
-            city: "Harare",
-            requester: user._id,
-            service: service._id,
-            address: user.address,
-            notes: "Service booking is still in dev",
-            id: reqID,
+        // Update user profile with collected data
+        const updatedUser = await updateUser(phone, {
+            fullName: session.fullName,
+            nationalId: session.nationalId,
+            address: session.address,
+            location: location,
         });
 
-        await request.save();
-        const responseMessage = `
-📃 Thank you, *${user.username}*! 
-
-Your request for the service has been successfully created. 
-
-📝 Your request ID is: *${reqID}*. 
-📍 Location: *${request.address.physicalAddress}*
-
-Our team will connect you with a service provider shortly. 
-Please wait...`;
-
-        await queueProviderSearch({
-            phone,
-            serviceId: service._id.toString(),
-            categoryId: session.categoryId,
-            requestId: request._id.toString(),
-        });
-
-        // Flatten session data
-        const flatSessionData = {
+        await setSession(phone, {
             step: steps.DEFAULT_CLIENT_STATE,
-            message: message || "",
             lActivity: lActivity || new Date().toISOString(),
-            serviceId: service._id.toString(),
-            requestId: request._id.toString(),
-        };
+        });
 
-        await setSession(phone, flatSessionData);
-
-        return res.status(StatusCodes.OK).send(responseMessage);
-    }
-
-    async handleDefaultState() {
-        const { res, steps, lActivity, phone, message, user } = this;
-
-        // If the user is in the default state, show the main menu
-        if (this.session.step === steps.DEFAULT_CLIENT_STATE) {
-            await clientMainMenuTemplate(phone, user.firstName);
-            return res.status(StatusCodes.OK).send(this.messages.CLIENT_WELCOME_MESSAGE);
-        }
-
-        // Handle any other default state logic here
-        // This could include showing the main menu or handling unexpected states
+        return res.status(StatusCodes.OK).send(
+            `Profile setup complete! Welcome, ${updatedUser.fullName}.`
+        );
     }
 }
 
-module.exports = Client
+module.exports = Client;
