@@ -1,84 +1,161 @@
+// modules/dynamic-chat.js
 const { StatusCodes } = require("http-status-codes");
-const { setSession, getSession } = require("../utils/redis");
+const { setSession } = require("../utils/redis");
 const { updateUser, getUser } = require("../controllers/user.controllers");
-const { analyzeMessage } = require("./ai-service"); // Your NLP layer
+const { analyzeMessage } = require("./ai-service");
 
 class DynamicClient {
-    constructor(res, userResponse, session, user, messages) {
+    constructor(res, userResponse, session, user, steps, messages) {
+        // Preserve original parameters
         this.res = res;
         this.userResponse = userResponse;
         this.session = session;
         this.user = user;
+        this.steps = steps;
         this.messages = messages;
         this.phone = userResponse.sender.phone;
+
+        // Add AI capabilities
+        this.message = userResponse.payload.text || "";
+        this.location = userResponse.payload.location;
     }
 
     async mainEntry() {
         try {
-            // Analyze user input using NLP
-            const { intent, entities } = await analyzeMessage(this.userResponse.payload.text);
-
-            // Handle registration flow
+            // Maintain original registration flow
             if (!this.user.isRegistered) {
-                return this.handleRegistration(entities);
+                return this.handleRegistrationFlow();
             }
 
-            // Handle post-registration conversations
-            return this.handleServiceRequest(intent, entities);
+            // Enhanced service booking with AI
+            return this.handleServiceRequest();
         } catch (error) {
             console.error("DynamicClient Error:", error);
             return this.sendResponse(this.messages.ERROR_GENERIC);
         }
     }
 
-    async handleRegistration(entities) {
-        const missingFields = this.getMissingRegistrationFields();
-
-        // Update user data from extracted entities
-        if (Object.keys(entities).length > 0) {
-            await updateUser({ phone: this.phone, ...entities });
-            return this.checkRegistrationProgress();
-        }
-
-        // Prompt for missing fields dynamically
-        return this.promptForMissingField(missingFields[0]);
-    }
-
-    async checkRegistrationProgress() {
-        const updatedUser = await getUser(this.phone);
-        const missingFields = this.getMissingRegistrationFields(updatedUser);
-
-        if (missingFields.length === 0) {
-            await updateUser({ phone: this.phone, isRegistered: true });
-            return this.sendResponse(this.messages.PROFILE_CONFIRMATION);
-        }
-
-        return this.promptForMissingField(missingFields[0]);
-    }
-
-    getMissingRegistrationFields(user = this.user) {
-        const requiredFields = ['firstName', 'lastName', 'nationalId', 'address'];
-        return requiredFields.filter(field => !user[field]);
-    }
-
-    promptForMissingField(field) {
-        const prompts = {
-            firstName: "👤 Please provide your full name:",
-            nationalId: "🆔 What's your national ID? (Format: XX-XXXXXXX-X-XX)",
-            address: "📍 Share your address (text or location)"
+    async handleRegistrationFlow() {
+        // Keep original step-based registration
+        const stepHandlers = {
+            [this.steps.COLLECT_USER_FULL_NAME]: this.handleFullName,
+            [this.steps.COLLECT_USER_ID]: this.handleNationalID,
+            [this.steps.COLLECT_USER_ADDRESS]: this.handleAddress,
+            [this.steps.COLLECT_USER_LOCATION]: this.handleLocation
         };
 
-        return this.sendResponse(prompts[field]);
+        if (stepHandlers[this.session.step]) {
+            return stepHandlers[this.session.step].call(this);
+        }
+        return this.startRegistration();
     }
 
-    async handleServiceRequest(intent, entities) {
-        // Use AI to route service requests (e.g., "I need a plumber")
-        switch (intent) {
-            case 'REQUEST_SERVICE':
-                return this.sendResponse("🔧 What service do you need?");
-            default:
-                return this.sendResponse(this.messages.CLIENT_MAIN_MENU);
+    async startRegistration() {
+        await this.updateSession(this.steps.COLLECT_USER_FULL_NAME);
+        return this.sendResponse(this.messages.GET_FULL_NAME);
+    }
+
+    async handleFullName() {
+        const name = this.message;
+        if (!this.isValidName(name)) {
+            return this.sendResponse("❌ Please enter both first and last names\nExample: John Doe");
         }
+
+        const [firstName, lastName] = name.split(/\s+(.*)/);
+        await updateUser({ phone: this.phone, firstName, lastName });
+        await this.updateSession(this.steps.COLLECT_USER_ID);
+        return this.sendResponse(this.messages.GET_NATIONAL_ID);
+    }
+
+    async handleNationalID() {
+        const nationalId = this.message;
+        if (!this.isValidNationalID(nationalId)) {
+            return this.sendResponse("⚠️ Invalid ID format. Use: XX-XXXXXXX-X-XX\nExample: 63-1234567-X-89");
+        }
+
+        await updateUser({ phone: this.phone, nationalId });
+        await this.updateSession(this.steps.COLLECT_USER_ADDRESS);
+        return this.sendResponse(this.messages.GET_ADDRESS);
+    }
+
+    async handleAddress() {
+        await updateUser({
+            phone: this.phone,
+            address: { physicalAddress: this.message }
+        });
+        await this.updateSession(this.steps.COLLECT_USER_LOCATION);
+        return this.sendResponse(this.messages.GET_LOCATION);
+    }
+
+    async handleLocation() {
+        const location = this.location ? [
+            this.location.latitude,
+            this.location.longitude
+        ] : null;
+
+        await updateUser({
+            phone: this.phone,
+            address: { coordinates: location },
+            isRegistered: true
+        });
+
+        await this.updateSession(this.steps.DEFAULT_CLIENT_STATE);
+        return this.sendResponse(this.messages.PROFILE_CONFIRMATION);
+    }
+
+    async handleServiceRequest() {
+        // AI-enhanced service handling
+        try {
+            const { intent, entities } = await analyzeMessage(this.message);
+
+            if (intent === 'REQUEST_SERVICE') {
+                return this.processServiceRequest(entities);
+            }
+
+            // Fallback to original menu
+            return this.sendResponse(this.messages.CLIENT_MAIN_MENU);
+        } catch (error) {
+            console.error("AI Service Error:", error);
+            return this.legacyServiceFlow();
+        }
+    }
+
+    async processServiceRequest(entities) {
+        // Use extracted entities or ask for missing info
+        const serviceType = entities.serviceType || await this.getServiceCategory();
+        const location = entities.location || this.user.address;
+
+        if (!serviceType) {
+            return this.sendResponse("🔧 What service do you need help with?");
+        }
+
+        const providers = await this.findProviders(serviceType, location);
+        return this.presentProviders(providers);
+    }
+
+    async legacyServiceFlow() {
+        // Original service selection logic
+        if (this.session.step === this.steps.SELECT_SERVICE_CATEGORY) {
+            return this.selectServiceCategory();
+        }
+        if (this.session.step === this.steps.SELECT_SERVICE) {
+            return this.selectService();
+        }
+        return this.sendResponse(this.messages.CLIENT_MAIN_MENU);
+    }
+
+    // Preserve original validation methods
+    isValidName(name) {
+        return name.trim().split(/\s+/).length >= 2;
+    }
+
+    isValidNationalID(id) {
+        return /^\d{2}-\d{7}-[A-Z]-\d{2}$/i.test(id);
+    }
+
+    async updateSession(nextStep) {
+        this.session.step = nextStep;
+        await setSession(this.phone, this.session);
     }
 
     sendResponse(message) {
