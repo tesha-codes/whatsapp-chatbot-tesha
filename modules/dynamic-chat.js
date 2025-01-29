@@ -120,12 +120,42 @@ class DynamicClient {
     }
 
     async handleRegistration() {
-        const requiredFields = ['fullName', 'nationalId', 'address', 'location'];
+        // Handle full name collection specifically
+        if (this.session.step === this.steps.COLLECT_USER_FULL_NAME) {
+            if (!this.validateName(this.userResponse.payload.text)) {
+                return this.res.status(StatusCodes.OK).send(
+                    "❌ Invalid name format. Please enter both first and last names"
+                );
+            }
+
+            const [firstName, ...lastNames] = this.userResponse.payload.text.split(' ');
+            await updateUser({
+                phone: this.phone,
+                firstName,
+                lastName: lastNames.join(' '),
+            });
+
+            // Progress to national ID collection
+            this.session.step = this.steps.COLLECT_USER_ID;
+            await setSession(this.phone, this.session);
+
+            return this.res.status(StatusCodes.OK).send(this.messages.GET_NATIONAL_ID);
+        }
+
+        // Existing general registration check
+        const requiredFields = ['firstName', 'nationalId', 'address'];
         const missingField = requiredFields.find(f => !this.user[f]);
 
         if (missingField) {
-            this.session.step = `COLLECT_USER_${missingField.toUpperCase()}`;
+            const stepMap = {
+                firstName: this.steps.COLLECT_USER_FULL_NAME,
+                nationalId: this.steps.COLLECT_USER_ID,
+                address: this.steps.COLLECT_USER_ADDRESS
+            };
+
+            this.session.step = stepMap[missingField];
             await setSession(this.phone, this.session);
+
             return this.res.status(StatusCodes.OK).send(
                 this.getRegistrationPrompt(missingField)
             );
@@ -137,12 +167,15 @@ class DynamicClient {
         );
     }
 
+    validateName(name) {
+        return name.trim().split(' ').length >= 2;
+    }
+
     getRegistrationPrompt(field) {
         const prompts = {
-            fullName: "Please enter your full name:",
+            firstName: "Please enter your full name:",
             nationalId: "Enter your national ID (format: XX-XXXXXXX-X-XX):",
-            address: "Please type your physical address:",
-            location: "Share your location or type your address:"
+            address: "Share your location or type your address:"
         };
         return prompts[field];
     }
