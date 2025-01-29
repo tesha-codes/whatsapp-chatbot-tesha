@@ -1,105 +1,84 @@
-// modules/dynamic-chat.js
 const { StatusCodes } = require("http-status-codes");
-const { setSession } = require("../utils/redis");
-const { updateUser } = require("../controllers/user.controllers");
+const { setSession, getSession } = require("../utils/redis");
+const { updateUser, getUser } = require("../controllers/user.controllers");
+const { analyzeMessage } = require("./ai-service"); // Your NLP layer
 
 class DynamicClient {
-    constructor(res, userResponse, session, user, steps, messages) {
+    constructor(res, userResponse, session, user, messages) {
         this.res = res;
         this.userResponse = userResponse;
         this.session = session;
         this.user = user;
-        this.steps = steps;
         this.messages = messages;
         this.phone = userResponse.sender.phone;
     }
 
     async mainEntry() {
         try {
-            if (this.session.step === this.steps.COLLECT_USER_FULL_NAME) {
-                return this.handleFullName();
+            // Analyze user input using NLP
+            const { intent, entities } = await analyzeMessage(this.userResponse.payload.text);
+
+            // Handle registration flow
+            if (!this.user.isRegistered) {
+                return this.handleRegistration(entities);
             }
-            if (this.session.step === this.steps.COLLECT_USER_ID) {
-                return this.handleNationalID();
-            }
-            if (this.session.step === this.steps.COLLECT_USER_ADDRESS) {
-                return this.handleAddress();
-            }
-            if (this.session.step === this.steps.COLLECT_USER_LOCATION) {
-                return this.handleLocation();
-            }
-            return this.handleMainMenu();
+
+            // Handle post-registration conversations
+            return this.handleServiceRequest(intent, entities);
         } catch (error) {
             console.error("DynamicClient Error:", error);
             return this.sendResponse(this.messages.ERROR_GENERIC);
         }
     }
 
-    async handleFullName() {
-        const name = this.userResponse.payload.text;
-        if (!this.isValidName(name)) {
-            return this.sendResponse("❌ Please enter both first and last names\nExample: John Doe");
+    async handleRegistration(entities) {
+        const missingFields = this.getMissingRegistrationFields();
+
+        // Update user data from extracted entities
+        if (Object.keys(entities).length > 0) {
+            await updateUser({ phone: this.phone, ...entities });
+            return this.checkRegistrationProgress();
         }
 
-        const [firstName, lastName] = name.split(/\s+(.*)/);
-        await updateUser({ phone: this.phone, firstName, lastName });
-        await this.updateSession(this.steps.COLLECT_USER_ID);
-
-        return this.sendResponse(this.messages.GET_NATIONAL_ID);
+        // Prompt for missing fields dynamically
+        return this.promptForMissingField(missingFields[0]);
     }
 
-    async handleNationalID() {
-        const nationalId = this.userResponse.payload.text;
-        if (!this.isValidNationalID(nationalId)) {
-            return this.sendResponse("⚠️ Invalid ID format. Use: XX-XXXXXXX-X-XX\nExample: 63-1234567-X-89");
+    async checkRegistrationProgress() {
+        const updatedUser = await getUser(this.phone);
+        const missingFields = this.getMissingRegistrationFields(updatedUser);
+
+        if (missingFields.length === 0) {
+            await updateUser({ phone: this.phone, isRegistered: true });
+            return this.sendResponse(this.messages.PROFILE_CONFIRMATION);
         }
 
-        await updateUser({ phone: this.phone, nationalId });
-        await this.updateSession(this.steps.COLLECT_USER_ADDRESS);
-
-        return this.sendResponse(this.messages.GET_ADDRESS);
+        return this.promptForMissingField(missingFields[0]);
     }
 
-    async handleAddress() {
-        await updateUser({
-            phone: this.phone,
-            address: { physicalAddress: this.userResponse.payload.text }
-        });
-        await this.updateSession(this.steps.COLLECT_USER_LOCATION);
-
-        return this.sendResponse(this.messages.GET_LOCATION);
+    getMissingRegistrationFields(user = this.user) {
+        const requiredFields = ['firstName', 'lastName', 'nationalId', 'address'];
+        return requiredFields.filter(field => !user[field]);
     }
 
-    async handleLocation() {
-        const location = this.userResponse.payload.location
-            ? [this.userResponse.payload.location.latitude,
-            this.userResponse.payload.location.longitude]
-            : null;
+    promptForMissingField(field) {
+        const prompts = {
+            firstName: "👤 Please provide your full name:",
+            nationalId: "🆔 What's your national ID? (Format: XX-XXXXXXX-X-XX)",
+            address: "📍 Share your address (text or location)"
+        };
 
-        await updateUser({
-            phone: this.phone,
-            address: { coordinates: location }
-        });
-
-        await this.updateSession(this.steps.DEFAULT_CLIENT_STATE);
-        return this.sendResponse(this.messages.PROFILE_CONFIRMATION);
+        return this.sendResponse(prompts[field]);
     }
 
-    async handleMainMenu() {
-        return this.sendResponse(this.messages.CLIENT_MAIN_MENU);
-    }
-
-    isValidName(name) {
-        return name.trim().split(/\s+/).length >= 2;
-    }
-
-    isValidNationalID(id) {
-        return /^\d{2}-\d{7}-[A-Z]-\d{2}$/i.test(id);
-    }
-
-    async updateSession(nextStep) {
-        this.session.step = nextStep;
-        await setSession(this.phone, this.session);
+    async handleServiceRequest(intent, entities) {
+        // Use AI to route service requests (e.g., "I need a plumber")
+        switch (intent) {
+            case 'REQUEST_SERVICE':
+                return this.sendResponse("🔧 What service do you need?");
+            default:
+                return this.sendResponse(this.messages.CLIENT_MAIN_MENU);
+        }
     }
 
     sendResponse(message) {
