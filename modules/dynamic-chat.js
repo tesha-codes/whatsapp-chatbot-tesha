@@ -25,7 +25,8 @@ class EnhancedAIManager {
         const systemPrompt = this.createSystemPrompt(session, user);
         const response = await openai.chat.completions.create({
             model: "gpt-3.5-turbo",
-            messages: [systemPrompt, ...history.slice(-3)]
+            messages: [systemPrompt, ...history.slice(-3)],
+            temperature: 0.7,
         });
 
         const aiMessage = response.choices[0].message.content;
@@ -33,9 +34,10 @@ class EnhancedAIManager {
     }
 
     createSystemPrompt(session, user) {
-        let prompt = `User Context:\n- Registration: ${user ? 'Complete' : 'Pending'}\n`;
+        let prompt = `User Context:\n- Registration: ${user?.registered ? 'Complete' : 'Pending'}\n`;
         prompt += `- Current Step: ${session.step || 'Initial'}\n`;
-        prompt += "Available Services: Cleaning, Plumbing, Electrical, Tutoring\n";
+        prompt += `- Name: ${user?.firstName || 'Not provided'}\n`;
+        prompt += `- ID: ${user?.nationalId ? 'Provided' : 'Missing'}\n`;
         prompt += "Response Guidelines:\n- Use natural conversation\n- Maintain session state\n- Request missing information\n";
 
         if (session.step === 'COLLECT_USER_LOCATION') {
@@ -46,11 +48,15 @@ class EnhancedAIManager {
     }
 
     handleAIResponse(aiMessage, session) {
-        const response = { text: aiMessage, sessionUpdates: {} };
+        const response = {
+            text: aiMessage,
+            sessionUpdates: {},
+            quickReplies: []
+        };
 
-        // Handle registration steps
         if (aiMessage.includes("REQUEST_FULL_NAME")) {
             response.sessionUpdates.step = 'COLLECT_USER_FULL_NAME';
+            response.quickReplies = [];
         }
 
         if (aiMessage.includes("REQUEST_LOCATION")) {
@@ -58,13 +64,50 @@ class EnhancedAIManager {
             response.quickReplies = ['Share Location', 'Type Address'];
         }
 
-        // Maintain session history
         response.sessionUpdates.aiHistory = [
             ...(session.aiHistory || []),
             { role: "assistant", content: aiMessage }
         ];
 
         return response;
+    }
+
+    static validateNationalID(id) {
+        const sanitizedID = id.trim().toUpperCase()
+            .replace(/\s+/g, '')
+            .replace(/–/g, '-');
+
+        const pattern = /^(\d{2})-(\d{7})-([A-Z])-(\d{2})$/;
+
+        if (!pattern.test(sanitizedID)) {
+            return {
+                valid: false,
+                message: "⚠️ Invalid format. Should be: XX-XXXXXXX-X-XX\nExample: 63-1234567-X-89"
+            };
+        }
+
+        const [_, prefix, numbers, checkDigit, suffix] = sanitizedID.match(pattern);
+
+        if (prefix !== suffix) {
+            return {
+                valid: false,
+                message: "❌ Prefix and suffix should match (e.g., 63-...-63)"
+            };
+        }
+
+        if (!this.validateCheckDigit(numbers, checkDigit)) {
+            return {
+                valid: false,
+                message: "❌ Invalid check digit. Please double-check"
+            };
+        }
+
+        return { valid: true, formattedID: sanitizedID };
+    }
+
+    static validateCheckDigit(numbers, checkDigit) {
+        const sum = numbers.split('').reduce((acc, num) => acc + parseInt(num), 0);
+        return String.fromCharCode(65 + (sum % 26)) === checkDigit;
     }
 
     static extractLocation(payload) {
@@ -82,7 +125,7 @@ class DynamicClient {
     constructor(res, userResponse, session, user, steps, messages) {
         this.res = res;
         this.userResponse = userResponse;
-        this.session = session;
+        this.session = session || {};
         this.user = user;
         this.steps = steps;
         this.messages = messages;
@@ -93,22 +136,18 @@ class DynamicClient {
     async mainEntry() {
         try {
             if (!this.user) return this.handleNewUser();
-            if (!this.session.step) this.session.step = this.steps.DEFAULT_CLIENT_STATE;
 
-            // Handle registration flow
-            if (!this.user.registered) return this.handleRegistration();
+            if (!this.user.registered) {
+                return this.handleRegistration();
+            }
 
-            // Process AI conversation
             const aiResponse = await this.aiManager.processMessage(
                 this.userResponse.payload.text,
                 this.session,
                 this.user
             );
 
-            // Update session
             await this.updateSession(aiResponse.sessionUpdates);
-
-            // Send response
             return this.sendResponse(aiResponse);
 
         } catch (error) {
@@ -120,11 +159,11 @@ class DynamicClient {
     }
 
     async handleRegistration() {
-        // Handle full name collection specifically
+        // Handle full name collection
         if (this.session.step === this.steps.COLLECT_USER_FULL_NAME) {
             if (!this.validateName(this.userResponse.payload.text)) {
                 return this.res.status(StatusCodes.OK).send(
-                    "❌ Invalid name format. Please enter both first and last names"
+                    "❌ Please enter both first and last names\nExample: John Doe"
                 );
             }
 
@@ -135,35 +174,71 @@ class DynamicClient {
                 lastName: lastNames.join(' '),
             });
 
-            // Progress to national ID collection
             this.session.step = this.steps.COLLECT_USER_ID;
             await setSession(this.phone, this.session);
-
-            return this.res.status(StatusCodes.OK).send(this.messages.GET_NATIONAL_ID);
+            return this.res.status(StatusCodes.OK).send(this.getRegistrationPrompt('nationalId'));
         }
 
-        // Existing general registration check
-        const requiredFields = ['firstName', 'nationalId', 'address'];
-        const missingField = requiredFields.find(f => !this.user[f]);
+        // Handle national ID validation
+        if (this.session.step === this.steps.COLLECT_USER_ID) {
+            const validation = EnhancedAIManager.validateNationalID(
+                this.userResponse.payload.text
+            );
 
-        if (missingField) {
-            const stepMap = {
-                firstName: this.steps.COLLECT_USER_FULL_NAME,
-                nationalId: this.steps.COLLECT_USER_ID,
-                address: this.steps.COLLECT_USER_ADDRESS
-            };
+            if (!validation.valid) {
+                return this.res.status(StatusCodes.OK).send(
+                    `${validation.message}\n\n📋 Example Format: 63-1234567-X-89`
+                );
+            }
 
-            this.session.step = stepMap[missingField];
+            await updateUser({
+                phone: this.phone,
+                nationalId: validation.formattedID
+            });
+
+            this.session.step = this.steps.COLLECT_USER_ADDRESS;
             await setSession(this.phone, this.session);
+            return this.res.status(StatusCodes.OK).send(this.getRegistrationPrompt('address'));
+        }
 
+        // Handle address collection
+        if (this.session.step === this.steps.COLLECT_USER_ADDRESS) {
+            await updateUser({
+                phone: this.phone,
+                address: {
+                    physicalAddress: this.userResponse.payload.text
+                }
+            });
+
+            this.session.step = this.steps.COLLECT_USER_LOCATION;
+            await setSession(this.phone, this.session);
             return this.res.status(StatusCodes.OK).send(
-                this.getRegistrationPrompt(missingField)
+                "📍 Please share your current location using the location button"
             );
         }
 
-        await updateUser({ phone: this.phone, registered: true });
+        // Handle location collection
+        if (this.session.step === this.steps.COLLECT_USER_LOCATION) {
+            const location = EnhancedAIManager.extractLocation(this.userResponse.payload);
+            await updateUser({
+                phone: this.phone,
+                address: {
+                    ...this.user.address?.address,
+                    coordinates: location.coordinates
+                }
+            });
+
+            await updateUser({ phone: this.phone, registered: true });
+            return this.res.status(StatusCodes.OK).send(
+                "🎉 Registration complete! How can I assist you today?\n\n" +
+                "1. Request Service\n2. Edit Profile"
+            );
+        }
+
+        // Initial registration prompt
         return this.res.status(StatusCodes.OK).send(
-            "✅ Registration complete! How can I assist you today?"
+            "👋 Let's complete your registration!\n" +
+            this.getRegistrationPrompt('fullName')
         );
     }
 
@@ -173,9 +248,12 @@ class DynamicClient {
 
     getRegistrationPrompt(field) {
         const prompts = {
-            firstName: "Please enter your full name:",
-            nationalId: "Enter your national ID (format: XX-XXXXXXX-X-XX):",
-            address: "Share your location or type your address:"
+            fullName: "👤 Please enter your full name:\nExample: John Doe",
+            nationalId: "🆔 National ID Format:\n\n" +
+                "XX-XXXXXXX-X-XX\n" +
+                "Example: 63-1234567-X-89\n\n" +
+                "Enter your ID number:",
+            address: "🏠 Please type your physical address:"
         };
         return prompts[field];
     }
@@ -206,12 +284,13 @@ class DynamicClient {
             await setSession(this.phone, this.session);
 
             return this.res.status(StatusCodes.OK).send(
-                "👋 Welcome! Let's set up your profile. Please start with your full name:"
+                "👋 Welcome to Tesha! Let's create your profile.\n\n" +
+                this.getRegistrationPrompt('fullName')
             );
         } catch (error) {
             console.error("User Creation Error:", error);
             return this.res.status(StatusCodes.INTERNAL_SERVER_ERROR).send(
-                "⚠️ Error creating user profile. Please try again."
+                "⚠️ Error creating profile. Please try again."
             );
         }
     }
