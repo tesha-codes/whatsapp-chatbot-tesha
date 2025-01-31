@@ -10,426 +10,398 @@ const ServiceRequest = require("../models/request.model");
 const User = require("../models/user.model");
 const crypto = require("node:crypto");
 const { queueProviderSearch } = require("../jobs/service-provider.job");
-const OpenAI = require("openai");
-require("dotenv").config();
+const CONSTANTS = require('../constants/index');
+const { OpenAI } = require("openai");
 
-const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
+class ValidationError extends Error {
+    constructor(message) {
+        super(message);
+        this.name = 'ValidationError';
+    }
+}
 
-class AIConversationManager {
-    constructor() {
-        this.state = 'start';
-        this.context = {};
-        this.serviceList = [
-            'plumber', 'electrician', 'cleaner', 'tutor',
-            'hairdresser', 'personal trainer', 'gardener',
-            'painter', 'carpenter', 'technician'
-        ];
+class OpenAIService {
+    constructor(apiKey) {
+        this.openai = new OpenAI({ apiKey });
     }
 
-    async processMessage(userInput, currentStep) {
-        userInput = typeof userInput === 'string' ? userInput.trim().toLowerCase() : userInput;
-
-        if (this.isExitCommand(userInput)) {
-            return this.resetConversation();
-        }
-
-        const intent = await this.interpretUserIntent(userInput, currentStep);
-        if (intent.includes('exit') || intent.includes('cancel')) {
-            return this.resetConversation();
-        }
-
-        return this.handleStateMachine(userInput, intent);
-    }
-
-    isExitCommand(input) {
-        return ['exit', 'quit', 'stop', 'cancel'].includes(input);
-    }
-
-    async handleStateMachine(userInput, intent) {
-        switch (this.state) {
-            case 'start': return this.handleStart(userInput);
-            case 'location': return this.handleLocationCapture(userInput);
-            case 'providers': return this.handleProviderSelection(userInput);
-            case 'time': return this.handleTimeSelection(userInput);
-            case 'confirm': return this.handleConfirmation(userInput, intent);
-            case 'feedback': return this.handleFeedback(userInput);
-            default: return this.provideHelp();
-        }
-    }
-
-    resetConversation() {
-        this.state = 'start';
-        this.context = {};
-        return {
-            response: "🗑️ Booking cancelled. What service would you like?",
-            state: this.state
-        };
-    }
-
-    provideHelp() {
-        return {
-            response: "🆘 How can I assist you? You can:\n- Book a service\n- Edit profile\n- Check bookings",
-            state: this.state
-        };
-    }
-
-    async handleStart(userInput) {
-        const serviceType = await this.detectServiceIntent(userInput);
-        if (!serviceType) {
-            return {
-                response: "🔧 Available services:\n" +
-                    this.serviceList.map((s, i) => `${i + 1}. ${s}`).join('\n') +
-                    "\n\nWhich service do you need?",
-                state: this.state
-            };
-        }
-
-        this.context.service = serviceType;
-        this.state = 'location';
-        return {
-            response: `📌 Great choice with ${serviceType}!\n📍 Share location (live/send address)\n` +
-                "⏩ Type 'skip' to continue without location",
-            state: this.state
-        };
-    }
-
-    async handleLocationCapture(userInput) {
-        if (userInput === 'skip') {
-            this.context.location = { type: 'skipped' };
-            return this.proceedToProviders();
-        }
-
-        const geoLocation = this.extractGeoLocation(userInput);
-        if (geoLocation) {
-            this.context.location = {
-                type: 'coordinates',
-                data: geoLocation,
-                address: await this.reverseGeocode(geoLocation)
-            };
-            return this.proceedToProviders();
-        }
-
-        const address = this.extractAddress(userInput);
-        if (address) {
-            this.context.location = { type: 'address', data: address };
-            return this.proceedToProviders();
-        }
-
-        return {
-            response: "📍 Please share location or type address\n📌 Example: '123 Main St' or send live location",
-            state: this.state
-        };
-    }
-
-    extractGeoLocation(input) {
-        if (input.latitude && input.longitude) {
-            return { lat: input.latitude, lng: input.longitude };
-        }
-        const match = String(input).match(/(-?\d+\.\d+),\s*(-?\d+\.\d+)/);
-        return match ? { lat: match[1], lng: match[2] } : null;
-    }
-
-    extractAddress(input) {
-        const patterns = [
-            /(?:my address is|i'm at|located at|location:?)\s*(.+)/i,
-            /^(\d+\s+[\w\s]+,\s*[\w\s]+)$/i
-        ];
-        for (const pattern of patterns) {
-            const match = String(input).match(pattern);
-            if (match) return match[1].trim();
-        }
-        return null;
-    }
-
-    async reverseGeocode(coords) {
-        // Implement actual reverse geocoding service here
-        return "Approximate location";
-    }
-
-    async proceedToProviders() {
-        this.state = 'providers';
-        this.context.providers = await this.generateProviders();
-
-        return {
-            response: `👷 Available ${this.context.service} professionals:\n\n` +
-                this.formatProviderList() +
-                "\n\n🔢 Reply with provider number\n🔄 Type 'back' to change service",
-            state: this.state
-        };
-    }
-
-    async generateProviders() {
-        const count = Math.floor(Math.random() * 3) + 2;
-        return Array.from({ length: count },async (_, i) => ({
-            id: `P${i + 1}`,
-            name: this.generateName(),
-            specialty: await this.generateSpecialty(),
-            rate: `$${Math.floor(Math.random() * 50) + 30}/hr`,
-            rating: (4 + Math.random()).toFixed(1),
-            distance: `${(Math.random() * 15).toFixed(1)} km`,
-            phone: `+1-555-${Math.floor(1000 + Math.random() * 9000)}`
-        }));
-    }
-
-    formatProviderList() {
-        return this.context.providers.map(p =>
-            `${p.id} ➡️ ${p.name}\n` +
-            `⭐ ${p.rating} | 💰 ${p.rate} | 📏 ${p.distance}\n` +
-            `🔧 ${p.specialty}`
-        ).join('\n\n');
-    }
-
-    async handleProviderSelection(input) {
-        if (input === 'back') {
-            this.state = 'start';
-            return { response: "🔄 Let's start over. What service do you need?", state: this.state };
-        }
-
-        const provider = this.context.providers.find(p => p.id === input.toUpperCase());
-        if (!provider) return { response: "❌ Invalid provider ID. Please try again.", state: this.state };
-
-        this.context.selectedProvider = provider;
-        this.state = 'time';
-        this.context.timeSlots = this.generateTimeSlots();
-
-        return {
-            response: `⏰ Available time slots:\n\n` +
-                this.context.timeSlots.map((t, i) => `${i + 1}. ${t}`).join('\n') +
-                "\n\n🔢 Choose slot number\n🔄 Type 'back' to choose different provider",
-            state: this.state
-        };
-    }
-
-    generateTimeSlots() {
-        const base = ['9:00 AM', '10:30 AM', '1:00 PM', '3:30 PM', '5:00 PM'];
-        return base.filter(() => Math.random() > 0.3);
-    }
-
-    async handleTimeSelection(input) {
-        if (input === 'back') {
-            this.state = 'providers';
-            return { response: "👷 Available providers:\n\n" + this.formatProviderList(), state: this.state };
-        }
-
-        const slotIndex = parseInt(input) - 1;
-        if (isNaN(slotIndex) || slotIndex < 0 || slotIndex >= this.context.timeSlots.length) {
-            return { response: "❌ Invalid time slot. Please choose from the list.", state: this.state };
-        }
-
-        this.context.selectedTime = this.context.timeSlots[slotIndex];
-        this.state = 'confirm';
-
-        return {
-            response: `📝 Confirm booking:\n\n` +
-                `🧑🔧 Provider: ${this.context.selectedProvider.name}\n` +
-                `⏰ Time: ${this.context.selectedTime}\n` +
-                `📍 Location: ${this.formatLocation()}\n\n` +
-                "✅ Confirm with 'yes'\n❌ Cancel with 'no'",
-            state: this.state
-        };
-    }
-
-    formatLocation() {
-        if (!this.context.location) return "Not specified";
-        if (this.context.location.type === 'skipped') return "Not provided";
-        return this.context.location.address || this.context.location.data;
-    }
-
-    async handleConfirmation(input, intent) {
-        if (intent.includes('no')) {
-            return this.resetConversation();
-        }
-
-        if (intent.includes('yes')) {
-            this.state = 'feedback';
-            return {
-                response: "🎉 Booking confirmed!\n\n" +
-                    `📞 Contact: ${this.context.selectedProvider.phone}\n` +
-                    "📅 We'll send reminders before your appointment\n\n" +
-                    "🌟 How was your booking experience? (Great/Good/Okay/Poor)",
-                state: this.state
-            };
-        }
-
-        return { response: "❓ Please confirm with 'yes' or cancel with 'no'", state: this.state };
-    }
-
-    async handleFeedback(input) {
-        this.context.feedback = input.toLowerCase();
-        this.state = 'start';
-        return {
-            response: "📝 Thanks for your feedback!\n\n" +
-                "You can now:\n1. Book another service\n2. Edit profile\n3. View bookings",
-            state: this.state
-        };
-    }
-
-    async detectServiceIntent(input) {
+    async generateResponse(messages, model = "gpt-3.5-turbo") {
         try {
-            const response = await openai.chat.completions.create({
-                model: "gpt-3.5-turbo",
-                messages: [{
-                    role: "system",
-                    content: `Identify service from: ${this.serviceList.join(', ')}. Respond ONLY with the service name or 'unknown'.`
-                }, {
-                    role: "user",
-                    content: input
-                }],
-                temperature: 0.3,
-                max_tokens: 15
+            const response = await this.openai.chat.completions.create({
+                model,
+                messages,
+                temperature: 0.7,
+                max_tokens: 150,
             });
-
-            const service = response.choices[0].message.content.trim().toLowerCase();
-            return this.serviceList.includes(service) ? service : null;
+            return response.choices[0].message.content;
         } catch (error) {
-            console.error("Service detection error:", error);
-            return null;
-        }
-    }
-
-    async interpretUserIntent(input, state) {
-        try {
-            const response = await openai.chat.completions.create({
-                model: "gpt-3.5-turbo",
-                messages: [{
-                    role: "system",
-                    content: `Determine user intent. Current state: ${state}. Possible actions: confirm, cancel, change, back. Respond ONLY with the action.`
-                }, {
-                    role: "user",
-                    content: input
-                }],
-                temperature: 0.2,
-                max_tokens: 10
-            });
-
-            return response.choices[0].message.content.trim().toLowerCase();
-        } catch (error) {
-            console.error("Intent error:", error);
-            return 'unknown';
+            console.error("OpenAI API Error:", error);
+            throw error;
         }
     }
 }
 
-const aiManager = new AIConversationManager();
-
 class Client {
     constructor(res, userResponse, session, user, steps, messages) {
+        this.validateConstructorParams(res, userResponse);
+
         this.res = res;
         this.userResponse = userResponse;
-        this.session = session || {};
+        this.session = session;
         this.user = user;
         this.steps = steps;
         this.messages = messages;
         this.lActivity = formatDateTime();
         this.setupCommonVariables();
+
+        // Initialize OpenAI
+        this.openai = new OpenAIService(process.env.OPENAI_API_KEY);
+
+        // Bind methods
+        this.handleError = this.handleError.bind(this);
+        this.handleDynamicResponse = this.handleDynamicResponse.bind(this);
+        this.setupClientProfile = this.setupClientProfile.bind(this);
+        this.collectFullName = this.collectFullName.bind(this);
+        this.collectNationalId = this.collectNationalId.bind(this);
+        this.collectAddress = this.collectAddress.bind(this);
+        this.collectLocation = this.collectLocation.bind(this);
+        this.selectServiceCategory = this.selectServiceCategory.bind(this);
+        this.selectService = this.selectService.bind(this);
+        this.confirmAddressAndLocation = this.confirmAddressAndLocation.bind(this);
+        this.confirmedLocationAddress = this.confirmedLocationAddress.bind(this);
+        this.handleNewLocation = this.handleNewLocation.bind(this);
+        this.handleProviderAssignment = this.handleProviderAssignment.bind(this);
+        this.handleProviderConfirmation = this.handleProviderConfirmation.bind(this);
+        this.handleDefaultState = this.handleDefaultState.bind(this);
+    }
+
+    validateConstructorParams(res, userResponse) {
+        if (!res || typeof res.status !== 'function') {
+            throw new ValidationError('Invalid response object');
+        }
+        if (!userResponse || !userResponse.sender) {
+            throw new ValidationError('Invalid user response object');
+        }
     }
 
     setupCommonVariables() {
-        this.phone = this.userResponse.sender.phone;
-        this.message = this.userResponse.payload?.text || "";
-        this.locationData = this.userResponse.payload?.location;
+        const { userResponse } = this;
+
+        // Validate and normalize phone number
+        this.phone = userResponse?.sender?.phone?.replace(/\D/g, '');
+        if (!this.phone) {
+            throw new ValidationError('Phone number is required');
+        }
+
+        // Safely extract message and username
+        this.message = userResponse?.payload?.text ?? "";
+        this.username = userResponse?.sender?.name ?? "";
+    }
+
+    async setSessionSafely(sessionData) {
+        try {
+            const session = {
+                ...sessionData,
+                lastUpdated: new Date().toISOString(),
+                expiresAt: new Date(Date.now() + CONSTANTS.SESSION_TIMEOUT).toISOString()
+            };
+            await setSession(this.phone, session);
+            return session;
+        } catch (error) {
+            console.error('Session update failed:', error);
+            throw error;
+        }
+    }
+
+    handleError(error) {
+        console.error('Error in Client class:', error);
+
+        if (this.res && typeof this.res.status === 'function') {
+            const errorMessage = error.message || 'An unexpected error occurred';
+            return this.res.status(StatusCodes.INTERNAL_SERVER_ERROR).send(
+                `❌ ${errorMessage}\n\nPlease try again or contact support if the problem persists.`
+            );
+        }
+
+        throw error;
+    }
+
+    async handleDynamicResponse() {
+        try {
+            const { message, session, user } = this;
+
+            // Prepare conversation history
+            const messages = [
+                {
+                    role: "system",
+                    content: `
+            You are a helpful customer support assistant for a service platform. 
+            Your goal is to assist users in requesting services, updating their profiles, 
+            and answering questions. Be polite, concise, and professional.
+            
+            User Details:
+            - Name: ${user?.firstName} ${user?.lastName}
+            - Phone: ${this.phone}
+            - Address: ${user?.address?.physicalAddress || "Not provided"}
+          `,
+                },
+                { role: "user", content: message },
+            ];
+
+            // Add session context if available
+            if (session?.context) {
+                messages.push({ role: "assistant", content: session.context });
+            }
+
+            // Get response from OpenAI
+            const response = await this.openai.generateResponse(messages);
+
+            // Update session context
+            await this.setSessionSafely({
+                ...session,
+                context: response,
+            });
+
+            // Send response to user
+            return this.res.status(StatusCodes.OK).send(response);
+        } catch (error) {
+            console.error("Error in handleDynamicResponse:", error);
+            return this.handleError(error);
+        }
+    }
+
+    async handleInitialState() {
+        try {
+            const { res, session, steps, lActivity, phone, message } = this;
+
+            // Check if user exists first
+            const user = await getUser(phone);
+
+            // If no user exists, start registration flow
+            if (!user) {
+                if (!session || session.step === steps.DEFAULT_CLIENT_STATE) {
+                    return res.status(StatusCodes.OK).send(`
+Welcome to our service! 👋
+To get started, you'll need to create an account.
+
+Reply with:
+*CREATE ACCOUNT* - to set up your profile
+          `);
+                }
+
+                // Handle registration flow states
+                const registrationHandlers = {
+                    [steps.SETUP_CLIENT_PROFILE]: this.setupClientProfile,
+                    [steps.COLLECT_USER_FULL_NAME]: this.collectFullName,
+                    [steps.COLLECT_USER_ID]: this.collectNationalId,
+                    [steps.COLLECT_USER_ADDRESS]: this.collectAddress,
+                    [steps.COLLECT_USER_LOCATION]: this.collectLocation
+                };
+
+                if (registrationHandlers[session.step]) {
+                    return await registrationHandlers[session.step].call(this);
+                }
+            }
+
+            // User exists, handle main menu and service flow
+            if (!session || session.step === steps.DEFAULT_CLIENT_STATE) {
+                await clientMainMenuTemplate(phone, user.firstName);
+                await this.setSessionSafely({
+                    step: steps.SELECT_SERVICE_CATEGORY,
+                    message,
+                    lActivity,
+                });
+
+                return res.status(StatusCodes.OK)
+                    .send(`Welcome back ${user.firstName}! 👋\nHow can I help you today?`);
+            }
+
+            return null; // Allow flow to continue to main service handling
+        } catch (error) {
+            console.error('Error in handleInitialState:', error);
+            return this.handleError(error);
+        }
+    }
+
+    async setupClientProfile() {
+        const { res, steps, lActivity, phone, message } = this;
+        if (message.toLowerCase() === "create account") {
+            await setSession(phone, {
+                step: steps.COLLECT_USER_FULL_NAME,
+                message,
+                lActivity,
+            });
+            return res.status(StatusCodes.OK).send(this.messages.GET_FULL_NAME);
+        } else {
+            await setSession(phone, {
+                step: steps.DEFAULT_CLIENT_STATE,
+                message,
+                lActivity,
+            });
+            return res
+                .status(StatusCodes.OK)
+                .send(
+                    "❌ You have cancelled creating profile. You need to have a profile to be able to request services. "
+                );
+        }
+    }
+
+    async collectFullName() {
+        const { res, steps, lActivity, phone, message } = this;
+        if (message.length < 5) {
+            return res
+                .status(StatusCodes.OK)
+                .send(
+                    "❌ Name and surname provided is too short. Please re-enter your full name, name(s) first and then surname second."
+                );
+        }
+        const userNames = message.split(" ");
+        const lastName = userNames[userNames.length - 1];
+        const firstName = message.replace(lastName, " ").trim();
+
+        await updateUser({ phone, firstName, lastName });
+        await setSession(phone, {
+            step: steps.COLLECT_USER_ID,
+            message,
+            lActivity,
+        });
+        return res.status(StatusCodes.OK).send(this.messages.GET_NATIONAL_ID);
+    }
+
+    async collectNationalId() {
+        const { res, steps, lActivity, phone, message } = this;
+        const pattern = /^(\d{2})-(\d{7})-([A-Z])-(\d{2})$/;
+        if (!pattern.test(message)) {
+            return res
+                .status(StatusCodes.OK)
+                .send(
+                    "❌ Invalid National Id format, please provide id in the format specified in the example."
+                );
+        }
+
+        await updateUser({ phone, nationalId: message });
+        await setSession(phone, {
+            step: steps.COLLECT_USER_ADDRESS,
+            message,
+            lActivity,
+        });
+        return res.status(StatusCodes.OK).send(this.messages.GET_ADDRESS);
+    }
+
+    async collectAddress() {
+        const { res, steps, lActivity, phone, message } = this;
+        await updateUser({
+            phone,
+            address: {
+                physicalAddress: message,
+            },
+        });
+        await setSession(phone, {
+            step: steps.COLLECT_USER_LOCATION,
+            message,
+            lActivity,
+        });
+        return res.status(StatusCodes.OK).send(this.messages.GET_LOCATION);
+    }
+
+    async collectLocation() {
+        const { res, steps, lActivity, phone, message } = this;
+        let locationData;
+
+        try {
+            // Handle WhatsApp location message
+            if (message.type === 'location') {
+                locationData = message;
+            } else {
+                try {
+                    locationData = typeof message === 'string' ? JSON.parse(message) : message;
+                } catch (e) {
+                    return res.status(StatusCodes.BAD_REQUEST).send(
+                        "❌ Please share your location using WhatsApp's location sharing feature."
+                    );
+                }
+            }
+
+            if (!locationData?.latitude || !locationData?.longitude) {
+                return res.status(StatusCodes.BAD_REQUEST).send(
+                    "❌ Please share your location using WhatsApp's location sharing feature."
+                );
+            }
+
+            const coordinates = {
+                type: "Point",
+                coordinates: [locationData.longitude, locationData.latitude]
+            };
+
+            // Update user with location
+            await updateUser({
+                phone,
+                address: {
+                    coordinates: locationData,
+                    physicalAddress: message.address || ''
+                }
+            });
+
+            const confirmation = `
+*Profile Setup Confirmation*
+
+✅ Thank you! Your profile has been successfully set up.
+You're all set! If you need any further assistance, feel free to reach out. 😊
+`;
+
+            await Promise.all([
+                clientMainMenuTemplate(phone, (await getUser(phone)).firstName),
+                setSession(phone, {
+                    step: steps.SELECT_SERVICE_CATEGORY,
+                    message,
+                    lActivity,
+                })
+            ]);
+
+            return res.status(StatusCodes.OK).send(confirmation);
+
+        } catch (error) {
+            console.error('Error in collectLocation:', error);
+            return this.handleError(error);
+        }
     }
 
     async mainEntry() {
-        if (!this.user.profileComplete) {
-            return this.handleProfileSetup();
-        }
-
-        if (this.locationData) {
-            return this.handleLocationPayload();
-        }
-
-        if (!this.session.step || this.session.step === this.steps.DEFAULT_CLIENT_STATE) {
-            return this.showMainMenu();
-        }
-
-        return this.handleAIConversation();
-    }
-
-    async handleAIConversation() {
         try {
-            const result = await aiManager.processMessage(this.message || this.locationData, this.session.step);
-            await this.updateSession(result.state);
+            const { session, steps } = this;
 
-            if (result.state === 'feedback') {
-                await this.createServiceRequest();
+            // First handle initial/registration state
+            const initialStateResult = await this.handleInitialState();
+            if (initialStateResult) return initialStateResult;
+
+            // Use OpenAI for dynamic responses
+            if (session.step === steps.DYNAMIC_RESPONSE) {
+                return await this.handleDynamicResponse();
             }
 
-            return this.res.status(StatusCodes.OK).send(result.response);
+            // Then handle service request flow
+            const serviceHandlers = {
+                [steps.SELECT_SERVICE_CATEGORY]: this.selectServiceCategory,
+                [steps.SELECT_SERVICE]: this.selectService,
+                [steps.CONFIRM_ADDRESS_AND_LOCATION]: this.confirmAddressAndLocation,
+                [steps.CONFIRMED_LOC_ADDRESS]: this.confirmedLocationAddress,
+                [steps.WAITING_NEW_LOCATION]: this.handleNewLocation,
+                [steps.AWAITING_PROVIDER]: this.handleProviderAssignment,
+                [steps.PROVIDER_CONFIRMATION]: this.handleProviderConfirmation,
+            };
+
+            if (serviceHandlers[session.step]) {
+                return await serviceHandlers[session.step].call(this);
+            }
+
+            return await this.handleDefaultState();
         } catch (error) {
-            console.error("Conversation error:", error);
-            return this.sendError("Conversation processing failed");
+            return this.handleError(error);
         }
     }
 
-    async updateSession(newState) {
-        await setSession(this.phone, {
-            step: newState,
-            context: JSON.stringify(aiManager.context),
-            lActivity: new Date().toISOString()
-        });
-    }
-
-    async createServiceRequest() {
-        const requestData = {
-            _id: new mongoose.Types.ObjectId(),
-            requester: this.user._id,
-            service: aiManager.context.service,
-            provider: aiManager.context.selectedProvider,
-            time: aiManager.context.selectedTime,
-            location: aiManager.context.location,
-            status: 'pending'
-        };
-
-        await ServiceRequest.create(requestData);
-        // Add notification logic here
-    }
-
-    async handleProfileSetup() {
-        // Add profile setup logic here
-    }
-
-    async handleLocationPayload() {
-        await updateUser({
-            phone: this.phone,
-            address: {
-                coordinates: {
-                    lat: this.locationData.latitude,
-                    lng: this.locationData.longitude
-                },
-                physicalAddress: await this.reverseGeocode(this.locationData)
-            }
-        });
-
-        await this.updateSession(this.steps.SELECT_SERVICE);
-        return this.res.status(StatusCodes.OK).send("📍 Location saved! Choose a service:");
-    }
-
-    async showMainMenu() {
-        await clientMainMenuTemplate(this.phone, this.user.firstName);
-        await this.updateSession(this.steps.MAIN_MENU);
-
-        const menu = "🏠 Main Menu\n\n" +
-            "1️⃣ Book Service\n" +
-            "2️⃣ My Bookings\n" +
-            "3️⃣ Edit Profile\n" +
-            "4️⃣ Help\n\n" +
-            "Reply with the menu number";
-
-        return this.res.status(StatusCodes.OK).send(menu);
-    }
-
-    sendError(message) {
-        return this.res.status(StatusCodes.INTERNAL_SERVER_ERROR).send(`❌ Error: ${message}`);
-    }
-    // Implement using Google Maps or other service
-    async reverseGeocode(location) {
-        const response = await fetch(
-            `https://maps.googleapis.com/maps/api/geocode/json?` +
-            `latlng=${location.lat},${location.lng}&key=${process.env.GOOGLE_MAPS_KEY}`
-        );
-        const data = await response.json();
-        return data.results[0]?.formatted_address || 'Unknown location';
+    async handleDefaultState() {
+        return await this.showMainMenu();
     }
 }
 
