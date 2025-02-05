@@ -1,5 +1,5 @@
 const openai = require("../../config/openai");
-const functions = require("./tools/functions");
+const tools = require("./tools/functions");
 const TaskManager = require("./tasks");
 const AccountManager = require("./account");
 const BillingManager = require("./billing");
@@ -17,39 +17,74 @@ class ChatHandler {
 
   async processMessage(message) {
     try {
-      // 1. Get chat history
+      // TODO: content moderation
+      // TODO: rate limit
+      // : get chat history
       const chatHistory = await ChatHistoryManager.get(this.phone);
+      const messages = [
+        {
+          role: "system",
+          content:
+            "You are Tesha, a WhatsApp chatbot assistant for service providers. " +
+            "You help with tasks, profile management, and billing inquiries. " +
+            "Use formal but friendly language.",
+        },
+        ...chatHistory.messages,
+        { role: "user", content: message },
+      ];
 
-      // 2. Generate OpenAI response
+      // Generate OpenAI response
       const completion = await openai.chat.completions.create({
-        model: "gpt-4-turbo-preview",
-        messages: [
-          // System message to set context
-          {
-            role: "system",
-            content:
-              "You are Tesha, a WhatsApp chatbot assistant for service providers. You help with tasks, profile management, and billing inquiries.",
-          },
-          ...chatHistory,
-          { role: "user", content: message },
-        ],
-        functions,
-        function_call: "auto",
+        model: "gpt-4-turbo",
+        messages,
+        tools,
+        tool_choice: "auto",
       });
 
       const response = completion.choices[0].message;
+      let responseText = response.content || "";
+      const toolCalls = response.tool_calls || [];
+      const toolResults = [];
 
-      // 3. Handle function calls if any
-      let responseText;
-      if (response.function_call) {
-        const result = await this.handleFunctionCall(response.function_call);
-        responseText = this.formatResponseFromTemplate(result);
-      } else {
-        responseText = response.content;
+      // Process tool calls in parallel
+      if (toolCalls.length > 0) {
+        const processingPromises = toolCalls.map(async (toolCall) => {
+          try {
+            const result = await this.handleToolCall(toolCall);
+            toolResults.push(result);
+
+            // Add tool response to message history
+            messages.push({
+              role: "tool",
+              content: JSON.stringify(result),
+              tool_call_id: toolCall.id,
+            });
+
+            return result;
+          } catch (error) {
+            console.error(`Tool call ${toolCall.id} failed:`, error);
+            return {
+              error: "Internal service error",
+              tool: toolCall.function.name,
+            };
+          }
+        });
+
+        await Promise.all(processingPromises);
       }
 
-      // 4. Store the conversation in history
-      await ChatHistoryManager.append(this.phone, message, responseText);
+      // Format final response
+      if (toolResults.length > 0) {
+        responseText = this.formatToolResults(toolResults);
+      }
+
+      // Update conversation history
+      await ChatHistoryManager.append(this.phone, {
+        messages: [
+          ...messages.slice(1), // Skip system message
+          { role: "assistant", content: responseText, tool_calls: toolCalls },
+        ],
+      });
 
       return responseText;
     } catch (error) {
@@ -58,70 +93,128 @@ class ChatHandler {
     }
   }
 
-  async handleFunctionCall(functionCall) {
-    const { name, arguments: args } = functionCall;
-    const params = JSON.parse(args);
+  async handleToolCall(toolCall) {
+    const { name, arguments: args } = toolCall.function;
+    let params;
+
+    try {
+      params = JSON.parse(args);
+      this.validateToolCall(name, params);
+    } catch (error) {
+      throw new Error(`Invalid parameters for ${name}: ${error.message}`);
+    }
 
     try {
       switch (name) {
         case "view_tasks_overview":
-          const overview = await this.taskManager.getTasksOverview();
           return {
             type: "TASK_OVERVIEW",
-            data: overview,
+            data: await this.taskManager.getTasksOverview(),
           };
 
         case "view_tasks_by_status":
-          const tasks = await this.taskManager.getTasksByStatus(params.status);
           return {
             type: "TASK_LIST",
-            data: tasks,
+            data: await this.taskManager.getTasksByStatus(params.status),
           };
 
         case "view_task_details":
-          const task = await this.taskManager.getTaskDetails(params.taskId);
           return {
             type: "TASK_DETAILS",
-            data: task,
+            data: await this.taskManager.getTaskDetails(params.taskId),
+          };
+
+        case "update_task_status":
+          return {
+            type: "TASK_UPDATE",
+            data: await this.taskManager.updateTaskStatus(
+              params.taskId,
+              params.newStatus
+            ),
           };
 
         case "view_profile":
-          const profile = await this.accountManager.getProfile();
           return {
             type: "PROFILE_VIEW",
-            data: profile,
+            data: await this.accountManager.getProfile(),
           };
 
         case "update_profile":
-          const updatedProfile = await this.accountManager.updateProfile(
-            params.field,
-            params.value
-          );
           return {
             type: "PROFILE_UPDATE",
-            data: updatedProfile,
+            data: await this.accountManager.updateProfile(
+              params.field,
+              params.value
+            ),
           };
 
         case "delete_account":
           if (params.confirmation) {
             await this.accountManager.deleteAccount(params.reason);
-            return {
-              type: "ACCOUNT_DELETED",
-              data: { reason: params.reason },
-            };
+            return { type: "ACCOUNT_DELETED", data: { reason: params.reason } };
           }
           return {
             type: "DELETE_CONFIRMATION_NEEDED",
             data: { reason: params.reason },
           };
 
+        case "view_billing_history":
+          return {
+            type: "BILLING_HISTORY",
+            data: await this.billingManager.getHistory(),
+          };
+
         default:
-          throw new Error(`Unknown function: ${name}`);
+          throw new Error(`Unsupported tool: ${name}`);
       }
     } catch (error) {
-      console.error(`Error handling function ${name}:`, error);
-      throw error;
+      console.error(`Tool execution error (${name}):`, error);
+      throw new Error(`Service unavailable for ${name}`);
     }
+  }
+
+  validateToolCall(name, params) {
+    switch (name) {
+      case "update_profile":
+        if (params.field === "address" && params.value.length < 10) {
+          throw new Error("Address must be at least 10 characters");
+        }
+        if (
+          params.field === "gender" &&
+          !["male", "female", "other"].includes(params.value.toLowerCase())
+        ) {
+          throw new Error("Invalid gender value");
+        }
+        break;
+
+      case "delete_account":
+        if (params.reason.length < 10) {
+          throw new Error("Deletion reason must be at least 10 characters");
+        }
+        break;
+
+      case "update_task_status":
+        if (!params.taskId.match(/^task_\d{4}_[a-f0-9]{8}$/)) {
+          throw new Error("Invalid task ID format");
+        }
+        break;
+    }
+  }
+
+  formatToolResults(results) {
+    return results
+      .map((result) => {
+        if (result.error) {
+          return `⚠️ Error: ${result.error}`;
+        }
+        try {
+          return this.formatResponseFromTemplate(result);
+        } catch (formatError) {
+          console.error("Response formatting failed:", formatError);
+          return CHAT_TEMPLATES.ERROR_MESSAGE;
+        }
+      })
+      .join("\n\n");
   }
 
   formatResponseFromTemplate(result) {
@@ -142,30 +235,17 @@ class ChatHandler {
         return `✅ Successfully updated ${result.data.field} to: ${result.data.value}`;
 
       case "ACCOUNT_DELETED":
-        return `Account has been successfully deleted.\nReason: ${result.data.reason}`;
+        return `Account deleted successfully.\nReason: ${result.data.reason}`;
 
       case "DELETE_CONFIRMATION_NEEDED":
-        return `⚠️ To confirm account deletion, please reply with "CONFIRM DELETE".\nReason given: ${result.data.reason}`;
+        return `⚠️ Confirm deletion by replying "CONFIRM DELETE".\nReason: ${result.data.reason}`;
+
+      case "BILLING_HISTORY":
+        return CHAT_TEMPLATES.BILLING_HISTORY(result.data);
 
       default:
-        return JSON.stringify(result.data);
+        return "I've completed your request. Is there anything else I can help with?";
     }
-  }
-
-  // Helper method to extract intent from message
-  async extractIntent(message) {
-    const lowercaseMessage = message.toLowerCase();
-
-    if (lowercaseMessage.includes("task")) return "TASKS";
-    if (lowercaseMessage.includes("profile")) return "PROFILE";
-    if (lowercaseMessage.includes("delete account")) return "DELETE_ACCOUNT";
-    if (
-      lowercaseMessage.includes("bill") ||
-      lowercaseMessage.includes("payment")
-    )
-      return "BILLING";
-
-    return "GENERAL";
   }
 }
 
