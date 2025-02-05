@@ -79,24 +79,20 @@ class ChatHandler {
       if (toolResults.length > 0) {
         responseText = this.formatToolResults(toolResults);
       }
-
       // Update conversation history
-      await ChatHistoryManager.append(this.phone, {
-        messages: [
-          ...messages.slice(1), // Skip system message
-          { role: "assistant", content: responseText, tool_calls: toolCalls },
-        ],
-      });
-
+      await ChatHistoryManager.append(this.phone, message, responseText);
       return responseText;
+
     } catch (error) {
       console.error("Error processing message:", error);
-    return "🚫 I apologize, but I encountered a technical issue while processing your request. "+
-         "This could be temporary - please try again in a few moments. "+
-         "If the problem persists, you can:\n"+
-         "1️⃣ Send your message again\n"+
-         "2️⃣ Try rephrasing your request\n"+
-         "3️⃣ Contact support if issues continue";
+      return (
+        "🚫 I apologize, but I encountered a technical issue while processing your request. " +
+        "This could be temporary - please try again in a few moments. " +
+        "If the problem persists, you can:\n" +
+        "1️⃣ Send your message again\n" +
+        "2️⃣ Try rephrasing your request\n" +
+        "3️⃣ Contact support if issues continue"
+      );
     }
   }
 
