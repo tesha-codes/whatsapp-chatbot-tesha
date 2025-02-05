@@ -1,6 +1,5 @@
-
 const Subscription = require("../../models/subscription.model");
-const mongoose = require("mongoose");
+
 
 const SUBSCRIPTION_PLANS = {
   "Free Trial": {

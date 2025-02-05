@@ -164,7 +164,7 @@ class ChatHandler {
         case "view_billing_history":
           return {
             type: "BILLING_HISTORY",
-            data: await this.billingManager.getHistory(),
+            data: await this.billingManager.getBillingHistory(),
           };
 
         default:
