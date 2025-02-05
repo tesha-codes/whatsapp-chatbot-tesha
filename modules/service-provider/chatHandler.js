@@ -91,7 +91,12 @@ class ChatHandler {
       return responseText;
     } catch (error) {
       console.error("Error processing message:", error);
-      return "I apologize, but I encountered an error. Please try again.";
+    return "🚫 I apologize, but I encountered a technical issue while processing your request. "+
+         "This could be temporary - please try again in a few moments. "+
+         "If the problem persists, you can:\n"+
+         "1️⃣ Send your message again\n"+
+         "2️⃣ Try rephrasing your request\n"+
+         "3️⃣ Contact support if issues continue";
     }
   }
 

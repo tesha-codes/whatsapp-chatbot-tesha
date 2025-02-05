@@ -44,7 +44,6 @@ const tools = [
         properties: {
           taskId: {
             type: "string",
-            format: "uuid",
             description: "Unique identifier of the task",
           },
         },
@@ -64,7 +63,6 @@ const tools = [
         properties: {
           taskId: {
             type: "string",
-            format: "uuid",
             description: "ID of the task to update",
           },
           newStatus: {
