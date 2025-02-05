@@ -21,6 +21,8 @@ class ChatHandler {
       // TODO: rate limit
       // : get chat history
       const chatHistory = await ChatHistoryManager.get(this.phone);
+      // debug
+      console.log("chatHistory", chatHistory);
       const messages = [
         {
           role: "system",
@@ -29,7 +31,7 @@ class ChatHandler {
             "You help with tasks, profile management, and billing inquiries. " +
             "Use formal but friendly language.",
         },
-        ...chatHistory.messages,
+        ...chatHistory,
         { role: "user", content: message },
       ];
 
