@@ -51,6 +51,22 @@ Price: $${data.currentPlan.price}/month
 Features:
 ${data.currentPlan.features.map((f) => `• ${f}`).join("\n")}
 `,
+
+  BILLING_HISTORY: (data) => `
+  📅 *Billing History*
+  ${data.history
+    .map(
+      (sub, index) =>
+        `
+${index + 1}. Subscription Plan: ${sub.plan}
+Price: $${sub.price}/month
+Start Date: ${new Date(sub.startDate).toLocaleDateString()}
+End Date: ${new Date(sub.endDate).toLocaleDateString()}
+Status: ${sub.status}
+------------------`
+    )
+    .join("\n")}
+  `,
 };
 
 module.exports = CHAT_TEMPLATES;
