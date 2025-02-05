@@ -106,7 +106,6 @@ const tools = [
           },
           value: {
             type: "string",
-            maxLength: 255,
             description: "New value for the field",
           },
         },
@@ -126,7 +125,6 @@ const tools = [
         properties: {
           reason: {
             type: "string",
-            minLength: 10,
             description: "Reason for account deletion (minimum 10 characters)",
           },
           confirmation: {
