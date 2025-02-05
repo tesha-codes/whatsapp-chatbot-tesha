@@ -20,8 +20,8 @@ const getSession = async (key) => await client.hGetAll(key);
 
 // set session
 const setSession = async (key, value, ttl = SESSION_EXPIRATION) => {
-  const processedValue = typeof value === 'object' ? JSON.stringify(value) : value;
-  await client.hSet(key, processedValue);
+  const fields = Object.entries(value);
+  await client.hSet(key, fields.flat());
   await client.expire(key, ttl);
 };
 

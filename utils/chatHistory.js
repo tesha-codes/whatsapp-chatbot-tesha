@@ -6,7 +6,13 @@ class ChatHistoryManager {
   static async get(phone) {
     const key = `chat:${phone}`;
     const history = await getSession(key);
-    return history?.messages || [];
+
+    try {
+      return history.messages ? JSON.parse(history.messages) : [];
+    } catch (e) {
+      console.error("Error parsing chat history:", e);
+      return [];
+    }
   }
 
   static async append(phone, userMessage, botResponse) {
@@ -17,20 +23,18 @@ class ChatHistoryManager {
       ...history,
       { role: "user", content: userMessage },
       { role: "assistant", content: botResponse },
-    ].slice(-10); // Keep last 10 messages
+    ].slice(-10);
 
     await setSession(
       key,
-      {
-        messages: updatedHistory,
-      },
+      { messages: JSON.stringify(updatedHistory) },
       CHAT_HISTORY_TTL
     );
   }
 
   static async clear(phone) {
     const key = `chat:${phone}`;
-    await setSession(key, { messages: [] }, CHAT_HISTORY_TTL);
+    await setSession(key, { messages: JSON.stringify([]) }, CHAT_HISTORY_TTL);
   }
 }
 
