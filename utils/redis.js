@@ -27,4 +27,4 @@ const setSession = async (key, value, ttl = SESSION_EXPIRATION) => {
 // delete session
 const deleteSession = async (key) => await client.del(key);
 
-module.exports = { getSession, setSession, deleteSession };
+module.exports = { client, getSession, setSession, deleteSession };

@@ -2,6 +2,7 @@ const { StatusCodes } = require("http-status-codes");
 const { formatDateTime } = require("../../utils/dateUtil");
 const { setSession } = require("../../utils/redis");
 const { updateUser } = require("../../controllers/user.controllers");
+const ChatHandler = require("./chatHandler");
 const {
   sendMediaImageMessage,
   serviceProviderMainMenuTemplate,
@@ -76,14 +77,7 @@ class ServiceProvider {
         case steps.ACCOUNT_STATUS_INACTIVE:
           return this.handleAccountStatusInactive();
         case steps.SERVICE_PROVIDER_MAIN_MENU:
-          return this.handleServiceProviderMainMenu();
-        // set up verification dashboard - skip for now
-        // send verification messages for verified users or unverified users - skip for now
-        // send with guidelines and short cuts - skip for now
-        // view tasks - view tasks - show pending tasks, completed tasks, cancelled tasks, all tasks
-        // edit profiles
-        // delete account
-        // billing history - for now skip, its a future feature
+          return this.handleServiceProviderChat();
         default:
           return res
             .status(StatusCodes.ACCEPTED)
@@ -339,7 +333,7 @@ class ServiceProvider {
   async handleWaitForVerification() {
     // Check if user is verified
     if (this.user.verified) {
-       return this.handleServiceProviderMainMenu();
+      return this.handleServiceProviderMainMenu();
     }
     // Default case - user still waiting for verification
     await setSession(this.phone, {
@@ -388,6 +382,22 @@ class ServiceProvider {
     return this.res.status(StatusCodes.OK).send("");
   }
 
+  async handleServiceProviderChat() {
+    const { res, user, phone, message } = this;
+
+    try {
+      // : Create chat handler instance
+      const chatHandler = new ChatHandler(phone, user._id);
+      // : Process message
+      const response = await chatHandler.processMessage(message);
+      return res.status(StatusCodes.OK).send(response);
+    } catch (error) {
+      console.error("Error in handleServiceProviderChat:", error);
+      return res
+        .status(StatusCodes.ACCEPTED)
+        .send(this.messages.ERROR_OCCURRED);
+    }
+  }
 }
 
 module.exports = ServiceProvider;
