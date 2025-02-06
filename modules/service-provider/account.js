@@ -83,7 +83,6 @@ class AccountManager {
           };
           break;
       }
-
       // Update user if needed
       if (Object.keys(userUpdate).length > 0) {
         const user = await User.findByIdAndUpdate(this.userId, userUpdate, {
