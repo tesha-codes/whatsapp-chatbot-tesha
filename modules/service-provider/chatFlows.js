@@ -13,7 +13,7 @@ What would you like to do?
 - View task details`,
 
   TASK_LIST: (tasks) => {
-    if (!tasks.length) return "No tasks found in this category.";
+    if (!tasks.length) return "Sorry, there are no tasks to display.";
 
     return tasks
       .map(
@@ -51,21 +51,20 @@ Features:
 ${data.currentPlan.features.map((f) => `• ${f}`).join("\n")}
 `,
 
-  BILLING_HISTORY: (data) => `
-  📅 *Billing History*
-  ${data.history
-    .map(
-      (sub, index) =>
-        `
-${index + 1}. Subscription Plan: ${sub.plan}
-Price: $${sub.price}/month
-Start Date: ${new Date(sub.startDate).toLocaleDateString()}
+  BILLING_HISTORY: (data) =>{
+    if (!data.history.length) return "No billing history found.";
+
+    return data.history
+      .map(
+        (sub, index) => `
+${index + 1}. Plan: ${sub.plan}
+📅 Start Date: ${new Date(sub.startDate).toLocaleDateString()}
 End Date: ${new Date(sub.endDate).toLocaleDateString()}
 Status: ${sub.status}
 ------------------`
-    )
-    .join("\n")}
-  `,
+      )
+      .join("\n");D
+  },
 };
 
 module.exports = CHAT_TEMPLATES;
