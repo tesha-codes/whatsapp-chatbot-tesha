@@ -221,6 +221,7 @@ class ChatHandler {
   }
 
   formatResponseFromTemplate(result) {
+    print("result", result);
     switch (result.type) {
       case "TASK_OVERVIEW":
         return CHAT_TEMPLATES.TASK_OVERVIEW(result.data);
