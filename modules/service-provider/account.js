@@ -72,7 +72,7 @@ class AccountManager {
 
         // Delete user record
         await User.findByIdAndDelete(this.userId, { session });
-
+        // TODO: delete all user records in redis cache
         // Commit transaction
         await session.commitTransaction();
       } catch (error) {

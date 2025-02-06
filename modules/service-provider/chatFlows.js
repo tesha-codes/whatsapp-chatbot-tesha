@@ -32,7 +32,6 @@ Status: ${task.status}
 👤 *Profile Information*
 Name: ${profile.firstName} ${profile.lastName}
 Phone: ${profile.phone}
-Gender: ${profile.gender}
 City: ${profile.provider.city}
 Service: ${profile.provider.service.title}
 Rating: ⭐${profile.provider.rating}
