@@ -65,7 +65,10 @@ class ChatHandler {
             return result;
           } catch (error) {
             console.error(`Tool call ${toolCall.id} failed:`, error);
-            return error?.message;
+            return {
+              error: error.message,
+              tool: toolCall.function.name,
+            };
           }
         });
 
@@ -79,7 +82,6 @@ class ChatHandler {
       // Update conversation history
       await ChatHistoryManager.append(this.phone, message, responseText);
       return responseText;
-
     } catch (error) {
       console.error("Error processing message:", error);
       return (
@@ -199,7 +201,7 @@ class ChatHandler {
     return results
       .map((result) => {
         if (result.error) {
-          return `⚠️ Error: ${result.error}`;
+          return `❌ ${result.error}`;
         }
         try {
           return this.formatResponseFromTemplate(result);

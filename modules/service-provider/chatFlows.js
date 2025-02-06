@@ -51,7 +51,7 @@ Features:
 ${data.currentPlan.features.map((f) => `• ${f}`).join("\n")}
 `,
 
-  BILLING_HISTORY: (data) =>{
+  BILLING_HISTORY: (data) => {
     if (!data.history.length) return "No billing history found.";
 
     return data.history
@@ -63,8 +63,10 @@ End Date: ${new Date(sub.endDate).toLocaleDateString()}
 Status: ${sub.status}
 ------------------`
       )
-      .join("\n");D
+      .join("\n");
+    D;
   },
+  ERROR_MESSAGE: "An error occurred. Please try again later.",
 };
 
 module.exports = CHAT_TEMPLATES;
