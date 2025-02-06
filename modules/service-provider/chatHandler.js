@@ -65,10 +65,7 @@ class ChatHandler {
             return result;
           } catch (error) {
             console.error(`Tool call ${toolCall.id} failed:`, error);
-            return {
-              error: "Internal service error",
-              tool: toolCall.function.name,
-            };
+            return error?.message;
           }
         });
 
@@ -181,12 +178,6 @@ class ChatHandler {
       case "update_profile":
         if (params.field === "address" && params.value.length < 10) {
           throw new Error("Address must be at least 10 characters");
-        }
-        if (
-          params.field === "gender" &&
-          !["male", "female", "other"].includes(params.value.toLowerCase())
-        ) {
-          throw new Error("Invalid gender value");
         }
         break;
 
