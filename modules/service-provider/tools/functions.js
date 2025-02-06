@@ -101,7 +101,13 @@ const tools = [
         properties: {
           field: {
             type: "string",
-            enum: ["firstName", "lastName", "gender", "description", "address"],
+            enum: [
+              "firstName",
+              "lastName",
+              "description",
+              "city",
+              "address.physicalAddress",
+            ],
             description: "Field to update (case-sensitive)",
           },
           value: {

@@ -101,7 +101,15 @@ class ChatHandler {
 
     try {
       params = JSON.parse(args);
-      this.validateToolCall(name, params);
+      try {
+        this.validateToolCall(name, params);
+      } catch (validationError) {
+        return {
+          type: "VALIDATION_ERROR",
+          error: validationError.message,
+          tool: name,
+        };
+      }
     } catch (error) {
       throw new Error(`Invalid parameters for ${name}: ${error.message}`);
     }
@@ -179,19 +187,24 @@ class ChatHandler {
     switch (name) {
       case "update_profile":
         if (params.field === "address" && params.value.length < 10) {
-          throw new Error("Address must be at least 10 characters");
+          throw new Error("Address must be at least 10 characters long.");
+        }
+        if (params.field === "city" && params.value.length < 2) {
+          throw new Error("City name must be at least 2 characters long.");
         }
         break;
 
       case "delete_account":
         if (params.reason.length < 10) {
-          throw new Error("Deletion reason must be at least 10 characters");
+          throw new Error(
+            "Deletion reason must be at least 10 characters long."
+          );
         }
         break;
 
       case "update_task_status":
         if (!params.taskId.match(/^task_\d{4}_[a-f0-9]{8}$/)) {
-          throw new Error("Invalid task ID format");
+          throw new Error("Invalid task ID format.");
         }
         break;
     }
@@ -239,6 +252,9 @@ class ChatHandler {
 
       case "BILLING_HISTORY":
         return CHAT_TEMPLATES.BILLING_HISTORY(result.data);
+
+      case "VALIDATION_ERROR":
+        return `⚠️ Validation Error: ${result.error}`;
 
       default:
         return "I've completed your request. Is there anything else I can help with?";

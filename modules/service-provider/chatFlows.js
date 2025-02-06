@@ -48,8 +48,7 @@ ${getStatusEmoji(task.status)} ${task.status}
 Simply send a message like:
 - "Update name to John Smith"
 - "Change city to Mutare"
-- "Update service description to..."
-- "Edit phone number to..."`,
+- "Update service description to..."`,
 
   SUBSCRIPTION_INFO: (data) => `
 💳 *Subscription Details*
