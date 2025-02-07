@@ -69,7 +69,7 @@ class Client {
     }
 
     async handlePromptAccount() {
-        if (this.message.toString().toLowerCase() === "create account") {
+        if (this.message.toString().toLowerCase() === "create account" || this.message.toString().toLowerCase().includes("1")) {
             await setSession(this.phone, {
                 step: this.steps.COLLECT_CLIENT_FULL_NAME, // 👈 Transition to full name
                 message: this.message,
