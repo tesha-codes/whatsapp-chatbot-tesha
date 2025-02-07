@@ -143,14 +143,14 @@ class Client {
                 .send("❌ Invalid image format. Please upload an image file.");
         }
         // : upload to AWS S3
-        const nationalIdImage = await uploadToS3(
-            process.env.USRID_BUCKET_NAME,
-            nationalIdImageUrl
-        );
-        // : save uploaded file
-        await updateUser(this.phone, {
-            nationalIdImage,
-        });
+        // const nationalIdImage = await uploadToS3(
+        //     process.env.USRID_BUCKET_NAME,
+        //     nationalIdImageUrl
+        // );
+        // // : save uploaded file
+        // await updateUser(this.phone, {
+        //     nationalIdImage,
+        // });
         await setSession(this.phone, {
             step: this.steps.COLLECT_CLIENT_ADDRESS,
             message: this.message.toString(),
