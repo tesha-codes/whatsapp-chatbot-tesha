@@ -3,6 +3,9 @@ const { formatDateTime } = require("../../utils/dateUtil");
 const { setSession } = require("../../utils/redis");
 const { updateUser } = require("../../controllers/user.controllers");
 const { uploadToS3 } = require("../../utils/uploadToS3");
+const {
+    sendMediaImageMessage,
+} = require("../../services/whatsappService");
 
 class Client {
     constructor(res, userResponse, session, user, steps, messages) {
