@@ -205,15 +205,6 @@ class Client {
             lActivity: this.lActivity,
         });
 
-        await Promise.all([
-            clientMainMenuTemplate(phone, (await getUser(phone)).firstName),
-            setSession(phone, {
-                step: steps.CLIENT_MAIN_MENU,
-                message,
-                lActivity,
-            })
-        ]);
-
         const successMessage = `*Profile Setup Confirmation*
 
 ✅ Thank you! Your profile has been successfully set up.
@@ -226,10 +217,15 @@ You're all set! If you need any further assistance, feel free to reach out. 😊
 
     async handleRegistrationComplete() {
         // Additional logic after registration completion
-        return this.res
-            .status(StatusCodes.OK)
-            .send("Thank you for completing your registration. You can now start using our services.");
+        clientMainMenuTemplate(phone, (await getUser(phone)).firstName),
+            setSession(phone, {
+                step: steps.CLIENT_MAIN_MENU,
+                message,
+                lActivity,
+            })
+        return this.res.status(StatusCodes.OK).send("");
     }
+
 }
 
 module.exports = Client;
