@@ -76,13 +76,7 @@ const steps = {
   CLIENT_REGISTRATION_COMPLETE: "CLIENT_REGISTRATION_COMPLETE",
 };
 
-const messages = {
-  GET_FULL_NAME: "Please enter your full name.",
-  GET_NATIONAL_ID: "Please enter your national ID in the format XX-XXXXXXX-X-XX.",
-  UPLOAD_ID_IMAGE: "Please upload an image of your ID or passport.",
-  GET_ADDRESS: "Please enter your address (street name).",
-  DEV_IN_PROGRESS: "This feature is currently under development.",
-};
+
 
 app.use(morgan("combined"));
 app.use(bodyParser.urlencoded({ extended: false }));
