@@ -5,6 +5,7 @@ const { updateUser } = require("../../controllers/user.controllers");
 const { uploadToS3 } = require("../../utils/uploadToS3");
 const {
     sendMediaImageMessage,
+    clientMainMenuTemplate
 } = require("../../services/whatsappService");
 
 class Client {
@@ -203,9 +204,24 @@ class Client {
             message: JSON.stringify(this.message),
             lActivity: this.lActivity,
         });
+
+        await Promise.all([
+            clientMainMenuTemplate(phone, (await getUser(phone)).firstName),
+            setSession(phone, {
+                step: steps.CLIENT_MAIN_MENU,
+                message,
+                lActivity,
+            })
+        ]);
+
+        const successMessage = `*Profile Setup Confirmation*
+
+✅ Thank you! Your profile has been successfully set up.
+You're all set! If you need any further assistance, feel free to reach out. 😊`
+
         return this.res
             .status(StatusCodes.OK)
-            .send("🎉 Congratulations! You have successfully completed your registration.");
+            .send(successMessage);
     }
 
     async handleRegistrationComplete() {
