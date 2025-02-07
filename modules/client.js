@@ -221,6 +221,13 @@ Please reply with the number of your choice (e.g., 1, 2, 3, or 4):
 
 4. *Billing & Payment History*  
 `,
+    CREATE_CLIENT_ACCOUNT:`
+    To set up your account, you have to provide us with the following details: - Full Name - Address - ID Number Reply with 
+    *1* to create your account or 
+    *2* to cancel. 
+    (Answer with *1* to create account and *2* to cancel)
+    for a couple of seconds
+    `
   },
 };
 

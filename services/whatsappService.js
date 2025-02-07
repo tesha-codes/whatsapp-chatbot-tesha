@@ -172,7 +172,7 @@ const registerClientTemplate = async (userMobileNumber) => {
   );
   //  no template, send a regular message
   if (!templateId) {
-    return sendTextMessage(userMobileNumber, messages.CLIENT_MAIN_MENU);
+    return sendTextMessage(userMobileNumber, messages.CREATE_CLIENT_ACCOUNT);
   }
   const params = getUrlEncodedData({
     source: SOURCE_MOBILE_NUMBER,
