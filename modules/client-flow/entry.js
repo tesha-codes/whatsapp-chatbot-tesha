@@ -217,8 +217,8 @@ You're all set! If you need any further assistance, feel free to reach out. 😊
 
     async handleRegistrationComplete() {
         // Additional logic after registration completion
-        clientMainMenuTemplate(phone, (await getUser(phone)).firstName),
-            setSession(phone, {
+        clientMainMenuTemplate(this.phone, (await getUser(phone)).firstName),
+            setSession(this.phone, {
                 step: steps.CLIENT_MAIN_MENU,
                 message,
                 lActivity,
