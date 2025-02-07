@@ -1,7 +1,7 @@
 const { StatusCodes } = require("http-status-codes");
 const { formatDateTime } = require("../../utils/dateUtil");
 const { setSession } = require("../../utils/redis");
-const { updateUser } = require("../../controllers/user.controllers");
+const { updateUser, getUser } = require("../../controllers/user.controllers");
 const { uploadToS3 } = require("../../utils/uploadToS3");
 const {
     sendMediaImageMessage,
