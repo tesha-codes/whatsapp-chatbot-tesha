@@ -7,7 +7,7 @@ const {
     sendMediaImageMessage,
     clientMainMenuTemplate
 } = require("../../services/whatsappService");
-const ClientChatHandler = require("./ClientChatHandler"); // Import the new ClientChatHandler
+const ClientChatHandler = require("./client-chat-handler"); // Import the new ClientChatHandler
 
 class Client {
     constructor(res, userResponse, session, user, steps, messages) {
