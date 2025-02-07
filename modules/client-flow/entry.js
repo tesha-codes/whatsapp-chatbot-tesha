@@ -7,6 +7,7 @@ const {
     sendMediaImageMessage,
     clientMainMenuTemplate
 } = require("../../services/whatsappService");
+const ClientChatHandler = require("./ClientChatHandler"); // Import the new ClientChatHandler
 
 class Client {
     constructor(res, userResponse, session, user, steps, messages) {
@@ -56,6 +57,8 @@ class Client {
                     return this.handleCollectLocation();
                 case steps.CLIENT_REGISTRATION_COMPLETE:
                     return this.handleRegistrationComplete();
+                case steps.CLIENT_MAIN_MENU:
+                    return this.handleClientMainMenu();
                 default:
                     return res
                         .status(StatusCodes.ACCEPTED)
@@ -220,12 +223,17 @@ You're all set! If you need any further assistance, feel free to reach out. 😊
         clientMainMenuTemplate(this.phone, (await getUser(this.phone)).firstName),
             setSession(this.phone, {
                 step: this.steps.CLIENT_MAIN_MENU,
-                message,
-                lActivity,
+                message: this.message,
+                lActivity: this.lActivity,
             })
         return this.res.status(StatusCodes.OK).send("");
     }
 
+    async handleClientMainMenu() {
+        const chatHandler = new ClientChatHandler(this.phone, this.user._id);
+        const response = await chatHandler.processMessage(this.message);
+        return this.res.status(StatusCodes.OK).send(response);
+    }
 }
 
 module.exports = Client;

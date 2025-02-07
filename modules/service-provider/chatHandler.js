@@ -17,9 +17,6 @@ class ChatHandler {
 
   async processMessage(message) {
     try {
-      // TODO: content moderation
-      // TODO: rate limit
-      // : get chat history
       const chatHistory = await ChatHistoryManager.get(this.phone);
       // debug
       console.log("chatHistory", chatHistory);
