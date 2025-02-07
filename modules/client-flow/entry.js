@@ -1,4 +1,3 @@
-
 const { StatusCodes } = require("http-status-codes");
 const { formatDateTime } = require("../../utils/dateUtil");
 const { setSession } = require("../../utils/redis");
@@ -39,8 +38,8 @@ class Client {
 
         try {
             switch (session.step) {
-                case steps.CLIENT_ACCEPT_TERMS:
-                    return this.handleAcceptTerms();
+                case steps.SETUP_CLIENT_PROFILE:
+                    return this.handlePromptAccount();
                 case steps.COLLECT_CLIENT_FULL_NAME:
                     return this.handleCollectFullName();
                 case steps.COLLECT_CLIENT_NATIONAL_ID:
@@ -66,24 +65,24 @@ class Client {
         }
     }
 
-    async handleAcceptTerms() {
-        if (this.message.toString().toLowerCase() === "accept") {
+    async handlePromptAccount() {
+        if (this.message.toString().toLowerCase() === "create account") {
             await setSession(this.phone, {
-                step: this.steps.COLLECT_CLIENT_FULL_NAME,
+                step: this.steps.COLLECT_CLIENT_FULL_NAME, // 👈 Transition to full name
                 message: this.message,
                 lActivity: this.lActivity,
             });
             return this.res.status(StatusCodes.OK).send(this.messages.GET_FULL_NAME);
         } else {
             await setSession(this.phone, {
-                step: this.steps.CLIENT_ACCEPT_TERMS,
+                step: this.steps.SETUP_CLIENT_PROFILE,
                 message: this.message,
                 lActivity: this.lActivity,
             });
             return this.res
                 .status(StatusCodes.OK)
                 .send(
-                    "❌ You must accept the terms to proceed. Please type 'accept' to continue."
+                    "❌ You have cancelled creating profile. If you change your mind, please type 'create account' to proceed."
                 );
         }
     }
