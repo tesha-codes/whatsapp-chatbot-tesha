@@ -53,69 +53,84 @@ Key behaviors:
     getAvailableTools() {
         return [
             {
-                name: "book_service",
-                description: "Book a new service",
-                parameters: {
-                    type: "object",
-                    properties: {
-                        serviceType: {
-                            type: "string",
-                            enum: ["cleaning", "repairs", "maintenance", "gardening", "painting"]
+                type: "function",
+                function: {
+                    name: "book_service",
+                    description: "Book a new service",
+                    parameters: {
+                        type: "object",
+                        properties: {
+                            serviceType: {
+                                type: "string",
+                                enum: ["cleaning", "repairs", "maintenance", "gardening", "painting"]
+                            },
+                            date: { type: "string", format: "date" },
+                            time: { type: "string" },
+                            location: { type: "string" },
+                            notes: { type: "string" }
                         },
-                        date: { type: "string", format: "date" },
-                        time: { type: "string" },
-                        location: { type: "string" },
-                        notes: { type: "string" }
-                    },
-                    required: ["serviceType", "date", "time", "location"]
+                        required: ["serviceType", "date", "time", "location"]
+                    }
                 }
             },
             {
-                name: "view_bookings",
-                description: "View booking history",
-                parameters: {
-                    type: "object",
-                    properties: {
-                        status: {
-                            type: "string",
-                            enum: ["all", "pending", "confirmed", "completed"]
+                type: "function",
+                function: {
+                    name: "view_bookings",
+                    description: "View booking history",
+                    parameters: {
+                        type: "object",
+                        properties: {
+                            status: {
+                                type: "string",
+                                enum: ["all", "pending", "confirmed", "completed"]
+                            }
                         }
                     }
                 }
             },
             {
-                name: "view_profile",
-                description: "View client profile",
-                parameters: {
-                    type: "object",
-                    properties: {}
+                type: "function",
+                function: {
+                    name: "view_profile",
+                    description: "View client profile",
+                    parameters: {
+                        type: "object",
+                        properties: {}
+                    }
                 }
             },
             {
-                name: "update_profile",
-                description: "Update client profile",
-                parameters: {
-                    type: "object",
-                    properties: {
-                        field: {
-                            type: "string",
-                            enum: ["name", "phone", "email", "address", "city"]
+                type: "function",
+                function: {
+                    name: "update_profile",
+                    description: "Update client profile",
+                    parameters: {
+                        type: "object",
+                        properties: {
+                            field: {
+                                type: "string",
+                                enum: ["name", "phone", "email", "address", "city"]
+                            },
+                            value: { type: "string" }
                         },
-                        value: { type: "string" }
-                    },
-                    required: ["field", "value"]
+                        required: ["field", "value"]
+                    }
                 }
             },
             {
-                name: "delete_account",
-                description: "Delete client account",
-                parameters: {
-                    type: "object",
-                    properties: {
-                        reason: { type: "string" },
-                        confirmation: { type: "boolean" }
-                    },
-                    required: ["confirmation"]
+                type: "function",
+                function: {
+                    name: "delete_account",
+                    description: "Delete client account",
+                    parameters: {
+                        type: "object",
+                        properties: {
+                            reason: { type: "string" },
+                            confirmation: { type: "boolean" }
+                        },
+                        required: ["confirmation"]
+                    }
                 }
             }
         ];
