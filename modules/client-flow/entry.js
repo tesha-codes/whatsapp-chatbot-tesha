@@ -220,12 +220,14 @@ You're all set! If you need any further assistance, feel free to reach out. 😊
 
     async handleRegistrationComplete() {
         // Additional logic after registration completion
-        clientMainMenuTemplate(this.phone, (await getUser(this.phone)).firstName),
+        await Promise.all([
+            clientMainMenuTemplate(this.phone, (await getUser(this.phone)).firstName),
             setSession(this.phone, {
                 step: this.steps.CLIENT_MAIN_MENU,
                 message: this.message,
                 lActivity: this.lActivity,
             })
+        ]);
         return this.res.status(StatusCodes.OK).send("");
     }
 

@@ -18,6 +18,11 @@ class ClientChatHandler {
 
     async processMessage(message) {
         try {
+            if (message.toLowerCase().includes("request") &&
+                message.toLowerCase().includes("service")) {
+                this.currentStep = "askServiceType";
+                return this.askServiceType();
+            }
             const chatHistory = await ChatHistoryManager.get(this.phone);
             const messages = [
                 {
