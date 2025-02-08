@@ -196,6 +196,56 @@ Key behaviors:
         };
     }
 
+    getAvailableTools() {
+        return [
+            {
+                type: "function",
+                function: {
+                    name: "handle_location_selection",
+                    description: "Handle location selection and provider matching",
+                    parameters: {
+                        type: "object",
+                        properties: {
+                            useSavedLocation: { type: "boolean" },
+                            newAddress: { type: "string" }
+                        }
+                    }
+                }
+            },
+            {
+                type: "function",
+                function: {
+                    name: "select_provider",
+                    description: "Handle provider selection from list",
+                    parameters: {
+                        type: "object",
+                        properties: {
+                            providerNumber: { type: "number" }
+                        }
+                    }
+                }
+            },
+            {
+                type: "function",
+                function: {
+                    name: "confirm_booking",
+                    description: "Confirm the booking with the user",
+                    parameters: {
+                        type: "object",
+                        properties: {
+                            serviceType: { type: "string" },
+                            date: { type: "string" },
+                            time: { type: "string" },
+                            location: { type: "string" },
+                            providerId: { type: "string" }
+                        },
+                        required: ["serviceType", "date", "time", "location", "providerId"]
+                    }
+                }
+            }
+        ];
+    }
+
     formatResults(results) {
         return results.map(result => {
             if (result.error) return `⚠️ Error: ${result.error}`;
