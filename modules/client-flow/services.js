@@ -19,7 +19,7 @@ class ServiceManager {
 
             if (providers.length === 0) {
                 console.log("No providers found, generating sample data...");
-                await ProviderGenerator.createProviders(5); 
+                await ProviderGenerator.createProviders(5);
 
                 providers = await ServiceProvider.find({
                     service: serviceType
