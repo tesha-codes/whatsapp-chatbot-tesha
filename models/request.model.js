@@ -27,7 +27,8 @@ const ServiceRequestSchema = new mongoose.Schema({
             type: String,
         },
         coordinates: {
-            type: [Number],
+            type: [Number], // [longitude, latitude]
+            index: '2dsphere' // Enable geospatial queries
         },
     },
     city: {
@@ -41,6 +42,14 @@ const ServiceRequestSchema = new mongoose.Schema({
         type: String,
         required: true,
         trim: true
+    },
+    useSavedLocation: { // Track if user wants to use saved location
+        type: Boolean,
+        default: false
+    },
+    confirmed: { // Track if the user has confirmed the booking
+        type: Boolean,
+        default: false
     }
 }, { timestamps: true });
 
