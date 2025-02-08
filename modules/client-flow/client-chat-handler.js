@@ -1,5 +1,5 @@
 const openai = require("../../config/openai");
-const { ServiceManager } = require("./services");
+const  ServiceManager  = require("./services");
 const AccountManager = require("../service-provider/account");
 const ChatHistoryManager = require("../../utils/chatHistory");
 const CHAT_TEMPLATES = require("./chat-templates");
