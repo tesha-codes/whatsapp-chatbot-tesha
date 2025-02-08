@@ -12,8 +12,8 @@ class ClientChatHandler {
         this.userId = userId;
         this.serviceManager = new ServiceManager(userId);
         this.accountManager = new AccountManager(userId);
-        this.bookingContext = {}; // Tracks booking details during the conversation
-        this.currentStep = "askServiceType"; // Tracks the current step in the conversation
+        this.bookingContext = {}; 
+        this.currentStep = "askServiceType"; 
     }
 
     async processMessage(message) {
@@ -117,12 +117,12 @@ Key behaviors:
         if (savedLocation) {
             return {
                 type: "ASK_LOCATION_PREFERENCE",
-                data: `Would you like to use your saved location?\n📍 ${savedLocation.address}\n\nType **YES** to use this location or **NO** to provide a new one.`
+                data: `Would you like to use your saved location?\n📍 ${savedAddress}\n\nType **YES** to use this location or **NO** to provide a new one.`
             };
         }
         return {
             type: "ASK_NEW_LOCATION",
-            data: "Where is the service needed? Please provide the full address (e.g., 123 Main St, City, Country)."
+            data: "Where is the service needed? Please provide the full address (e.g., 123 Main St, City, Country) or share your live location."
         };
     }
 
@@ -143,10 +143,17 @@ Key behaviors:
                     city: user.address.city
                 };
             } else {
-                if (!params.newAddress) {
-                    throw new Error("Please provide a valid address.");
+                if (!params.newAddress && !params.liveLocation) {
+                    throw new Error("Please provide a valid address or share your live location.");
                 }
-                location = await geocodeAddress(params.newAddress);
+
+                // Handle live location from WhatsApp
+                if (params.liveLocation) {
+                    const { latitude, longitude } = params.liveLocation;
+                    location = await geocodeAddress(`${latitude},${longitude}`);
+                } else {
+                    location = await geocodeAddress(params.newAddress);
+                }
             }
 
             this.bookingContext.location = location;
@@ -284,7 +291,14 @@ Key behaviors:
                         type: "object",
                         properties: {
                             useSavedLocation: { type: "boolean" },
-                            newAddress: { type: "string" }
+                            newAddress: { type: "string" },
+                            liveLocation: {
+                                type: "object",
+                                properties: {
+                                    latitude: { type: "string" },
+                                    longitude: { type: "string" }
+                                }
+                            }
                         }
                     }
                 }

@@ -34,18 +34,7 @@ const UserSchema = new mongoose.Schema(
       physicalAddress: {
         type: String,
       },
-      coordinates: {
-        
-        type: {
-          type: String,
-          enum: ['Point'],
-          default: 'Point'
-        },
-        coordinates: {
-          type: [Number],  
-          required: true
-        }
-      },
+      coordinates: {type: Object },
     },
     verified: {
       type: Boolean,
