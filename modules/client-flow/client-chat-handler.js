@@ -1,5 +1,5 @@
 const openai = require("../../config/openai");
-const  ServiceManager  = require("./services");
+const ServiceManager = require("./services");
 const AccountManager = require("../service-provider/account");
 const ChatHistoryManager = require("../../utils/chatHistory");
 const CHAT_TEMPLATES = require("./chat-templates");
@@ -12,8 +12,8 @@ class ClientChatHandler {
         this.userId = userId;
         this.serviceManager = new ServiceManager(userId);
         this.accountManager = new AccountManager(userId);
-        this.bookingContext = {}; 
-        this.currentStep = "askServiceType"; 
+        this.bookingContext = {};
+        this.currentStep = "askServiceType";
     }
 
     async processMessage(message) {
@@ -51,7 +51,9 @@ Key behaviors:
             const toolCalls = response.tool_calls || [];
 
             if (toolCalls.length > 0) {
-                const results = await Promise.all(toolCalls.map(call => this.executeToolCall(call, message)));
+                const results = await Promise.all(
+                    toolCalls.map(call => this.executeToolCall(call, message))
+                );
                 return this.formatResults(results);
             }
 
@@ -117,7 +119,7 @@ Key behaviors:
         if (savedLocation) {
             return {
                 type: "ASK_LOCATION_PREFERENCE",
-                data: `Would you like to use your saved location?\n📍 ${savedAddress}\n\nType **YES** to use this location or **NO** to provide a new one.`
+                data: `Would you like to use your saved location?\n📍 ${savedLocation.physicalAddress}\n\nType **YES** to use this location or **NO** to provide a new one.`
             };
         }
         return {
@@ -140,7 +142,7 @@ Key behaviors:
                         parseFloat(user.address.coordinates.longitude),
                         parseFloat(user.address.coordinates.latitude)
                     ],
-                    city: user.address.city
+                    city: user.address.city || "Unknown"
                 };
             } else {
                 if (!params.newAddress && !params.liveLocation) {
@@ -150,15 +152,58 @@ Key behaviors:
                 // Handle live location from WhatsApp
                 if (params.liveLocation) {
                     const { latitude, longitude } = params.liveLocation;
-                    location = await geocodeAddress(`${latitude},${longitude}`);
+                    try {
+                        location = await geocodeAddress(`${latitude},${longitude}`);
+                        if (!location || !location.address) {
+                            throw new Error("Geocoding returned no address");
+                        }
+                    } catch (err) {
+                        console.error("Geocoding live location failed, using coordinates fallback", err);
+                        location = {
+                            address: `Coordinates: ${latitude}, ${longitude}`,
+                            coordinates: [parseFloat(longitude), parseFloat(latitude)],
+                            city: "Unknown"
+                        };
+                    }
                 } else {
-                    location = await geocodeAddress(params.newAddress);
+                    // Handle a new address provided as text
+                    try {
+                        location = await geocodeAddress(params.newAddress);
+                        if (!location || !location.address) {
+                            throw new Error("Geocoding returned no address");
+                        }
+                    } catch (err) {
+                        console.error("Geocoding address failed, using raw address as fallback", err);
+                        location = {
+                            address: params.newAddress,
+                            coordinates: [], // Coordinates unavailable
+                            city: "Unknown"
+                        };
+                    }
+                }
+            }
+
+            // Final fallback if location is missing an address
+            if (!location || !location.address) {
+                if (params.liveLocation) {
+                    const { latitude, longitude } = params.liveLocation;
+                    location = {
+                        address: `Coordinates: ${latitude}, ${longitude}`,
+                        coordinates: [parseFloat(longitude), parseFloat(latitude)],
+                        city: "Unknown"
+                    };
+                } else if (params.newAddress) {
+                    location = {
+                        address: params.newAddress,
+                        coordinates: [],
+                        city: "Unknown"
+                    };
                 }
             }
 
             this.bookingContext.location = location;
 
-            // Find nearby providers
+            // Find nearby providers using the available coordinates
             const providers = await this.serviceManager.findNearbyProviders(
                 location.coordinates,
                 this.bookingContext.serviceType
