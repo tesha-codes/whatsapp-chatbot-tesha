@@ -241,33 +241,35 @@ You're all set! If you need any further assistance, feel free to reach out. 😊
 
     async handleClientMainMenu() {
         try {
-            // Initialize or retrieve chat state from session
-            this.session.chatState = this.session.chatState || {
-                currentStep: "askServiceType",
-                bookingContext: {}
-            };
+            // Parse session data from Redis
+            this.session.chatState = this.session.chatState
+                ? JSON.parse(this.session.chatState)
+                : { currentStep: "askServiceType", bookingContext: {} };
 
             const chatHandler = new ClientChatHandler(
                 this.phone,
                 this.user._id,
-                this.session.chatState // Pass persisted state
+                this.session.chatState
             );
 
             const response = await chatHandler.processMessage(this.message);
 
-            // Update session with latest chat state
-            this.session.chatState = {
+            // Stringify before saving to Redis
+            this.session.chatState = JSON.stringify({
                 currentStep: chatHandler.currentStep,
                 bookingContext: chatHandler.bookingContext
-            };
+            });
+
             await setSession(this.phone, this.session);
 
             return this.res.status(StatusCodes.OK).send(response);
         } catch (error) {
-            console.error("Error in handleClientMainMenu:", error);
-            return this.res
-                .status(StatusCodes.OK)
-                .send("An error occurred. Please try again later.");
+            console.error("handleClientMainMenu error:", {
+                error: error.message,
+                session: this.session,
+                message: this.message
+            });
+            return this.res.status(StatusCodes.OK).send(CHAT_TEMPLATES.ERROR_MESSAGE);
         }
     }
 }
