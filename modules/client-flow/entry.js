@@ -7,7 +7,7 @@ const {
     sendMediaImageMessage,
     clientMainMenuTemplate
 } = require("../../services/whatsappService");
-const ClientChatHandler = require("./client-chat-handler"); // Import the new ClientChatHandler
+const ClientChatHandler = require("./client-chat-handler");
 
 class Client {
     constructor(res, userResponse, session, user, steps, messages) {
@@ -75,9 +75,10 @@ class Client {
     async handlePromptAccount() {
         if (this.message.toString().toLowerCase() === "create account" || this.message.toString().toLowerCase().includes("1")) {
             await setSession(this.phone, {
-                step: this.steps.COLLECT_CLIENT_FULL_NAME, // 👈 Transition to full name
+                step: this.steps.COLLECT_CLIENT_FULL_NAME,
                 message: this.message,
                 lActivity: this.lActivity,
+                chatState: this.session.chatState // Preserve chat state
             });
             return this.res.status(StatusCodes.OK).send(this.messages.GET_FULL_NAME);
         } else {
@@ -85,6 +86,7 @@ class Client {
                 step: this.steps.SETUP_CLIENT_PROFILE,
                 message: this.message,
                 lActivity: this.lActivity,
+                chatState: this.session.chatState // Preserve chat state
             });
             return this.res
                 .status(StatusCodes.OK)
@@ -111,6 +113,7 @@ class Client {
             step: this.steps.COLLECT_CLIENT_NATIONAL_ID,
             message: this.message,
             lActivity: this.lActivity,
+            chatState: this.session.chatState // Preserve chat state
         });
         return this.res.status(StatusCodes.OK).send(this.messages.GET_NATIONAL_ID);
     }
@@ -131,6 +134,7 @@ class Client {
             step: this.steps.COLLECT_CLIENT_ID_IMAGE,
             message: this.message,
             lActivity: this.lActivity,
+            chatState: this.session.chatState // Preserve chat state
         });
         return this.res.status(StatusCodes.OK).send(this.messages.UPLOAD_ID_IMAGE);
     }
@@ -142,26 +146,25 @@ class Client {
                 .status(StatusCodes.OK)
                 .send("❌ Please upload a valid ID image.");
         }
-        // : check content type
         const contentType = this.message?.contentType;
         if (!contentType.startsWith("image/")) {
             return this.res
                 .status(StatusCodes.OK)
                 .send("❌ Invalid image format. Please upload an image file.");
         }
-        // : upload to AWS S3
+
+        // Upload to AWS S3 (commented out for now)
         // const nationalIdImage = await uploadToS3(
         //     process.env.USRID_BUCKET_NAME,
         //     nationalIdImageUrl
         // );
-        // // : save uploaded file
-        // await updateUser(this.phone, {
-        //     nationalIdImage,
-        // });
+        // await updateUser(this.phone, { nationalIdImage });
+
         await setSession(this.phone, {
             step: this.steps.COLLECT_CLIENT_ADDRESS,
             message: this.message.toString(),
             lActivity: this.lActivity,
+            chatState: this.session.chatState // Preserve chat state
         });
         return this.res.status(StatusCodes.OK).send(this.messages.GET_ADDRESS);
     }
@@ -178,7 +181,9 @@ class Client {
             step: this.steps.COLLECT_CLIENT_LOCATION,
             message: this.message,
             lActivity: this.lActivity,
+            chatState: this.session.chatState // Preserve chat state
         });
+
         const locationImgURL =
             "https://tesha-util.s3.af-south-1.amazonaws.com/WhatsApp+Image+2024-10-06+at+11.49.44_12568059.jpg";
         await sendMediaImageMessage(
@@ -196,22 +201,25 @@ class Client {
                 .status(StatusCodes.OK)
                 .send("❌ Invalid location format. Please send your location.");
         }
+
         await updateUser({
             phone: this.phone,
             address: {
                 coordinates: this.message,
             },
         });
+
         await setSession(this.phone, {
             step: this.steps.CLIENT_REGISTRATION_COMPLETE,
             message: JSON.stringify(this.message),
             lActivity: this.lActivity,
+            chatState: this.session.chatState // Preserve chat state
         });
 
         const successMessage = `*Profile Setup Confirmation*
 
 ✅ Thank you! Your profile has been successfully set up.
-You're all set! If you need any further assistance, feel free to reach out. 😊`
+You're all set! If you need any further assistance, feel free to reach out. 😊`;
 
         return this.res
             .status(StatusCodes.OK)
@@ -219,22 +227,48 @@ You're all set! If you need any further assistance, feel free to reach out. 😊
     }
 
     async handleRegistrationComplete() {
-        // Additional logic after registration completion
         await Promise.all([
             clientMainMenuTemplate(this.phone, (await getUser(this.phone)).firstName),
             setSession(this.phone, {
                 step: this.steps.CLIENT_MAIN_MENU,
                 message: this.message,
                 lActivity: this.lActivity,
+                chatState: this.session.chatState // Preserve chat state
             })
         ]);
         return this.res.status(StatusCodes.OK).send("");
     }
 
     async handleClientMainMenu() {
-        const chatHandler = new ClientChatHandler(this.phone, this.user._id);
-        const response = await chatHandler.processMessage(this.message);
-        return this.res.status(StatusCodes.OK).send(response);
+        try {
+            // Initialize or retrieve chat state from session
+            this.session.chatState = this.session.chatState || {
+                currentStep: "askServiceType",
+                bookingContext: {}
+            };
+
+            const chatHandler = new ClientChatHandler(
+                this.phone,
+                this.user._id,
+                this.session.chatState // Pass persisted state
+            );
+
+            const response = await chatHandler.processMessage(this.message);
+
+            // Update session with latest chat state
+            this.session.chatState = {
+                currentStep: chatHandler.currentStep,
+                bookingContext: chatHandler.bookingContext
+            };
+            await setSession(this.phone, this.session);
+
+            return this.res.status(StatusCodes.OK).send(response);
+        } catch (error) {
+            console.error("Error in handleClientMainMenu:", error);
+            return this.res
+                .status(StatusCodes.OK)
+                .send("An error occurred. Please try again later.");
+        }
     }
 }
 
