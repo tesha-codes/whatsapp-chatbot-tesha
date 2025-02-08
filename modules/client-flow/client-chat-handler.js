@@ -40,7 +40,6 @@ Key behaviors:
                 { role: "user", content: message }
             ];
 
-            // Use OpenAI Functions to extract details and handle the conversation
             const completion = await openai.chat.completions.create({
                 model: "gpt-4-turbo",
                 messages,
@@ -56,7 +55,6 @@ Key behaviors:
                 return this.formatResults(results);
             }
 
-            // If no tool calls, return the assistant's response
             await ChatHistoryManager.append(this.phone, message, response.content);
             return response.content;
         } catch (error) {
@@ -90,7 +88,11 @@ Key behaviors:
                     return this.confirmBooking(params);
 
                 default:
-                    throw new Error(`Unsupported tool: ${name}`);
+                    console.error(`Unknown tool called: ${name}`);
+                    return {
+                        type: "ERROR",
+                        data: "Sorry, I encountered an error. Please try again."
+                    };
             }
         } catch (error) {
             console.error(`Tool execution error (${name}):`, error);
@@ -100,9 +102,12 @@ Key behaviors:
 
     async askServiceType() {
         this.currentStep = "askServiceType";
+        const services = await mongoose.model('Service').find({}).select('type description');
+
         return {
             type: "ASK_SERVICE_TYPE",
-            data: "What type of service do you need? (e.g., cleaning, repairs, maintenance)"
+            data: "What type of service do you need? Available services:\n" +
+                services.map(s => `• ${s.type}: ${s.description}`).join('\n')
         };
     }
 
@@ -122,29 +127,63 @@ Key behaviors:
     }
 
     async handleLocationSelection(params) {
-        let location;
-        if (params.useSavedLocation) {
-            const user = await mongoose.model('User').findById(this.userId);
-            if (!user?.address?.coordinates) throw new Error("No saved location found");
-            location = {
-                address: user.address.physicalAddress,
-                coordinates: [
-                    parseFloat(user.address.coordinates.longitude), // Convert to number
-                    parseFloat(user.address.coordinates.latitude)  // Convert to number
-                ],
-                city: user.address.city
-            };
-        } else {
-            if (!params.newAddress) throw new Error("Please provide a valid address.");
-            location = await geocodeAddress(params.newAddress);
-        }
+        try {
+            let location;
+            if (params.useSavedLocation) {
+                const user = await mongoose.model('User').findById(this.userId);
+                if (!user?.address?.coordinates) {
+                    throw new Error("No saved location found");
+                }
+                location = {
+                    address: user.address.physicalAddress,
+                    coordinates: [
+                        parseFloat(user.address.coordinates.longitude),
+                        parseFloat(user.address.coordinates.latitude)
+                    ],
+                    city: user.address.city
+                };
+            } else {
+                if (!params.newAddress) {
+                    throw new Error("Please provide a valid address.");
+                }
+                location = await geocodeAddress(params.newAddress);
+            }
 
-        this.bookingContext.location = location;
-        this.currentStep = "askDateTime";
-        return {
-            type: "ASK_DATE_TIME",
-            data: "When do you need the service? (e.g., today, tomorrow, 2025-07-15) and what time? (e.g., 10 AM, 2 PM)"
-        };
+            this.bookingContext.location = location;
+
+            // Find nearby providers
+            const providers = await this.serviceManager.findNearbyProviders(
+                location.coordinates,
+                this.bookingContext.serviceType
+            );
+
+            if (providers.length === 0) {
+                return {
+                    type: "ERROR",
+                    data: "Sorry, no service providers are available in your area at the moment."
+                };
+            }
+
+            this.bookingContext.providers = providers;
+            this.currentStep = "selectProvider";
+
+            return {
+                type: "PROVIDER_LIST",
+                data: {
+                    providers: providers.map((p, i) => ({
+                        number: i + 1,
+                        name: `${p.firstName} ${p.lastName}`,
+                        rating: p.rating
+                    }))
+                }
+            };
+        } catch (error) {
+            console.error("Location selection error:", error);
+            return {
+                type: "ERROR",
+                data: error.message
+            };
+        }
     }
 
     async askDateTime() {
@@ -156,44 +195,60 @@ Key behaviors:
     }
 
     async selectProvider(providerNumber) {
-        if (!this.bookingContext.providers) throw new Error("No providers loaded");
-        const provider = this.bookingContext.providers[providerNumber - 1];
-        if (!provider) throw new Error("Invalid selection");
+        if (!this.bookingContext.providers) {
+            throw new Error("No providers available");
+        }
 
+        const provider = this.bookingContext.providers[providerNumber - 1];
+        if (!provider) {
+            throw new Error("Invalid provider selection");
+        }
+
+        const providerDetails = await this.serviceManager.getProviderDetails(provider._id);
         this.bookingContext.selectedProvider = provider._id;
         this.currentStep = "confirmBooking";
+
         return {
             type: "PROVIDER_CONFIRMATION",
             data: {
-                name: `${provider.firstName} ${provider.lastName}`,
-                rating: provider.rating,
-                bio: provider.bio
+                name: `${providerDetails.firstName} ${providerDetails.lastName}`,
+                rating: providerDetails.rating,
+                bio: providerDetails.bio,
+                completedJobs: providerDetails.completedJobs
             }
         };
     }
 
     async confirmBooking(params) {
-        const { serviceType, date, time, location, providerId } = params;
-        const booking = await this.serviceManager.createBooking({
-            serviceType,
-            date,
-            time,
-            location,
-            providerId
-        });
+        try {
+            const booking = await this.serviceManager.createBooking({
+                serviceType: params.serviceType,
+                date: params.date,
+                time: params.time,
+                location: this.bookingContext.location,
+                providerId: this.bookingContext.selectedProvider,
+                notes: params.notes
+            });
 
-        this.currentStep = "completed";
-        return {
-            type: "BOOKING_CONFIRMED",
-            data: {
-                id: booking.id,
-                serviceType: booking.service.type,
-                date: booking.date,
-                time: booking.time,
-                location: booking.address.physicalAddress,
-                provider: `${booking.serviceProviders[0].firstName} ${booking.serviceProviders[0].lastName}`
-            }
-        };
+            this.currentStep = "completed";
+            return {
+                type: "BOOKING_CONFIRMED",
+                data: {
+                    id: booking.id,
+                    serviceType: booking.service.type,
+                    date: booking.date,
+                    time: booking.time,
+                    location: booking.address.physicalAddress,
+                    provider: `${booking.serviceProviders[0].firstName} ${booking.serviceProviders[0].lastName}`
+                }
+            };
+        } catch (error) {
+            console.error("Booking confirmation error:", error);
+            return {
+                type: "ERROR",
+                data: "Failed to confirm booking. Please try again."
+            };
+        }
     }
 
     getAvailableTools() {
@@ -201,7 +256,29 @@ Key behaviors:
             {
                 type: "function",
                 function: {
-                    name: "handle_location_selection",
+                    name: "askServiceType",
+                    description: "Ask the user what type of service they need",
+                    parameters: {
+                        type: "object",
+                        properties: {}
+                    }
+                }
+            },
+            {
+                type: "function",
+                function: {
+                    name: "askLocationPreference",
+                    description: "Ask if the user wants to use their saved location",
+                    parameters: {
+                        type: "object",
+                        properties: {}
+                    }
+                }
+            },
+            {
+                type: "function",
+                function: {
+                    name: "handleLocationSelection",
                     description: "Handle location selection and provider matching",
                     parameters: {
                         type: "object",
@@ -215,31 +292,42 @@ Key behaviors:
             {
                 type: "function",
                 function: {
-                    name: "select_provider",
-                    description: "Handle provider selection from list",
+                    name: "askDateTime",
+                    description: "Ask for the preferred date and time",
                     parameters: {
                         type: "object",
-                        properties: {
-                            providerNumber: { type: "number" }
-                        }
+                        properties: {}
                     }
                 }
             },
             {
                 type: "function",
                 function: {
-                    name: "confirm_booking",
-                    description: "Confirm the booking with the user",
+                    name: "selectProvider",
+                    description: "Handle provider selection from list",
+                    parameters: {
+                        type: "object",
+                        properties: {
+                            providerNumber: { type: "number" }
+                        },
+                        required: ["providerNumber"]
+                    }
+                }
+            },
+            {
+                type: "function",
+                function: {
+                    name: "confirmBooking",
+                    description: "Confirm the booking with all details",
                     parameters: {
                         type: "object",
                         properties: {
                             serviceType: { type: "string" },
                             date: { type: "string" },
                             time: { type: "string" },
-                            location: { type: "string" },
-                            providerId: { type: "string" }
+                            notes: { type: "string" }
                         },
-                        required: ["serviceType", "date", "time", "location", "providerId"]
+                        required: ["serviceType", "date", "time"]
                     }
                 }
             }
@@ -252,31 +340,39 @@ Key behaviors:
 
             switch (result.type) {
                 case "ASK_SERVICE_TYPE":
-                    return `What type of service do you need? (e.g., cleaning, repairs, maintenance)`;
+                    return result.data;
 
                 case "ASK_LOCATION_PREFERENCE":
-                    return result.data;
-
                 case "ASK_NEW_LOCATION":
-                    return result.data;
-
                 case "ASK_DATE_TIME":
                     return result.data;
 
+                case "PROVIDER_LIST":
+                    return "Available service providers:\n" +
+                        result.data.providers.map(p =>
+                            `${p.number}. ${p.name} (Rating: ${p.rating}⭐)`
+                        ).join('\n') +
+                        "\n\nPlease select a provider by typing their number.";
+
                 case "PROVIDER_CONFIRMATION":
                     return `✅ Selected provider: ${result.data.name}\n` +
-                        `Rating: ${result.data.rating}\n` +
+                        `Rating: ${result.data.rating}⭐\n` +
+                        `Completed Jobs: ${result.data.completedJobs}\n` +
                         `Bio: ${result.data.bio}\n\n` +
                         `Type CONFIRM to book or CANCEL to choose another.`;
 
                 case "BOOKING_CONFIRMED":
                     return `🎉 Booking confirmed!\n` +
+                        `• Booking ID: ${result.data.id}\n` +
                         `• Service: ${result.data.serviceType}\n` +
                         `• Date: ${result.data.date}\n` +
                         `• Time: ${result.data.time}\n` +
                         `• Location: ${result.data.location}\n` +
                         `• Provider: ${result.data.provider}\n\n` +
                         `You'll receive a confirmation SMS with details.`;
+
+                case "ERROR":
+                    return `⚠️ ${result.data}`;
 
                 default:
                     return JSON.stringify(result.data);
