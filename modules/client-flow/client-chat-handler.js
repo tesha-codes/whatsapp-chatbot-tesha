@@ -1,3 +1,4 @@
+
 const openai = require("../../config/openai");
 const ServiceManager = require("./services");
 const AccountManager = require("../service-provider/account");
@@ -7,28 +8,17 @@ const { geocodeAddress } = require("../../utils/geocoding");
 const mongoose = require('mongoose');
 
 class ClientChatHandler {
-    constructor(phone, userId, persistedState = {}) {
+    constructor(phone, userId) {
         this.phone = phone;
         this.userId = userId;
         this.serviceManager = new ServiceManager(userId);
         this.accountManager = new AccountManager(userId);
-        this.bookingContext = persistedState.bookingContext || {};
-        this.currentStep = persistedState.currentStep || "askServiceType";
+        this.bookingContext = {};
+        this.currentStep = "askServiceType";
     }
 
     async processMessage(message) {
         try {
-            // Manual step handling as fallback
-            if (this.currentStep === "askServiceType") {
-                return this.askServiceType();
-            }
-            if (this.currentStep === "askLocationPreference") {
-                return this.askLocationPreference();
-            }
-            if (this.currentStep === "askDateTime") {
-                return this.askDateTime();
-            }
-
             const chatHistory = await ChatHistoryManager.get(this.phone);
             const messages = [
                 {
@@ -119,7 +109,7 @@ Key behaviors:
 
         return {
             type: "ASK_SERVICE_TYPE",
-            data: "🛎️ What type of service do you need? Available services:\n" +
+            data: "What type of service do you need? Available services:\n" +
                 services.map(s => `• ${s.type}: ${s.description}`).join('\n')
         };
     }
@@ -130,12 +120,12 @@ Key behaviors:
         if (savedLocation) {
             return {
                 type: "ASK_LOCATION_PREFERENCE",
-                data: `📍 Would you like to use your saved location?\n${savedLocation.physicalAddress}\n\nType **YES** to use this location or **NO** to provide a new one.`
+                data: `Would you like to use your saved location?\n📍 ${savedLocation.physicalAddress}\n\nType **YES** to use this location or **NO** to provide a new one.`
             };
         }
         return {
             type: "ASK_NEW_LOCATION",
-            data: "📍 Where is the service needed? Please provide the full address (e.g., 123 Main St, City, Country) or share your live location."
+            data: "Where is the service needed? Please provide the full address (e.g., 123 Main St, City, Country) or share your live location."
         };
     }
 
@@ -160,6 +150,7 @@ Key behaviors:
                     throw new Error("Please provide a valid address or share your live location.");
                 }
 
+                // Handle live location from WhatsApp
                 if (params.liveLocation) {
                     const { latitude, longitude } = params.liveLocation;
                     try {
@@ -176,6 +167,7 @@ Key behaviors:
                         };
                     }
                 } else {
+                    // Handle a new address provided as text
                     try {
                         location = await geocodeAddress(params.newAddress);
                         if (!location || !location.address) {
@@ -185,15 +177,34 @@ Key behaviors:
                         console.error("Geocoding address failed, using raw address as fallback", err);
                         location = {
                             address: params.newAddress,
-                            coordinates: [],
+                            coordinates: [], // Coordinates unavailable
                             city: "Unknown"
                         };
                     }
                 }
             }
 
+            // Final fallback if location is missing an address
+            if (!location || !location.address) {
+                if (params.liveLocation) {
+                    const { latitude, longitude } = params.liveLocation;
+                    location = {
+                        address: `Coordinates: ${latitude}, ${longitude}`,
+                        coordinates: [parseFloat(longitude), parseFloat(latitude)],
+                        city: "Unknown"
+                    };
+                } else if (params.newAddress) {
+                    location = {
+                        address: params.newAddress,
+                        coordinates: [],
+                        city: "Unknown"
+                    };
+                }
+            }
+
             this.bookingContext.location = location;
 
+            // Find nearby providers using the available coordinates
             const providers = await this.serviceManager.findNearbyProviders(
                 location.coordinates,
                 this.bookingContext.serviceType
@@ -232,7 +243,7 @@ Key behaviors:
         this.currentStep = "askDateTime";
         return {
             type: "ASK_DATE_TIME",
-            data: "📅 When do you need the service? (e.g., today, tomorrow, 2025-07-15) and what time? (e.g., 10 AM, 2 PM)"
+            data: "When do you need the service? (e.g., today, tomorrow, 2025-07-15) and what time? (e.g., 10 AM, 2 PM)"
         };
     }
 
