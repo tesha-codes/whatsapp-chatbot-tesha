@@ -12,7 +12,8 @@ class ClientChatHandler {
         this.userId = userId;
         this.serviceManager = new ServiceManager(userId);
         this.accountManager = new AccountManager(userId);
-        this.bookingContext = {}; 
+        this.bookingContext = {}; // Tracks booking details during the conversation
+        this.currentStep = "askServiceType"; // Tracks the current step in the conversation
     }
 
     async processMessage(message) {
@@ -27,6 +28,7 @@ class ClientChatHandler {
 3. Handle profile updates and account management
 
 Key behaviors:
+- Ask one question at a time and wait for the user's response.
 - Extract booking details (service type, date, time, location) from free-form messages.
 - Ask if the user wants to use their saved location or provide a new one.
 - Validate locations globally using geocoding.
@@ -63,70 +65,29 @@ Key behaviors:
         }
     }
 
-    getAvailableTools() {
-        return [
-            {
-                type: "function",
-                function: {
-                    name: "handle_location_selection",
-                    description: "Handle location selection and provider matching",
-                    parameters: {
-                        type: "object",
-                        properties: {
-                            useSavedLocation: { type: "boolean" },
-                            newAddress: { type: "string" }
-                        }
-                    }
-                }
-            },
-            {
-                type: "function",
-                function: {
-                    name: "select_provider",
-                    description: "Handle provider selection from list",
-                    parameters: {
-                        type: "object",
-                        properties: {
-                            providerNumber: { type: "number" }
-                        }
-                    }
-                }
-            },
-            {
-                type: "function",
-                function: {
-                    name: "confirm_booking",
-                    description: "Confirm the booking with the user",
-                    parameters: {
-                        type: "object",
-                        properties: {
-                            serviceType: { type: "string" },
-                            date: { type: "string" },
-                            time: { type: "string" },
-                            location: { type: "string" },
-                            providerId: { type: "string" }
-                        },
-                        required: ["serviceType", "date", "time", "location", "providerId"]
-                    }
-                }
-            }
-        ];
-    }
-
     async executeToolCall(toolCall, message) {
         const { name, arguments: args } = toolCall.function;
         const params = JSON.parse(args);
 
         try {
             switch (name) {
-                case "handle_location_selection":
+                case "askServiceType":
+                    return this.askServiceType();
+
+                case "askLocationPreference":
+                    return this.askLocationPreference();
+
+                case "handleLocationSelection":
                     return this.handleLocationSelection(params);
 
-                case "select_provider":
-                    return this.handleProviderSelection(params.providerNumber);
+                case "askDateTime":
+                    return this.askDateTime();
 
-                case "confirm_booking":
-                    return this.handleBookingConfirmation(params);
+                case "selectProvider":
+                    return this.selectProvider(params.providerNumber);
+
+                case "confirmBooking":
+                    return this.confirmBooking(params);
 
                 default:
                     throw new Error(`Unsupported tool: ${name}`);
@@ -137,48 +98,70 @@ Key behaviors:
         }
     }
 
+    async askServiceType() {
+        this.currentStep = "askServiceType";
+        return {
+            type: "ASK_SERVICE_TYPE",
+            data: "What type of service do you need? (e.g., cleaning, repairs, maintenance)"
+        };
+    }
+
+    async askLocationPreference() {
+        this.currentStep = "askLocationPreference";
+        const savedLocation = await this.accountManager.getSavedLocation(this.userId);
+        if (savedLocation) {
+            return {
+                type: "ASK_LOCATION_PREFERENCE",
+                data: `Would you like to use your saved location?\n📍 ${savedLocation.address}\n\nType **YES** to use this location or **NO** to provide a new one.`
+            };
+        }
+        return {
+            type: "ASK_NEW_LOCATION",
+            data: "Where is the service needed? Please provide the full address (e.g., 123 Main St, City, Country)."
+        };
+    }
+
     async handleLocationSelection(params) {
         let location;
         if (params.useSavedLocation) {
             const user = await mongoose.model('User').findById(this.userId);
             if (!user?.address?.coordinates) throw new Error("No saved location found");
-            location = user.address;
+            location = {
+                address: user.address.physicalAddress,
+                coordinates: [
+                    parseFloat(user.address.coordinates.longitude), // Convert to number
+                    parseFloat(user.address.coordinates.latitude)  // Convert to number
+                ],
+                city: user.address.city
+            };
         } else {
             if (!params.newAddress) throw new Error("Please provide a valid address.");
             location = await geocodeAddress(params.newAddress);
         }
 
         this.bookingContext.location = location;
-        const providers = await this.serviceManager.findNearbyProviders(
-            location.coordinates,
-            this.bookingContext.serviceType
-        );
-
-        if (providers.length === 0) {
-            return {
-                type: "NO_PROVIDERS",
-                data: "No available providers in your area. Try expanding search radius?"
-            };
-        }
-
-        this.bookingContext.providers = providers;
+        this.currentStep = "askDateTime";
         return {
-            type: "PROVIDER_LIST",
-            data: providers.map((p, i) => ({
-                number: i + 1,
-                name: `${p.firstName} ${p.lastName}`,
-                rating: p.rating,
-                jobsCompleted: p.completedJobs
-            }))
+            type: "ASK_DATE_TIME",
+            data: "When do you need the service? (e.g., today, tomorrow, 2025-07-15) and what time? (e.g., 10 AM, 2 PM)"
         };
     }
 
-    async handleProviderSelection(providerNumber) {
+    async askDateTime() {
+        this.currentStep = "askDateTime";
+        return {
+            type: "ASK_DATE_TIME",
+            data: "When do you need the service? (e.g., today, tomorrow, 2025-07-15) and what time? (e.g., 10 AM, 2 PM)"
+        };
+    }
+
+    async selectProvider(providerNumber) {
         if (!this.bookingContext.providers) throw new Error("No providers loaded");
         const provider = this.bookingContext.providers[providerNumber - 1];
         if (!provider) throw new Error("Invalid selection");
 
         this.bookingContext.selectedProvider = provider._id;
+        this.currentStep = "confirmBooking";
         return {
             type: "PROVIDER_CONFIRMATION",
             data: {
@@ -189,7 +172,7 @@ Key behaviors:
         };
     }
 
-    async handleBookingConfirmation(params) {
+    async confirmBooking(params) {
         const { serviceType, date, time, location, providerId } = params;
         const booking = await this.serviceManager.createBooking({
             serviceType,
@@ -199,6 +182,7 @@ Key behaviors:
             providerId
         });
 
+        this.currentStep = "completed";
         return {
             type: "BOOKING_CONFIRMED",
             data: {
@@ -217,10 +201,17 @@ Key behaviors:
             if (result.error) return `⚠️ Error: ${result.error}`;
 
             switch (result.type) {
-                case "PROVIDER_LIST":
-                    return `Available providers near you:\n${result.data.map(p =>
-                        `${p.number}. ${p.name} ⭐ ${p.rating} (${p.jobsCompleted} jobs)`
-                    ).join('\n')}\n\nReply with the provider number to select.`;
+                case "ASK_SERVICE_TYPE":
+                    return `What type of service do you need? (e.g., cleaning, repairs, maintenance)`;
+
+                case "ASK_LOCATION_PREFERENCE":
+                    return result.data;
+
+                case "ASK_NEW_LOCATION":
+                    return result.data;
+
+                case "ASK_DATE_TIME":
+                    return result.data;
 
                 case "PROVIDER_CONFIRMATION":
                     return `✅ Selected provider: ${result.data.name}\n` +
@@ -236,9 +227,6 @@ Key behaviors:
                         `• Location: ${result.data.location}\n` +
                         `• Provider: ${result.data.provider}\n\n` +
                         `You'll receive a confirmation SMS with details.`;
-
-                case "NO_PROVIDERS":
-                    return `⚠️ ${result.data}`;
 
                 default:
                     return JSON.stringify(result.data);
