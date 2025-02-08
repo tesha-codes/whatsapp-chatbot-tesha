@@ -23,9 +23,7 @@ const ProviderGenerator = {
             const lastName = sampleLastNames[Math.floor(Math.random() * sampleLastNames.length)];
             const city = sampleCities[Math.floor(Math.random() * sampleCities.length)];
             const description = sampleDescriptions[Math.floor(Math.random() * sampleDescriptions.length)];
-            const rating = parseFloat((Math.random() * 4 + 1).toFixed(1)); // rating between 1.0 and 5.0
-
-            // Use the provided serviceId if available; otherwise assign a new ObjectId.
+            const rating = parseFloat((Math.random() * 4 + 1).toFixed(1)); 
             const service = serviceId ? serviceId : new mongoose.Types.ObjectId();
 
             // Create a new provider using the ServiceProvider schema.
@@ -37,7 +35,7 @@ const ProviderGenerator = {
                 rating,
                 service,
                 // For user and category, generate dummy ObjectIds (or adjust as needed).
-                user: new mongoose.Types.ObjectId(),
+                user: new mongoose.Types.ObjectId("67a3f7ca478cc685f7a4bf0d"),
                 category: new mongoose.Types.ObjectId(),
                 isProfileCompleted: true
             });

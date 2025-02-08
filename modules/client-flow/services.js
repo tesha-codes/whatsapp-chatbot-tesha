@@ -19,8 +19,10 @@ class ServiceManager {
 
             if (providers.length === 0) {
                 console.log("No providers found, generating sample data...");
-                await ProviderGenerator.createProviders(5);
+                // Call the generator function here.
+                await ProviderGenerator.createProviders(5, serviceType);
 
+                // Re-run the query after generating sample providers.
                 providers = await ServiceProvider.find({
                     service: serviceType
                 })
@@ -36,6 +38,7 @@ class ServiceManager {
             throw error;
         }
     }
+
 
     async getProviderDetails(providerId) {
         try {
