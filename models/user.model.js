@@ -35,7 +35,16 @@ const UserSchema = new mongoose.Schema(
         type: String,
       },
       coordinates: {
-        type: Object,
+        
+        type: {
+          type: String,
+          enum: ['Point'],
+          default: 'Point'
+        },
+        coordinates: {
+          type: [Number],  
+          required: true
+        }
       },
     },
     verified: {
@@ -74,7 +83,8 @@ const UserSchema = new mongoose.Schema(
 
 UserSchema.index({
   phone: 1,
-  termsAndConditionsAccepted: 1
+  termsAndConditionsAccepted: 1,
+  "address.coordinates": "2dsphere"
 });
 
 module.exports = mongoose.model("User", UserSchema);
