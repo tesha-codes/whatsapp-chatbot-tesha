@@ -2,12 +2,8 @@ const { StatusCodes } = require("http-status-codes");
 const { formatDateTime } = require("../../utils/dateUtil");
 const { setSession } = require("../../utils/redis");
 const { updateUser, getUser } = require("../../controllers/user.controllers");
-const { uploadToS3 } = require("../../utils/uploadToS3");
-const {
-    sendMediaImageMessage,
-    clientMainMenuTemplate
-} = require("../../services/whatsappService");
-const ClientChatHandler = require("./client-chat-handler"); // Import the new ClientChatHandler
+const { sendMediaImageMessage } = require("../../services/whatsappService");
+const ClientChatHandler = require("./chat");
 
 class Client {
     constructor(res, userResponse, session, user, steps, messages) {
@@ -29,44 +25,35 @@ class Client {
     }
 
     async mainEntry() {
-        const {
-            res,
-            session,
-            user,
-            steps,
-            messages,
-            lActivity,
-            phone,
-            username,
-            message,
-        } = this;
-
         try {
-            switch (session.step) {
-                case steps.SETUP_CLIENT_PROFILE:
+            switch (this.session.step) {
+                case this.steps.SETUP_CLIENT_PROFILE:
                     return this.handlePromptAccount();
-                case steps.COLLECT_CLIENT_FULL_NAME:
+                case this.steps.COLLECT_CLIENT_FULL_NAME:
                     return this.handleCollectFullName();
-                case steps.COLLECT_CLIENT_NATIONAL_ID:
+                case this.steps.COLLECT_CLIENT_NATIONAL_ID:
                     return this.handleCollectNationalId();
-                case steps.COLLECT_CLIENT_ID_IMAGE:
+                case this.steps.COLLECT_CLIENT_ID_IMAGE:
                     return this.handleCollectIdImage();
-                case steps.COLLECT_CLIENT_ADDRESS:
+                case this.steps.COLLECT_CLIENT_ADDRESS:
                     return this.handleCollectAddress();
-                case steps.COLLECT_CLIENT_LOCATION:
+                case this.steps.COLLECT_CLIENT_LOCATION:
                     return this.handleCollectLocation();
-                case steps.CLIENT_REGISTRATION_COMPLETE:
+                case this.steps.CLIENT_REGISTRATION_COMPLETE:
                     return this.handleRegistrationComplete();
-                case steps.CLIENT_MAIN_MENU:
+
+                // AI-Powered Main Menu
+                case this.steps.CLIENT_MAIN_MENU:
                     return this.handleClientMainMenu();
+
                 default:
-                    return res
+                    return this.res
                         .status(StatusCodes.ACCEPTED)
                         .send(this.messages.DEV_IN_PROGRESS);
             }
         } catch (error) {
-            console.error("Error in Client mainEntry:", error);
-            return res
+            console.error("Client processing error:", error);
+            return this.res
                 .status(StatusCodes.ACCEPTED)
                 .send("An error occurred. Please try again later.");
         }
@@ -93,7 +80,6 @@ class Client {
                 );
         }
     }
-
     async handleCollectFullName() {
         if (this.message.toString().length > 16) {
             return this.res
@@ -219,7 +205,6 @@ You're all set! If you need any further assistance, feel free to reach out. 😊
     }
 
     async handleRegistrationComplete() {
-        // Additional logic after registration completion
         clientMainMenuTemplate(this.phone, (await getUser(this.phone)).firstName),
             setSession(this.phone, {
                 step: this.steps.CLIENT_MAIN_MENU,
@@ -230,9 +215,22 @@ You're all set! If you need any further assistance, feel free to reach out. 😊
     }
 
     async handleClientMainMenu() {
-        const chatHandler = new ClientChatHandler(this.phone, this.user._id);
-        const response = await chatHandler.processMessage(this.message);
-        return this.res.status(StatusCodes.OK).send(response);
+        try {
+            const chatHandler = new ClientChatHandler(this.phone, this.user._id);
+            const response = await chatHandler.processMessage(this.message);
+
+            await setSession(this.phone, {
+                ...this.session,
+                lActivity: this.lActivity
+            });
+
+            return this.res.status(StatusCodes.OK).send(response);
+        } catch (error) {
+            console.error("AI Conversation Error:", error);
+            return this.res.status(StatusCodes.OK).send(
+                "⚠️ Sorry, I'm having trouble processing your request. Please try again."
+            );
+        }
     }
 }
 
