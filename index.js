@@ -80,8 +80,13 @@ const steps = {
 
 app.use(morgan("combined"));
 app.use(bodyParser.urlencoded({ extended: false }));
-app.use(express.json());
-
+// Add to your Express config
+app.use(express.json({
+  verify: (req, res, buf) => {
+    req.rawBody = buf.toString();
+  },
+  limit: '10kb'
+}));
 // Express adapter for BullBoard
 const serverAdapter = new ExpressAdapter();
 

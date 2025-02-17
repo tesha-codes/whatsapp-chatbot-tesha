@@ -1,228 +1,263 @@
-const openai = require('./../../config/openai')
-const { StatusCodes } = require("http-status-codes");
-const ClientTools = require("./tools");
-const { getBookings, createServiceRequest } = require("../../controllers/request.controller");
-const { updateUser, deleteUser } = require("../../controllers/user.controllers");
+const openai = require('../../config/openai');
+const { StatusCodes } = require('http-status-codes');
+const ClientTools = require('./tools');
+const { createServiceRequest, getBookings } = require('../../controllers/booking.controller');
+const { updateUser, deleteUser } = require('../../controllers/user.controllers');
+const ChatHistoryManager = require('../../utils/chatHistory');
+const CHAT_TEMPLATES = require('./chatFlows');
 
 class ClientChatHandler {
     constructor(phone, userId, session) {
         this.phone = phone;
         this.userId = userId;
         this.session = session;
-        this.openai = openai
+        this.openai = openai;
         this.tools = ClientTools;
+        this.bookingFlowSteps = {
+            INIT: 0,
+            SERVICE_TYPE: 1,
+            SERVICE_DETAILS: 2,
+            LOCATION: 3,
+            CONFIRMATION: 4
+        };
     }
 
     async processMessage(message) {
         try {
-            const runner = this.openai.beta.chat.completions.runTools({
-                model: "gpt-4-1106-preview",
-                messages: [{
-                    role: "system",
-                    content: `You are a service request assistant. Current user: ${this.userId}. ` +
-                        "Handle: service creation (category must match exactly), profile updates, " +
-                        "booking views, and account deletion. Be concise and professional."
-                }, {
-                    role: "user",
-                    content: message
-                }],
-                tools: this.tools,
-                tool_choice: "auto"
-            });
-
-            let finalResponse = null;
-
-            for await (const step of runner) {
-                if (step.event === "toolCall") {
-                    const toolCall = step.data;
-                    try {
-                        // Fix: Parse arguments properly
-                        const args = JSON.parse(toolCall.function.arguments); // 🚨 Was missing!
-
-                        switch (toolCall.function.name) {
-                            case 'create_service_request':
-                                response = await this.handleCreateServiceRequest(args);
-                                break;
-                            case 'view_booking_requests':
-                                response = await this.handleViewBookings(args);
-                                break;
-                            case 'update_client_profile':
-                                response = await this.handleProfileUpdate(args);
-                                break;
-                            case 'delete_client_account':
-                                response = await this.handleAccountDeletion(args);
-                                break;
-                        }
-                    } catch (error) {
-                        console.error(`Tool ${toolCall.function.name} error:`, error);
-                        response = this._formatError("Invalid request format");
-                    }
-                }
-            }
-            return finalResponse || this._formatResponse(
-                StatusCodes.OK,
-                await runner.finalContent(),
-                null
-            );
-
-        } catch (error) {
-            console.error("Chat processing error:", error);
-            return this._formatError("Internal server error");
-        }
-    }
-
-    async handleCreateServiceRequest(args) {
-        try {
-            if (!args.service_description || args.service_description.length < 10) {
-                return this._formatError(
-                    "Service description must be at least 10 characters",
-                    StatusCodes.BAD_REQUEST
-                );
-            }
-
-            if (!ClientTools[0].function.parameters.properties.category.enum.includes(args.category)) {
-                return this._formatError(
-                    "Invalid service category. Please choose from: " +
-                    ClientTools[0].function.parameters.properties.category.enum.join(", "),
-                    StatusCodes.BAD_REQUEST
-                );
-            }
-
-            const booking = await createServiceRequest({
-                userId: this.userId,
-                description: args.service_description,
-                category: args.category
-            });
-
-            return this._formatResponse(
-                StatusCodes.CREATED,
-                "Service request created successfully! 🎉",
+            const chatHistory = await ChatHistoryManager.get(this.phone);
+            const messages = [
                 {
-                    bookingId: booking._id,
-                    status: booking.status,
-                    category: booking.category
+                    role: 'system',
+                    content: `You are Tesha, a friendly WhatsApp assistant helping clients book home services. 
+          Current session step: ${this.session.step || 'main_menu'}. 
+          User ID: ${this.userId}. Follow these rules:
+          
+          1. Guide users through booking process: Service Type → Details → Location → Confirmation
+          2. Handle profile updates and booking inquiries
+          3. Use emojis sparingly for better readability
+          4. Never discuss pricing/payments directly - redirect to billing portal
+          5. Maintain professional yet approachable tone`
+                },
+                ...chatHistory,
+                { role: 'user', content: message }
+            ];
+
+            const runner = this.openai.beta.chat.completions.runTools({
+                model: 'gpt-4-turbo',
+                messages,
+                tools: this.tools,
+                tool_choice: 'auto'
+            });
+
+            let finalResponse = '';
+            const toolResults = [];
+
+            for await (const event of runner) {
+                switch (event.event) {
+                    case 'toolCall':
+                        const toolCall = event.data;
+                        try {
+                            const result = await this.handleToolCall(toolCall);
+                            toolResults.push(result);
+                            messages.push({
+                                role: 'tool',
+                                content: JSON.stringify(result),
+                                tool_call_id: toolCall.id
+                            });
+                        } catch (error) {
+                            console.error('Tool call failed:', error);
+                            toolResults.push({ error: error.message });
+                        }
+                        break;
+
+                    case 'message':
+                        finalResponse = event.data.content;
+                        break;
+
+                    case 'error':
+                        throw event.data;
                 }
-            );
+            }
+
+            await ChatHistoryManager.append(this.phone, message, finalResponse);
+
+            return toolResults.length > 0
+                ? this.formatToolResults(toolResults)
+                : finalResponse || CHAT_TEMPLATES.ERROR_MESSAGE;
 
         } catch (error) {
-            console.error("Service request error:", error);
-            return this._formatError("Failed to create service request");
+            console.error('Chat processing error:', error);
+            return CHAT_TEMPLATES.ERROR_MESSAGE;
         }
     }
 
-    async handleViewBookings(args) {
-        try {
-            const validStatuses = ClientTools[1].function.parameters.properties.status.enum;
-            const statusFilter = validStatuses.includes(args?.status) ? args.status : undefined;
+    async handleToolCall(toolCall) {
+        const { name, arguments: args } = toolCall.function;
+        const params = JSON.parse(args);
 
-            const bookings = await getBookings(this.userId, statusFilter);
+        switch (name) {
+            case 'create_service_request':
+                return this.handleServiceBooking(params);
 
-            return this._formatResponse(
-                StatusCodes.OK,
-                bookings.length ? "Your bookings:" : "No bookings found",
-                bookings.map(b => ({
-                    id: b._id,
-                    description: b.description,
-                    status: b.status,
-                    created: b.createdAt
-                }))
-            );
+            case 'view_booking_requests':
+                return this.handleViewBookings(params);
 
-        } catch (error) {
-            console.error("Booking retrieval error:", error);
-            return this._formatError("Failed to retrieve bookings");
+            case 'update_client_profile':
+                return this.handleProfileUpdate(params);
+
+            case 'delete_client_account':
+                return this.handleAccountDeletion(params);
+
+            default:
+                throw new Error(`Unsupported tool: ${name}`);
         }
     }
 
-    async handleProfileUpdate(args) {
-        try {
-            const allowedFields = ClientTools[2].function.parameters.properties.field.enum;
+    async handleServiceBooking(params) {
+        // Multi-step booking flow handling
+        if (!this.session.bookingState) {
+            this.session.bookingState = {
+                step: this.bookingFlowSteps.INIT,
+                serviceType: null,
+                details: null,
+                location: null
+            };
+        }
 
-            if (!allowedFields.includes(args.field)) {
-                return this._formatError(
-                    `Invalid field. Allowed fields: ${allowedFields.join(", ")}`,
-                    StatusCodes.BAD_REQUEST
-                );
-            }
+        const currentStep = this.session.bookingState.step;
 
-            if (args.value.length > 100) {
-                return this._formatError(
-                    "Field value too long (max 100 characters)",
-                    StatusCodes.BAD_REQUEST
-                );
-            }
+        switch (currentStep) {
+            case this.bookingFlowSteps.INIT:
+                return this.initiateBookingFlow(params);
 
-            await updateUser(
-                { _id: this.userId },
-                { [args.field]: args.value }
-            );
+            case this.bookingFlowSteps.SERVICE_TYPE:
+                return this.handleServiceType(params);
 
-            return this._formatResponse(
-                StatusCodes.OK,
-                "Profile updated successfully! ✅",
-                { [args.field]: args.value }
-            );
+            case this.bookingFlowSteps.SERVICE_DETAILS:
+                return this.handleServiceDetails(params);
 
-        } catch (error) {
-            console.error("Profile update error:", error);
-            return this._formatError("Failed to update profile");
+            case this.bookingFlowSteps.LOCATION:
+                return this.handleLocation(params);
+
+            case this.bookingFlowSteps.CONFIRMATION:
+                return this.handleConfirmation(params);
+
+            default:
+                throw new Error('Invalid booking flow state');
         }
     }
 
-    async handleAccountDeletion(args) {
-        try {
-            if (!this.session.confirmingDeletion) {
-                // First step - request confirmation
-                await setSession(this.phone, {
-                    ...this.session,
-                    confirmingDeletion: true
-                });
-                return this._formatResponse(
-                    StatusCodes.OK,
-                    "⚠️ Are you sure you want to delete your account? This cannot be undone. " +
-                    "Please confirm by typing 'CONFIRM DELETE ACCOUNT'."
-                );
-            }
-
-            if (!args.confirmation || args.reason?.length < 10) {
-                await setSession(this.phone, {
-                    ...this.session,
-                    confirmingDeletion: false
-                });
-                return this._formatError(
-                    "Deletion cancelled. Reason must be at least 10 characters.",
-                    StatusCodes.BAD_REQUEST
-                );
-            }
-
-            await deleteUser(this.userId);
-            return this._formatResponse(
-                StatusCodes.OK,
-                "Account deleted successfully. We're sorry to see you go 😢",
-                { reason: args.reason }
-            );
-
-        } catch (error) {
-            console.error("Account deletion error:", error);
-            return this._formatError("Failed to delete account");
+    async initiateBookingFlow(params) {
+        if (!params.service_type) {
+            return {
+                type: 'SERVICE_TYPE_REQUEST',
+                data: CHAT_TEMPLATES.SERVICE_TYPE_PROMPT
+            };
         }
-    }
 
-    _formatResponse(status, message, data) {
+        this.session.bookingState.serviceType = params.service_type;
+        this.session.bookingState.step = this.bookingFlowSteps.SERVICE_DETAILS;
+
         return {
-            status,
-            message,
-            data,
-            timestamp: new Date().toISOString()
+            type: 'SERVICE_DETAILS_REQUEST',
+            data: CHAT_TEMPLATES.SERVICE_DETAILS_PROMPT(params.service_type)
         };
     }
 
-    _formatError(errorMessage, status = StatusCodes.INTERNAL_SERVER_ERROR) {
-        return this._formatResponse(
-            status,
-            `⚠️ Error: ${errorMessage}`,
-            null
-        );
+    async handleServiceType(params) {
+        // Validation and transition logic
+        const validServices = ['maid', 'handyman', 'plumbing', 'electrical'];
+        if (!validServices.includes(params.service_type.toLowerCase())) {
+            throw new Error('Invalid service type selected');
+        }
+
+        this.session.bookingState.serviceType = params.service_type;
+        this.session.bookingState.step = this.bookingFlowSteps.SERVICE_DETAILS;
+
+        return {
+            type: 'SERVICE_DETAILS_REQUEST',
+            data: CHAT_TEMPLATES.SERVICE_DETAILS_PROMPT(params.service_type)
+        };
+    }
+
+    async handleServiceDetails(params) {
+        // Validate service details
+        if (!params.description || params.description.length < 20) {
+            throw new Error('Description must be at least 20 characters');
+        }
+
+        this.session.bookingState.details = params.description;
+        this.session.bookingState.step = this.bookingFlowSteps.LOCATION;
+
+        return {
+            type: 'LOCATION_REQUEST',
+            data: CHAT_TEMPLATES.LOCATION_PROMPT
+        };
+    }
+
+    async handleLocation(params) {
+        // Validate location data
+        if (!params.coordinates || !params.address) {
+            throw new Error('Invalid location data provided');
+        }
+
+        this.session.bookingState.location = {
+            coordinates: params.coordinates,
+            address: params.address
+        };
+        this.session.bookingState.step = this.bookingFlowSteps.CONFIRMATION;
+
+        return {
+            type: 'CONFIRMATION_REQUEST',
+            data: CHAT_TEMPLATES.BOOKING_CONFIRMATION(this.session.bookingState)
+        };
+    }
+
+    async handleConfirmation(params) {
+        if (!params.confirmation) {
+            this.session.bookingState = null;
+            return { type: 'BOOKING_CANCELLED', data: CHAT_TEMPLATES.BOOKING_CANCELLED };
+        }
+
+        const booking = await createServiceRequest({
+            userId: this.userId,
+            serviceType: this.session.bookingState.serviceType,
+            description: this.session.bookingState.details,
+            location: this.session.bookingState.location
+        });
+
+        this.session.bookingState = null;
+
+        return {
+            type: 'BOOKING_CREATED',
+            data: CHAT_TEMPLATES.BOOKING_CONFIRMED(booking)
+        };
+    }
+
+    formatToolResults(results) {
+        return results.map(result => {
+            if (result.error) return `❌ Error: ${result.error}`;
+
+            switch (result.type) {
+                case 'BOOKING_CREATED':
+                    return result.data;
+
+                case 'SERVICE_TYPE_REQUEST':
+                case 'SERVICE_DETAILS_REQUEST':
+                case 'LOCATION_REQUEST':
+                case 'CONFIRMATION_REQUEST':
+                    return result.data;
+
+                case 'BOOKING_LIST':
+                    return CHAT_TEMPLATES.BOOKING_LIST(result.data);
+
+                case 'PROFILE_UPDATE':
+                    return CHAT_TEMPLATES.PROFILE_UPDATED(result.data);
+
+                default:
+                    return '✅ Request processed successfully';
+            }
+        }).join('\n\n');
     }
 }
 
