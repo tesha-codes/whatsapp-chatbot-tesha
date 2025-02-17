@@ -1,24 +1,35 @@
-const tools = [
+module.exports = [
     {
         type: "function",
         function: {
             name: "create_service_request",
-            description: "Create a new service request with detailed requirements",
-            strict: true,
+            description: "Initiate service booking process",
             parameters: {
                 type: "object",
                 properties: {
-                    service_description: {
+                    service_type: {
                         type: "string",
-                        description: "Detailed description of the required service"
+                        enum: ["cleaning", "handyman", "childcare", "moving"],
+                        description: "Type of service requested"
                     },
-                    category: {
+                    description: {
                         type: "string",
-                        enum: ["Plumbing", "Electrical", "Cleaning", "Repairs", "Other"],
-                        description: "Category of the service needed"
+                        description: "Detailed service requirements"
+                    },
+                    coordinates: {
+                        type: "object",
+                        description: "Location coordinates"
+                    },
+                    address: {
+                        type: "string",
+                        description: "Physical service address"
+                    },
+                    confirmation: {
+                        type: "boolean",
+                        description: "Booking confirmation"
                     }
                 },
-                required: ["service_description", "category"], // ✅ Correct
+                required: [],
                 additionalProperties: false
             }
         }
@@ -27,12 +38,16 @@ const tools = [
         type: "function",
         function: {
             name: "view_booking_requests",
-            description: "View all service requests and their current statuses",
-            strict: true,
+            description: "View client service bookings",
             parameters: {
                 type: "object",
-                properties: {}, // No parameters needed
-                required: [], // ✅ Correct for optional filter
+                properties: {
+                    status: {
+                        type: "string",
+                        enum: ["pending", "confirmed", "completed", "cancelled"]
+                    }
+                },
+                required: [],
                 additionalProperties: false
             }
         }
@@ -41,22 +56,19 @@ const tools = [
         type: "function",
         function: {
             name: "update_client_profile",
-            description: "Update client's profile information",
-            strict: true,
+            description: "Update client profile information",
             parameters: {
                 type: "object",
                 properties: {
                     field: {
                         type: "string",
-                        enum: ["firstName", "lastName", "address.physicalAddress"],
-                        description: "Field to update"
+                        enum: ["firstName", "lastName", "address"]
                     },
                     value: {
-                        type: "string",
-                        description: "New value for the field"
+                        type: "string"
                     }
                 },
-                required: ["field", "value"], // ✅ Correct
+                required: ["field", "value"],
                 additionalProperties: false
             }
         }
@@ -65,21 +77,18 @@ const tools = [
         type: "function",
         function: {
             name: "delete_client_account",
-            description: "Permanently delete client account",
-            strict: true,
+            description: "Delete client account",
             parameters: {
                 type: "object",
                 properties: {
-                    reason: {
-                        type: "string",
-                        description: "Reason for deletion (minimum 10 characters)"
-                    },
                     confirmation: {
-                        type: "boolean",
-                        description: "Final confirmation of deletion"
+                        type: "boolean"
+                    },
+                    reason: {
+                        type: "string"
                     }
                 },
-                required: ["reason", "confirmation"], // ✅ Correct
+                required: ["confirmation"],
                 additionalProperties: false
             }
         }
