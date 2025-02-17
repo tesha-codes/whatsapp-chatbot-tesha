@@ -1,6 +1,6 @@
 const Request = require('./../models/request.model');
 const mongoose = require('mongoose')
-const ServiceRequest = require('../models/serviceRequest.model');
+const ServiceRequest = require('../models/request.model');
 const Service = require('../models/services.model');
 const User = require('../models/user.model');
 const { v4: uuidv4 } = require('uuid');
