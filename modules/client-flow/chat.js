@@ -1,4 +1,4 @@
-const { OpenAI } = require("openai");
+const openai = require('./../../config/openai')
 const { StatusCodes } = require("http-status-codes");
 const ClientTools = require("./tools");
 const { getBookings, createServiceRequest } = require("../../controllers/request.controller");
@@ -9,7 +9,7 @@ class ClientChatHandler {
         this.phone = phone;
         this.userId = userId;
         this.session = session;
-        this.openai = new OpenAI(process.env.OPENAI_API_KEY);
+        this.openai = openai
         this.tools = ClientTools;
     }
 

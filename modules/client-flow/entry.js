@@ -215,28 +215,43 @@ You're all set! If you need any further assistance, feel free to reach out. 😊
     }
 
     async handleClientMainMenu() {
+        const req = this.res.req; 
+        let responseSent = false;
+
+        req.on('aborted', () => {
+            if (!responseSent) {
+                console.warn(`Request aborted for phone: ${this.phone}`);
+            }
+        });
+
         try {
-            // Fix: Pass session to chat handler
             const chatHandler = new ClientChatHandler(
                 this.phone,
                 this.user._id,
-                this.session // 🚨 Was missing session state!
+                this.session
             );
 
-            // Fix: Handle structured responses
-            const response = await chatHandler.processMessage(this.message);
+            const timeoutPromise = new Promise((_, reject) => {
+                setTimeout(() => {
+                    reject(new Error("Processing timeout"));
+                }, 10000); 
+            });
 
-            if (response?.statusCode) {
-                return this.res.status(response.statusCode).send(response.message);
-            }
+            const response = await Promise.race([
+                chatHandler.processMessage(this.message),
+                timeoutPromise
+            ]);
 
+            responseSent = true;
             return this.res.status(StatusCodes.OK).send(response);
 
         } catch (error) {
-            console.error("Main menu error:", error);
-            return this.res.status(StatusCodes.INTERNAL_SERVER_ERROR).send(
-                "⚠️ Something went wrong. Our team has been notified."
-            );
+            if (!responseSent) {
+                console.error(`Error for ${this.phone}:`, error);
+                return this.res.status(StatusCodes.INTERNAL_SERVER_ERROR).send(
+                    "⚠️ Your request took too long. Please try again."
+                );
+            }
         }
     }
 }
