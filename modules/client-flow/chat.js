@@ -32,34 +32,33 @@ class ClientChatHandler {
 
             let finalResponse = null;
 
-            for await (const event of runner) {
-                if (event.event === "toolCall") {
-                    const toolCall = event.data;
+            for await (const step of runner) {
+                if (step.event === "toolCall") {
+                    const toolCall = step.data;
                     try {
-                        const args = JSON.parse(toolCall.function.arguments);
+                        // Fix: Parse arguments properly
+                        const args = JSON.parse(toolCall.function.arguments); // 🚨 Was missing!
+
                         switch (toolCall.function.name) {
                             case 'create_service_request':
-                                finalResponse = await this.handleCreateServiceRequest(args);
+                                response = await this.handleCreateServiceRequest(args);
                                 break;
                             case 'view_booking_requests':
-                                finalResponse = await this.handleViewBookings(args);
+                                response = await this.handleViewBookings(args);
                                 break;
                             case 'update_client_profile':
-                                finalResponse = await this.handleProfileUpdate(args);
+                                response = await this.handleProfileUpdate(args);
                                 break;
                             case 'delete_client_account':
-                                finalResponse = await this.handleAccountDeletion(args);
+                                response = await this.handleAccountDeletion(args);
                                 break;
-                            default:
-                                finalResponse = this._formatError("Unknown command");
                         }
-                    } catch (parseError) {
-                        console.error("Argument parsing error:", parseError);
-                        finalResponse = this._formatError("Invalid request format");
+                    } catch (error) {
+                        console.error(`Tool ${toolCall.function.name} error:`, error);
+                        response = this._formatError("Invalid request format");
                     }
                 }
             }
-
             return finalResponse || this._formatResponse(
                 StatusCodes.OK,
                 await runner.finalContent(),

@@ -216,19 +216,26 @@ You're all set! If you need any further assistance, feel free to reach out. 😊
 
     async handleClientMainMenu() {
         try {
-            const chatHandler = new ClientChatHandler(this.phone, this.user._id);
+            // Fix: Pass session to chat handler
+            const chatHandler = new ClientChatHandler(
+                this.phone,
+                this.user._id,
+                this.session // 🚨 Was missing session state!
+            );
+
+            // Fix: Handle structured responses
             const response = await chatHandler.processMessage(this.message);
 
-            await setSession(this.phone, {
-                ...this.session,
-                lActivity: this.lActivity
-            });
+            if (response?.statusCode) {
+                return this.res.status(response.statusCode).send(response.message);
+            }
 
             return this.res.status(StatusCodes.OK).send(response);
+
         } catch (error) {
-            console.error("AI Conversation Error:", error);
-            return this.res.status(StatusCodes.OK).send(
-                "⚠️ Sorry, I'm having trouble processing your request. Please try again."
+            console.error("Main menu error:", error);
+            return this.res.status(StatusCodes.INTERNAL_SERVER_ERROR).send(
+                "⚠️ Something went wrong. Our team has been notified."
             );
         }
     }

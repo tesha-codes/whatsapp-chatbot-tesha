@@ -18,7 +18,7 @@ const tools = [
                         description: "Category of the service needed"
                     }
                 },
-                required: ["service_description", "category"],
+                required: ["service_description", "category"], // ✅ Correct
                 additionalProperties: false
             }
         }
@@ -31,14 +31,8 @@ const tools = [
             strict: true,
             parameters: {
                 type: "object",
-                properties: {
-                    status: {
-                        type: "string",
-                        enum: ["Pending", "In-Progress", "Completed", "Cancelled"],
-                        description: "Filter requests by status"
-                    }
-                },
-                required: [],
+                properties: {}, // No parameters needed
+                required: [], // ✅ Correct for optional filter
                 additionalProperties: false
             }
         }
@@ -62,7 +56,7 @@ const tools = [
                         description: "New value for the field"
                     }
                 },
-                required: ["field", "value"],
+                required: ["field", "value"], // ✅ Correct
                 additionalProperties: false
             }
         }
@@ -85,11 +79,9 @@ const tools = [
                         description: "Final confirmation of deletion"
                     }
                 },
-                required: ["reason", "confirmation"],
+                required: ["reason", "confirmation"], // ✅ Correct
                 additionalProperties: false
             }
         }
     }
 ];
-
-module.exports = tools;
