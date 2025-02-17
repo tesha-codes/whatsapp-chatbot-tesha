@@ -1,7 +1,7 @@
 const { OpenAI } = require("openai");
 const { StatusCodes } = require("http-status-codes");
 const ClientTools = require("./tools");
-const { getBookings, createServiceRequest } = require("../../controllers/booking.controller");
+const { getBookings, createServiceRequest } = require("../../controllers/");
 const { updateUser, deleteUser } = require("../../controllers/user.controllers");
 
 class ClientChatHandler {
