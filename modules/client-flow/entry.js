@@ -2,7 +2,7 @@ const { StatusCodes } = require("http-status-codes");
 const { formatDateTime } = require("../../utils/dateUtil");
 const { setSession } = require("../../utils/redis");
 const { updateUser, getUser } = require("../../controllers/user.controllers");
-const { sendMediaImageMessage } = require("../../services/whatsappService");
+const { sendMediaImageMessage, clientMainMenuTemplate } = require("../../services/whatsappService");
 const ClientChatHandler = require("./chat");
 
 class Client {
