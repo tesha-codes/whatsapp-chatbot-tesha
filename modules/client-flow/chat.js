@@ -5,6 +5,7 @@ const { createServiceRequest, getBookings } = require('../../controllers/request
 const { updateUser, deleteUser, getUser } = require('../../controllers/user.controllers');
 const ChatHistoryManager = require('../../utils/chatHistory');
 const CHAT_TEMPLATES = require('./chatFlows');
+const { getServiceProviders } = require("./methods")
 
 class ClientChatHandler {
     constructor(phone, userId) {
@@ -14,33 +15,38 @@ class ClientChatHandler {
     }
 
     async processMessage(message) {
-        try {
-            const chatHistory = await ChatHistoryManager.get(this.phone);
-            const messages = this.buildMessageHistory(chatHistory, message);
+        if (!this.bookingState) {
+            return this.initiateBookingFlow();
+        }
 
-            const completion = await this.createOpenAICompletion(messages);
-            const response = completion.choices[0].message;
-
-            return await this.processResponse(response, messages, message);
-
-        } catch (error) {
-            console.error('Chat processing error:', error);
-            return CHAT_TEMPLATES.ERROR_GENERIC;
+        switch (this.bookingState.step) {
+            case 'service_type':
+                return this.processServiceType(message);
+            case 'location':
+                return this.processLocation(message);
+            case 'confirmation':
+                return this.processConfirmation(message);
+            default:
+                this.bookingState = null;
+                return "I'm sorry, something went wrong. Please start over.";
         }
     }
 
-    buildMessageHistory(chatHistory, message) {
+    buildMessageHistory(message) {
         return [
             {
                 role: 'system',
-                content: `You are a client service assistant. Help users:
-        1. Book home services
-        2. Manage bookings
-        3. Update profiles
-        4. Delete accounts
-        Current booking state: ${this.bookingState ? JSON.stringify(this.bookingState) : 'none'}`
+                content: `You are ChatBuddy, a friendly WhatsApp assistant helping clients book home services. Your role is to guide users step-by-step through the booking process with clarity and warmth. 
+
+Please follow these guidelines:
+1. Greet the client warmly and use simple language.
+2. Ask for the type of service (e.g. cleaning, handyman, childcare, moving).
+3. Request location details, which can be provided as either an address or an object with "latitude" and "longitude".
+4. Present a list of nearby service providers based on the location provided.
+5. Confirm the booking when the client replies with a clear confirmation (e.g., "yes").
+
+Include one or two friendly emojis in your messages to enhance engagement.`
             },
-            ...chatHistory,
             { role: 'user', content: message }
         ];
     }
@@ -111,7 +117,6 @@ class ClientChatHandler {
     }
 
     async handleServiceRequest(params) {
-        // Multi-step booking flow implementation
         if (!this.bookingState) {
             return this.initiateBookingFlow(params);
         }
@@ -130,26 +135,22 @@ class ClientChatHandler {
         }
     }
 
-    initiateBookingFlow(params) {
+    initiateBookingFlow() {
         this.bookingState = { step: 'service_type' };
-        return {
-            type: 'SERVICE_TYPE_REQUEST',
-            data: CHAT_TEMPLATES.SERVICE_TYPE_PROMPT
-        };
+        return "👋 Hi there! What type of service do you need? (Options: cleaning, handyman, childcare, moving)";
     }
 
-    async processServiceType(params) {
-        if (!params.service_type) {
-            throw new Error('No service type provided');
+    async processServiceType(message) {
+        const serviceType = message.trim().toLowerCase();
+        const validTypes = ['cleaning', 'handyman', 'childcare', 'moving'];
+
+        if (!validTypes.includes(serviceType)) {
+            return `Hmm, I didn't quite get that. Please choose a service from: ${validTypes.join(', ')}`;
         }
 
-        this.bookingState.serviceType = params.service_type;
-        this.bookingState.step = 'service_details';
-
-        return {
-            type: 'SERVICE_DETAILS_REQUEST',
-            data: CHAT_TEMPLATES.SERVICE_DETAILS_PROMPT(params.service_type)
-        };
+        this.bookingState.serviceType = serviceType;
+        this.bookingState.step = 'location';
+        return "Great! Now, please send your service location";
     }
 
     async processServiceDetails(params) {
@@ -166,36 +167,72 @@ class ClientChatHandler {
         };
     }
 
-    async processLocation(params) {
-        if (!params.coordinates || !params.address) {
-            throw new Error('Invalid location data');
+    async processLocation(message) {
+        let location;
+        try {
+            location = JSON.parse(message);
+        } catch (err) {
+            return "Oops! The JSON format seems off. Please try again using valid JSON.";
         }
 
-        this.bookingState.location = params;
+        if (location.latitude !== undefined && location.longitude !== undefined) {
+           
+            this.bookingState.location = {
+                coordinates: { lat: location.latitude, lng: location.longitude },
+                address: location.address || "Address not provided"
+            };
+        } else if (location.address) {
+            return "To find nearby providers, please include your coordinates (latitude and longitude) along with your address.";
+        } else {
+            return "Please provide your location details with either an address or latitude and longitude.";
+        }
+
+
+        const providers = await getServiceProviders(this.bookingState.location.coordinates);
+        if (!providers || providers.length === 0) {
+            this.bookingState = null; 
+            return "Sorry, we couldn't find any service providers near your location. 😕";
+        }
+        this.bookingState.providers = providers;
         this.bookingState.step = 'confirmation';
 
-        return {
-            type: 'CONFIRMATION_REQUEST',
-            data: CHAT_TEMPLATES.BOOKING_CONFIRMATION(this.bookingState)
-        };
+        const providerList = providers
+            .map((p, i) => `${i + 1}. ${p.name} (${p.distance} km away)`)
+            .join('\n');
+
+        return `Here are some service providers near you:\n\n${providerList}\n\n` +
+            "Would you like to confirm your booking? Please reply with 'yes' to confirm or 'no' to cancel. 👍";
     }
 
-    async processConfirmation(params) {
-        if (!params.confirmation) {
+    async selectServiceProvider(params) {
+        
+    }
+
+   
+    async processConfirmation(message) {
+        const response = message.trim().toLowerCase();
+
+        if (response === 'yes' || response === 'y') {
+            const params = {
+                service_type: this.bookingState.serviceType,
+                description: `Booking request for ${this.bookingState.serviceType}`,
+                coordinates: this.bookingState.location.coordinates,
+                address: this.bookingState.location.address,
+                confirmation: true
+            };
+
+            try {
+                const booking = await createServiceRequest({ userId: this.userId, ...params });
+                this.bookingState = null;
+                return `🎉 Your booking is confirmed! Here are the details: ${JSON.stringify(booking)}`;
+            } catch (err) {
+                this.bookingState = null;
+                return `Uh-oh, there was an error creating your booking: ${err.message}`;
+            }
+        } else {
             this.bookingState = null;
-            return { type: 'BOOKING_CANCELLED', data: CHAT_TEMPLATES.BOOKING_CANCELLED };
+            return "Booking cancelled. Let us know if you need any other services. 🙂";
         }
-
-        const booking = await createServiceRequest({
-            userId: this.userId,
-            ...this.bookingState
-        });
-
-        this.bookingState = null;
-        return {
-            type: 'BOOKING_CREATED',
-            data: CHAT_TEMPLATES.BOOKING_CONFIRMED(booking)
-        };
     }
 
     async handleViewBookings(params) {

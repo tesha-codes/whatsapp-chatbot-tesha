@@ -231,12 +231,6 @@ You're all set! If you need any further assistance, feel free to reach out. 😊
                 this.session
             );
 
-            const timeoutPromise = new Promise((_, reject) => {
-                setTimeout(() => {
-                    reject(new Error("Processing timeout"));
-                }, 10000); 
-            });
-
             const response = await Promise.race([
                 chatHandler.processMessage(this.message),
                 timeoutPromise
