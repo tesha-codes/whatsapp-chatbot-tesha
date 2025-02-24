@@ -67,3 +67,5 @@ class BookingManager {
         }
     }
 }
+
+module.exports = BookingManager;
