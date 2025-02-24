@@ -66,6 +66,7 @@ class BookingManager {
             throw new Error("Failed to fetch booking history");
         }
     }
+
 }
 
 module.exports = BookingManager;

@@ -152,6 +152,19 @@ SUPPORT REDIRECT:
                             params.preferredTime
                         ),
                     };
+                
+                case "handle_provider_selection":
+                    return {
+                        type: "BOOKING_SCHEDULED",
+                        data: await this.bookingManager.scheduleBookingFromSelection(
+                            parseInt(params.selectionNumber),
+                            params.serviceType,
+                            params.date,
+                            params.time,
+                            params.location,
+                            params.description
+                        ),
+                    };
 
                 case "view_available_services":
                     return {
@@ -233,6 +246,34 @@ SUPPORT REDIRECT:
         } catch (error) {
             console.error(`Tool execution error (${name}):`, error);
             throw new Error(`Service unavailable for ${name}`);
+        }
+    }
+
+    async cheduleBookingFromSelection(selectionNumber, serviceType, date, time, location, description) {
+        try {
+            // Get the providers list first
+            const providers = await this.serviceRequestManager.getServiceProviders(serviceType, location);
+
+            // Validate the selection number
+            if (selectionNumber < 1 || selectionNumber > providers.length) {
+                throw new Error("Invalid selection number. Please choose a number from the list.");
+            }
+
+            // Get the selected provider
+            const selectedProvider = providers[selectionNumber - 1];
+
+            // Now call the original scheduling function with the provider ID
+            return this.scheduleBooking(
+                selectedProvider.id,
+                serviceType,
+                date,
+                time,
+                location,
+                description
+            );
+        } catch (error) {
+            console.error("Error scheduling booking from selection:", error);
+            throw error;
         }
     }
 

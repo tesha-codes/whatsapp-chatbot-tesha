@@ -2,35 +2,39 @@ const clientFunctions = [
     {
         type: "function",
         function: {
-            name: "request_service",
-            description: "Create a new service request for a client",
+            name: "handle_provider_selection",
+            description: "Schedule a booking using the selection number of a provider from the displayed list",
             parameters: {
                 type: "object",
                 properties: {
+                    selectionNumber: {
+                        type: "string",
+                        description: "The number selection for the provider (1, 2, 3, etc.)"
+                    },
                     serviceType: {
                         type: "string",
-                        description: "Type of service requested (e.g., plumbing, electrical, cleaning)",
+                        description: "Type of service requested"
                     },
-                    description: {
+                    date: {
                         type: "string",
-                        description: "Detailed description of the service needed",
+                        description: "Date for the service (YYYY-MM-DD)"
+                    },
+                    time: {
+                        type: "string",
+                        description: "Time for the service (HH:MM)"
                     },
                     location: {
                         type: "string",
-                        description: "Address or location where the service is needed",
+                        description: "Location where service is needed"
                     },
-                    preferredDate: {
+                    description: {
                         type: "string",
-                        description: "Preferred date for the service (YYYY-MM-DD format)",
-                    },
-                    preferredTime: {
-                        type: "string",
-                        description: "Preferred time for the service (HH:MM format)",
-                    },
+                        description: "Description of what needs to be done"
+                    }
                 },
-                required: ["serviceType", "description", "location"],
-            },
-        },
+                required: ["selectionNumber", "serviceType", "date", "time", "location"]
+            }
+        }
     },
     {
         type: "function",

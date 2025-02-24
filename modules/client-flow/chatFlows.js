@@ -2,18 +2,6 @@
 const CLIENT_CHAT_TEMPLATES = {
   ERROR_MESSAGE: "🚫 I'm sorry, but I encountered an error processing your request. Please try again or contact our support team at support@tesha.co.zw or +263 78 2244 051.",
 
-  SERVICE_REQUEST_CREATED: (data) => {
-    return `✅ Great! Your service request has been created successfully.
-
-📋 Request Details:
-• Request ID: ${data.requestId}
-• Service: ${data.serviceType}
-• When: ${data.preferredDate} at ${data.preferredTime}
-• Where: ${data.location}
-
-I'll search for available service providers and get back to you shortly. Is there anything specific you're looking for in a service provider?`;
-  },
-
   AVAILABLE_SERVICES: (data) => {
     const servicesList = data.services.map(service => `• ${service.name}: ${service.description}`).join('\n');
 
@@ -22,21 +10,6 @@ I'll search for available service providers and get back to you shortly. Is ther
 ${servicesList}
 
 Would you like to request any of these services today?`;
-  },
-
-  SERVICE_PROVIDERS_LIST: (data) => {
-    const providersList = data.providers.map((provider, index) =>
-      `${index + 1}. ${provider.name} ⭐ ${provider.rating}/5 (${provider.reviewCount} reviews)
-   • Specializes in: ${provider.specialties.join(', ')}
-   • Rate: $${provider.hourlyRate}/hour
-   • ID: ${provider.id}`
-    ).join('\n\n');
-
-    return `📋 I found ${data.providers.length} service providers for ${data.serviceType} in ${data.location}:
-
-${providersList}
-
-Would you like to book an appointment with any of these providers? Just let me know the provider ID and your preferred date and time.`;
   },
 
   BOOKING_HISTORY: (data) => {
@@ -121,6 +94,32 @@ Would you like to schedule a new booking or find another service provider?`;
 • Member since: ${data.memberSince}
 
 Would you like to update any of this information?`;
+  },
+ 
+SERVICE_PROVIDERS_LIST: (data) => {
+    if (!data || data.length === 0) {
+      return "⚠️ I couldn't find any service providers matching your criteria. Would you like to try a different service type or location?";
+    }
+
+    return `📋 I found ${data.length} service providers for ${data.serviceType} in ${data.location}:
+${data.map((provider, index) => `${index + 1}.⁠ ⁠${provider.name} ⭐ ${provider.rating}/5 (${provider.reviewCount} reviews)
+   • Specializes in: ${provider.specialties.join(', ')}
+   • Rate: $${provider.rate}/hour
+   • Select: Reply with number ${index + 1}`).join('\n')}
+
+Please reply with the number of the provider you'd like to book (e.g., "1" for the first provider).`;
+  },
+
+  SERVICE_REQUEST_CREATED: (data) => {
+    return `✅ Great! Your service request has been created successfully.
+📋 Request Details:
+- ⁠  ⁠Request ID: ${data.requestId}
+- ⁠  ⁠Service: ${data.serviceType}
+- ⁠  ⁠When: ${data.date} at ${data.time}
+- ⁠  ⁠Where: ${data.location}
+
+Your selected provider ${data.providerName} has been notified and will confirm shortly.
+I'll update you on the status of your request. Is there anything else you need help with?`;
   }
 };
 
