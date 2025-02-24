@@ -232,8 +232,7 @@ You're all set! If you need any further assistance, feel free to reach out. 😊
             );
 
             const response = await Promise.race([
-                chatHandler.processMessage(this.message),
-                timeoutPromise
+                chatHandler.processMessage(this.message)
             ]);
 
             responseSent = true;
