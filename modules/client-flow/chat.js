@@ -1,7 +1,7 @@
 const openai = require("../../config/openai");
-const tools = require("./tools/functions"); // This should export your tool definitions (create_service_request, etc.)
+const tools = require("./tools"); 
 const ChatHistoryManager = require("../../utils/chatHistory");
-const CHAT_TEMPLATES = require("./chatFlows");
+
 
 class ClientChatHandler {
     constructor(phone, userId) {
