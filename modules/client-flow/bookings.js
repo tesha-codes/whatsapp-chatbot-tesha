@@ -1,6 +1,7 @@
 const Service = require("./../../models/services.model")
 const User = require("./../../models/user.model")
 const ServiceRequest = require("./../../models/request.model")
+const mongoose = require("mongoose")
 class BookingManager {
     constructor(userId) {
         this.userId = userId;
@@ -206,7 +207,7 @@ class BookingManager {
             console.log(`Selected provider: ${selectedProvider.name} (${selectedProvider.id})`);
 
             return await this.scheduleBooking(
-                selectedProvider.id,
+                mongoose.Types.ObjectId(selectedProvider._id),
                 serviceType,
                 date,
                 time,
@@ -256,12 +257,11 @@ Tesha Team
         }
     }
 
-    // Replace the entire scheduleBooking method in your BookingManager class
 
     async scheduleBooking(serviceProviderId, serviceType, date, time, location, description) {
         console.log(`Scheduling booking: ${serviceType} with provider ${serviceProviderId} on ${date} at ${time} at ${location}`);
         try {
-            // 1. Get service ID based on service type
+
             const serviceObj = await Service.findOne({ $text: { $search: "plumbing", $caseSensitive: false } });
             if (!serviceObj) {
                 throw new Error(`Service type '${serviceType}' not found`);
