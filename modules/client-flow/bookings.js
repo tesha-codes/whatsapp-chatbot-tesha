@@ -262,7 +262,7 @@ Tesha Team
         console.log(`Scheduling booking: ${serviceType} with provider ${serviceProviderId} on ${date} at ${time} at ${location}`);
         try {
             // 1. Get service ID based on service type
-            const serviceObj = await Service.findOne({ name: serviceType });
+            const serviceObj = await Service.findOne({ $text: { $search: "plumbing", $caseSensitive: false } });
             if (!serviceObj) {
                 throw new Error(`Service type '${serviceType}' not found`);
             }
