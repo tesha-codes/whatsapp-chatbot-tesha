@@ -206,8 +206,10 @@ class BookingManager {
 
             console.log(`Selected provider: ${selectedProvider.name} (${selectedProvider.id})`);
 
+            console.log("Selected provider:",selectedProvider)
+
             return await this.scheduleBooking(
-                mongoose.Types.ObjectId(selectedProvider._id),
+                mongoose.Types.ObjectId(selectedProvider.id),
                 serviceType,
                 date,
                 time,
