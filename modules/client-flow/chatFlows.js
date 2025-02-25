@@ -101,7 +101,7 @@ SERVICE_PROVIDERS_LIST: (data) => {
       return "⚠️ I couldn't find any service providers matching your criteria. Would you like to try a different service type or location?";
     }
 
-    return `📋 I found ${data.length} service providers for ${data.serviceType} in ${data.location}:
+    return `📋 I found ${data.providers.length} service providers for ${data.serviceType} in ${data.location}:
 ${data.providers.map((provider, index) => `${index + 1}.⁠ ⁠${provider.name} ⭐ ${provider.rating}/5 (${provider.reviewCount} reviews)
    • Specializes in: ${provider.specialties.join(', ')}
    • Rate: $${provider.rate}/hour

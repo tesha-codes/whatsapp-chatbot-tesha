@@ -67,31 +67,31 @@ class BookingManager {
             throw new Error("Failed to fetch booking history");
         }
     }
-   
+
 
     async getServiceProviders(serviceType, location) {
         console.log(`Looking up providers for ${serviceType} in ${location}...`);
         try {
-            
-            
-            const service = await Service.findOne({ name: serviceType });
+
+
+            const service = await Service.findOne({ $text: { $search: "plumbing", $caseSensitive: false } });
             if (!service) {
                 console.error(`Service type '${serviceType}' not found`);
                 throw new Error(`Service type '${serviceType}' not found`);
             }
 
-           
+
             let city = "Unknown";
             const cityMatch = location.match(/in\s+([A-Za-z\s]+)$/);
             if (cityMatch && cityMatch[1]) {
                 city = cityMatch[1].trim();
             } else {
-               
+
                 const splitLocation = location.split(',');
                 if (splitLocation.length > 1) {
                     city = splitLocation[splitLocation.length - 1].trim();
                 } else {
-                    
+
                     const words = location.split(' ');
                     if (words.length > 0) {
                         city = words[words.length - 1];
@@ -144,7 +144,7 @@ class BookingManager {
                 name: provider.name,
                 rating: provider.rating || 4.5,
                 reviewCount: provider.reviewCount || Math.floor(Math.random() * 50) + 10,
-                specialties: [serviceType], 
+                specialties: [serviceType],
                 rate: provider.rate || Math.floor(Math.random() * 10) + 20
             }));
 
@@ -157,7 +157,7 @@ class BookingManager {
         } catch (error) {
             console.error("Error getting service providers:", error);
 
-           
+
             return [
                 {
                     id: "provider_fallback1",
@@ -182,22 +182,22 @@ class BookingManager {
     async scheduleBookingFromSelection(selectionNumber, serviceType, date, time, location, description) {
         console.log(`Scheduling booking from selection #${selectionNumber} for ${serviceType}`);
         try {
-         
+
             const serviceProviders = await this.getServiceProviders(serviceType, location);
 
             if (!serviceProviders || serviceProviders.length === 0) {
                 throw new Error(`No service providers available for ${serviceType} in ${location}`);
             }
 
-            
-            const index = parseInt(selectionNumber) - 1; 
+
+            const index = parseInt(selectionNumber) - 1;
             if (isNaN(index) || index < 0 || index >= serviceProviders.length) {
                 throw new Error(`Invalid selection number. Please select a number between 1 and ${serviceProviders.length}`);
             }
 
             console.log(`Selected provider index ${index} from ${serviceProviders.length} providers`);
 
-         
+
             const selectedProvider = serviceProviders[index];
             if (!selectedProvider || !selectedProvider.id) {
                 throw new Error("Selected provider information is invalid");
@@ -252,7 +252,7 @@ Tesha Team
             console.log(`Successfully notified provider ${providerId} about request ${requestDetails.requestId}`);
         } catch (error) {
             console.error("Error notifying service provider:", error);
-           
+
         }
     }
 
