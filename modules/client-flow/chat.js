@@ -60,7 +60,6 @@ SUPPORT REDIRECT:
                 { role: "user", content: message },
             ];
 
-            // Generate OpenAI response
             const completion = await openai.chat.completions.create({
                 model: "gpt-4-turbo",
                 messages,
@@ -73,38 +72,47 @@ SUPPORT REDIRECT:
             const toolCalls = response.tool_calls || [];
             const toolResults = [];
 
-            // Process tool calls in parallel
             if (toolCalls.length > 0) {
-                const processingPromises = toolCalls.map(async (toolCall) => {
+                console.log(`Processing ${toolCalls.length} tool calls sequentially`);
+
+                for (const toolCall of toolCalls) {
                     try {
+                        console.log(`Processing tool call: ${toolCall.function.name}`);
                         const result = await this.handleToolCall(toolCall);
                         toolResults.push(result);
 
-                        // Add tool response to message history
+                        
                         messages.push({
                             role: "tool",
                             content: JSON.stringify(result),
                             tool_call_id: toolCall.id,
                         });
 
-                        return result;
+                        console.log(`Tool call ${toolCall.function.name} completed successfully`);
                     } catch (error) {
                         console.error(`Tool call ${toolCall.id} failed:`, error);
-                        return {
+                        toolResults.push({
                             error: error.message,
                             tool: toolCall.function.name,
-                        };
+                        });
                     }
-                });
+                }
 
-                await Promise.all(processingPromises);
+                if (toolResults.length === 0) {
+                    console.error("No results returned from tool calls");
+                    throw new Error("No results returned from tool calls");
+                }
             }
 
-            // Format final response
+           
             if (toolResults.length > 0) {
+                console.log("Formatting tool results:", JSON.stringify(toolResults));
                 responseText = this.formatToolResults(toolResults);
             }
-            // Update conversation history
+
+            console.log("Final response:", responseText);
+
+           
             await ChatHistoryManager.append(this.phone, message, responseText);
             return responseText;
         } catch (error) {

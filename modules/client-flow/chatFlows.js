@@ -102,7 +102,7 @@ SERVICE_PROVIDERS_LIST: (data) => {
     }
 
     return `📋 I found ${data.length} service providers for ${data.serviceType} in ${data.location}:
-${data.map((provider, index) => `${index + 1}.⁠ ⁠${provider.name} ⭐ ${provider.rating}/5 (${provider.reviewCount} reviews)
+${data.map.providers((provider, index) => `${index + 1}.⁠ ⁠${provider.name} ⭐ ${provider.rating}/5 (${provider.reviewCount} reviews)
    • Specializes in: ${provider.specialties.join(', ')}
    • Rate: $${provider.rate}/hour
    • Select: Reply with number ${index + 1}`).join('\n')}

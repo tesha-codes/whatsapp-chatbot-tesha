@@ -1,4 +1,6 @@
 const clientFunctions = [
+    // Add this to your tools array in tools.js
+
     {
         type: "function",
         function: {
