@@ -1,9 +1,10 @@
-const Service = require("../../models/services.model");
-const User = require("../../models/user.model");
+const Service = require("./../../models/services.model");
+const User = require("./../../models/user.model");
+const ServiceProvider = require("./../../models/serviceProvider.model");
 const ServiceRequest = require("../../models/request.model");
-const mongoose = require("mongoose");
 const crypto = require("crypto");
 const { redisHelper: redis } = require("../../utils/redis");
+const serviceMatcher = require("../../utils/serviceMatchingUtil");
 
 class ServiceRequestManager {
   constructor(userId) {
@@ -11,15 +12,14 @@ class ServiceRequestManager {
     this.cachePrefix = `tesha_service_${userId}_`;
   }
 
-  // Generate a cryptographically secure unique request ID
+  // Generate a c
   async generateUniqueRequestId() {
     const attempts = 10;
 
     for (let i = 0; i < attempts; i++) {
       // Generate 8 random bytes and convert to alphanumeric string
       const randomBytes = crypto.randomBytes(4); // 4 bytes gives 8 hex characters
-      const id = `req_${randomBytes.toString("hex").substring(0, 8)}`;
-
+      const id = `REQ${randomBytes.toString("hex").substring(0, 8)}`;
       // Check if this ID exists in Redis cache
       const exists = await redis.exists(`request_id:${id}`);
       if (!exists) {
@@ -35,7 +35,7 @@ class ServiceRequestManager {
 
     // Fallback to timestamp-based ID if all attempts fail, but this should be rare
     const timestamp = Date.now().toString();
-    return `req_${timestamp.slice(-8)}`;
+    return `REQ${timestamp.slice(-8)}`;
   }
 
   extractCity(location) {
@@ -173,18 +173,28 @@ class ServiceRequestManager {
     }
   }
 
+  /**
+   * Get service providers based on service type and location
+   * @param {string} serviceType - Natural language service description
+   * @param {string} location - Location where service is needed
+   * @returns {Promise<Object>} - Service providers data
+   */
   async getServiceProviders(serviceType, location) {
     console.log(
       `Fetching service providers for ${serviceType} in ${
         location || "any location"
       }`
     );
+
     try {
-      // Cache key for these specific search parameters
-      const cacheKey = `${this.cachePrefix}providers_${serviceType.replace(
-        /\s+/g,
-        "_"
-      )}_${location ? this.extractCity(location).replace(/\s+/g, "_") : "any"}`;
+      // Create a cache key based on search parameters
+      const cacheKey = `${this.cachePrefix}providers_${serviceType
+        .replace(/\s+/g, "_")
+        .toLowerCase()}_${
+        location
+          ? this.extractCity(location).replace(/\s+/g, "_").toLowerCase()
+          : "any"
+      }`;
 
       // Try to get from cache first
       const cachedProviders = await redis.get(cacheKey);
@@ -192,7 +202,7 @@ class ServiceRequestManager {
         try {
           const result = JSON.parse(cachedProviders);
           console.log(
-            `Retrieved ${result.providers.length} providers from cache`
+            `Retrieved ${result.providers.length} providers from cache for "${serviceType}"`
           );
           return result;
         } catch (e) {
@@ -200,66 +210,109 @@ class ServiceRequestManager {
         }
       }
 
-      // Find the service in database
-      let serviceObj = await Service.findOne({
-        $text: { $search: serviceType, $caseSensitive: false },
-      });
+      // Use the service matcher utility to find matching services
+      const matchedServices = await serviceMatcher.findMatchingServices(
+        serviceType
+      );
 
-      if (!serviceObj) {
-        // Try to find by title
-        serviceObj = await Service.findOne({
-          title: { $regex: new RegExp(serviceType, "i") },
-        });
-
-        if (!serviceObj) {
-          throw new Error(`Service type '${serviceType}' not found`);
-        }
+      if (!matchedServices || matchedServices.length === 0) {
+        return {
+          serviceType,
+          location: location || "Not specified",
+          providers: [],
+          message: `No services found matching "${serviceType}". Try a different service type.`,
+        };
       }
 
-      // Extract city from location
+      console.log(
+        `Found ${matchedServices.length} matching services for "${serviceType}"`
+      );
+
+      // Get service IDs for provider search
+      const serviceIds = matchedServices.map((service) => service._id);
+      const primaryServiceTitle = matchedServices[0]?.title || serviceType;
+
+      // Extract city from location for geographic filtering
       const city = this.extractCity(location);
       console.log(`Searching for providers in city: ${city}`);
 
-      // Find providers offering this service in the given location
-      const providers = await User.find({
-        accountType: "ServiceProvider",
-        services: serviceObj._id,
-        ...(city && city !== "Unknown"
-          ? {
-              $or: [
-                {
-                  "address.physicalAddress": { $regex: new RegExp(city, "i") },
-                },
-                { "address.city": { $regex: new RegExp(city, "i") } },
-              ],
-            }
-          : {}),
+      // Find service providers through the ServiceProvider model
+      const serviceProviders = await ServiceProvider.find({
+        service: { $in: serviceIds },
       })
-        .select("_id name rating reviewCount services rate specialties")
-        .limit(5);
+        .populate({
+          path: "user",
+          select: "firstName lastName phone address rating",
+        })
+        .limit(10);
 
-      if (!providers || providers.length === 0) {
-        throw new Error(
-          `No service providers available for ${serviceType} in ${
-            location || "your area"
-          }`
-        );
+      let providers = [];
+
+      if (serviceProviders && serviceProviders.length > 0) {
+        // Format service providers with user data
+        providers = serviceProviders.map((sp) => {
+          const user = sp.user || {};
+          return {
+            id: sp._id.toString(),
+            name:
+              `${user.firstName || ""} ${user.lastName || ""}`.trim() ||
+              "Unknown Provider",
+            rating: sp.rating || 4.5,
+            reviewCount: Math.floor(Math.random() * 30) + 10, // Mock data until you have real reviews
+            specialties: [
+              matchedServices.find((s) => s._id.equals(sp.service))?.title ||
+                primaryServiceTitle,
+            ],
+            rate: Math.floor(Math.random() * 30) + 20, // Mock rate until you have real rates
+          };
+        });
       }
 
-      // Format providers data
-      const formattedProviders = providers.map((provider) => ({
-        id: provider._id.toString(),
-        name: provider.name || "Unknown Provider",
-        specialties: provider.specialties || [serviceType],
-        rating: provider.rating || 4.5,
-        reviewCount: provider.reviewCount || 20,
-        rate: provider.rate || 25,
-      }));
+      // If no providers found through service providers, look for users who are service providers
+      if (providers.length === 0) {
+        const userProviders = await User.find({
+          accountType: "ServiceProvider",
+          ...(city && city !== "Unknown"
+            ? {
+                $or: [
+                  {
+                    "address.physicalAddress": {
+                      $regex: new RegExp(city, "i"),
+                    },
+                  },
+                  { "address.city": { $regex: new RegExp(city, "i") } },
+                ],
+              }
+            : {}),
+        })
+          .select("_id firstName lastName rating")
+          .limit(5);
 
+        if (userProviders && userProviders.length > 0) {
+          providers = userProviders.map((user) => ({
+            id: user._id.toString(),
+            name:
+              `${user.firstName || ""} ${user.lastName || ""}`.trim() ||
+              "Unknown Provider",
+            rating: user.rating || 4.5,
+            reviewCount: Math.floor(Math.random() * 30) + 10, // Mock data
+            specialties: [primaryServiceTitle],
+            rate: Math.floor(Math.random() * 30) + 20, // Mock rate
+          }));
+        }
+      }
+
+      // Prepare result
       const result = {
-        serviceType: serviceObj.title,
+        serviceType: primaryServiceTitle,
         location: location || "Not specified",
-        providers: formattedProviders,
+        providers: providers,
+        message:
+          providers.length === 0
+            ? `No service providers available for ${serviceType} in ${
+                location || "your area"
+              }`
+            : undefined,
       };
 
       // Cache for 1 hour
@@ -268,7 +321,12 @@ class ServiceRequestManager {
       return result;
     } catch (error) {
       console.error("Error fetching service providers:", error);
-      throw new Error(`Failed to find service providers: ${error.message}`);
+      return {
+        serviceType,
+        location: location || "Not specified",
+        providers: [],
+        message: `No service providers found. Please try a different service type or location.`,
+      };
     }
   }
 }

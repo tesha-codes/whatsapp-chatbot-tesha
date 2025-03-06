@@ -46,8 +46,6 @@ class Client {
           return this.handleCollectLocation();
         case this.steps.CLIENT_REGISTRATION_COMPLETE:
           return this.handleRegistrationComplete();
-
-        // AI-Powered Main Menu
         case this.steps.CLIENT_MAIN_MENU:
           return this.handleClientChat();
 
@@ -199,27 +197,32 @@ class Client {
       },
     });
     await setSession(this.phone, {
-      step: this.steps.CLIENT_REGISTRATION_COMPLETE,
+      step: this.steps.CLIENT_MAIN_MENU,
       message: JSON.stringify(this.message),
       lActivity: this.lActivity,
     });
 
     const successMessage = `*Profile Setup Confirmation*
 
-✅ Thank you! Your profile has been successfully set up.
-You're all set! If you need any further assistance, feel free to reach out. 😊`;
+✅ Thank you! Your profile has been successfully set up. You're all set! 🎉
 
+Here's what is available to you today:
+
+🛎️ *Request a Service Provider* e.g (I am looking for a someone to sweep my yard today at 12pm.)
+🔧 *Update Your Profile* e.g (Update my name to [your name])
+🗑️ *Deactivate Account*
+📝 *View Booking History*
+
+What would you like to do today?
+`;
     return this.res.status(StatusCodes.OK).send(successMessage);
   }
 
   async handleRegistrationComplete() {
     try {
-      // Send main menu template
       await clientMainMenuTemplate(
         this.phone,
-        (
-          await getUser(this.phone)
-        ).firstName
+        this.user?.firstName || this.user?.lastName
       );
 
       // Update session to main menu
@@ -240,14 +243,10 @@ You're all set! If you need any further assistance, feel free to reach out. 😊
 
   async handleClientChat() {
     try {
-      console.log(`Processing chat for user: ${this.user?._id || "unknown"}`);
-
       // Create chat handler instance
       const chatHandler = new ChatHandler(this.phone, this.user?._id);
-
       // Process message
       const response = await chatHandler.processMessage(this.message);
-
       // Return response
       return this.res.status(StatusCodes.OK).send(response);
     } catch (error) {
