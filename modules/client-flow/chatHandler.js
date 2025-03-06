@@ -1,0 +1,451 @@
+const openai = require("../../config/openai");
+const tools = require("./tools");
+const ServiceRequestManager = require("./serviceRequests");
+const BookingManager = require("./bookings");
+const UserProfileManager = require("./profile");
+const ChatHistoryManager = require("../../utils/chatHistory");
+const CLIENT_CHAT_TEMPLATES = require("./chatFlows");
+
+class ChatHandler {
+  constructor(phone, userId) {
+    this.phone = phone;
+    this.userId = userId;
+    this.serviceRequestManager = new ServiceRequestManager(userId);
+    this.bookingManager = new BookingManager(userId);
+    this.userProfileManager = new UserProfileManager(userId);
+  }
+
+  async processMessage(message) {
+    try {
+      const chatHistory = await ChatHistoryManager.get(this.phone);
+      console.log(
+        "Processing message with chat history:",
+        chatHistory.length,
+        "entries"
+      );
+
+      const messages = [
+        {
+          role: "system",
+          content: `You are Tesha, a dedicated WhatsApp chatbot assistant for clients seeking services on the Tesha platform. You are developed by Tesha Inc (a subsidiary of Orbisminds Tech Pvt Ltd).
+
+Your purpose is to assist clients with tasks strictly limited to:
+1. Requesting services (handyman, maid, plumber, electrician, etc.)
+2. Managing bookings (view, schedule, reschedule, cancel)
+3. Viewing service provider profiles and ratings
+4. Updating user profile information
+
+Use context history to retrieve previous messages. For clients requesting services, follow these guidelines:
+- Ask for service type, location, and preferred date/time
+- Provide a list of available services and service providers
+- Confirm bookings with detailed information and booking ID
+- Offer rescheduling or cancellation options if needed
+
+Available services on Tesha include:
+- Household Services: Cleaning, Laundry, Home organization, Handyman tasks, House sitting, Meal preparation
+- Yard & Outdoor: Lawn care, Gardening, Yard cleanup, Pool maintenance
+- Errands & Shopping: Grocery shopping, Pharmacy pickups, Dog walking & pet care
+- Skilled Tasks: Plumbing, Electrical work, Painting, Carpentry, TV & electronics installation
+- Moving & Hauling: Local moving, Junk removal, Donation pickups, Heavy lifting 
+- Pet Care: Dog walking, Pet feeding & grooming, Pet sitting
+- Senior Care: Companion care, Personal care, Medication management
+- Home Maintenance: HVAC & plumbing maintenance, Electrical repairs, Pest control
+
+For booking services, always ask for:
+1. Type of service needed
+2. Location where service is needed
+3. Preferred date and time
+4. Any specific requirements or details
+
+After getting this information, you have two options:
+1. Use the view_service_providers tool to show available providers, then handle_provider_selection to make the booking when the user selects a provider.
+2. Use the request_service tool to directly create a service request without selecting a specific provider first.`,
+        },
+        ...chatHistory,
+        { role: "user", content: message },
+      ];
+
+      const completion = await openai.chat.completions.create({
+        model: "gpt-4-turbo",
+        messages,
+        tools,
+        tool_choice: "auto",
+      });
+
+      const response = completion.choices[0].message;
+      let responseText = response.content || "";
+      const toolCalls = response.tool_calls || [];
+      const toolResults = [];
+
+      if (toolCalls.length > 0) {
+        console.log(`Processing ${toolCalls.length} tool calls sequentially`);
+
+        for (const toolCall of toolCalls) {
+          try {
+            console.log(`Processing tool call: ${toolCall.function.name}`);
+            console.log(`Tool call arguments: ${toolCall.function.arguments}`);
+
+            const result = await this.handleToolCall(toolCall);
+            toolResults.push(result);
+
+            // Add tool result to messages for context in potential follow-up tool calls
+            messages.push({
+              role: "assistant",
+              content: null,
+              tool_calls: [toolCall],
+            });
+
+            messages.push({
+              role: "tool",
+              content: JSON.stringify(result),
+              tool_call_id: toolCall.id,
+            });
+
+            console.log(
+              `Tool call ${toolCall.function.name} completed successfully`
+            );
+          } catch (error) {
+            console.error(`Tool call ${toolCall.id} failed:`, error);
+            toolResults.push({
+              error: error.message,
+              tool: toolCall.function.name,
+            });
+          }
+        }
+      }
+
+      // Format tool results for response
+      if (toolResults.length > 0) {
+        console.log("Formatting tool results");
+
+        // Handle error-only results differently
+        const onlyErrors = toolResults.every((result) => result.error);
+        if (onlyErrors) {
+          responseText =
+            "I apologize, but I encountered an issue while processing your request:\n\n" +
+            toolResults.map((r) => `• ${r.error}`).join("\n");
+        } else {
+          responseText = this.formatToolResults(toolResults);
+        }
+      }
+
+      await ChatHistoryManager.append(this.phone, message, responseText);
+      return responseText;
+    } catch (error) {
+      console.error("Error processing message:", error);
+      return (
+        "🚫 I apologize, but I encountered a technical issue while processing your request. " +
+        "This could be temporary - please try again in a few moments. " +
+        "If the problem persists, you can:\n" +
+        "1️⃣ Send your message again\n" +
+        "2️⃣ Try rephrasing your request\n" +
+        "3️⃣ Contact support if issues continue"
+      );
+    }
+  }
+
+  async handleToolCall(toolCall) {
+    const { name, arguments: argsString } = toolCall.function;
+    let params;
+
+    try {
+      params = JSON.parse(argsString);
+      console.log(`Parsed parameters for ${name}:`, params);
+
+      try {
+        this.validateToolCall(name, params);
+      } catch (validationError) {
+        return {
+          type: "VALIDATION_ERROR",
+          error: validationError.message,
+          tool: name,
+        };
+      }
+    } catch (error) {
+      throw new Error(`Invalid parameters for ${name}: ${error.message}`);
+    }
+
+    try {
+      switch (name) {
+        case "view_available_services":
+          console.log(`Fetching available services`);
+          return {
+            type: "AVAILABLE_SERVICES",
+            data: await this.serviceRequestManager.getAvailableServices(),
+          };
+
+        case "view_service_providers":
+          console.log(
+            `Fetching service providers for ${params.serviceType} in ${
+              params.location || "any location"
+            }`
+          );
+          return {
+            type: "SERVICE_PROVIDERS_LIST",
+            data: await this.serviceRequestManager.getServiceProviders(
+              params.serviceType,
+              params.location || ""
+            ),
+          };
+
+        case "handle_provider_selection":
+          console.log(
+            `Handling provider selection: #${params.selectionNumber} for ${params.serviceType}`
+          );
+          return {
+            type: "BOOKING_SCHEDULED",
+            data: await this.bookingManager.scheduleBookingFromSelection(
+              parseInt(params.selectionNumber),
+              params.serviceType,
+              params.date,
+              params.time,
+              params.location,
+              params.description || ""
+            ),
+          };
+
+        case "request_service":
+          console.log(`Creating service request for ${params.serviceType}`);
+          return {
+            type: "SERVICE_REQUEST",
+            data: await this.serviceRequestManager.createServiceRequest(
+              params.serviceType,
+              params.description || "",
+              params.location,
+              params.date,
+              params.time
+            ),
+          };
+
+        case "view_bookings_history":
+          console.log(`Fetching booking history for user ${this.userId}`);
+          return {
+            type: "BOOKING_HISTORY",
+            data: await this.bookingManager.getBookingHistory(),
+          };
+
+        case "view_booking_details":
+          console.log(`Fetching details for booking ${params.bookingId}`);
+          return {
+            type: "BOOKING_DETAILS",
+            data: await this.bookingManager.getBookingDetails(params.bookingId),
+          };
+
+        case "reschedule_booking":
+          console.log(`Rescheduling booking ${params.bookingId}`);
+          return {
+            type: "BOOKING_RESCHEDULED",
+            data: await this.bookingManager.rescheduleBooking(
+              params.bookingId,
+              params.newDate,
+              params.newTime
+            ),
+          };
+
+        case "cancel_booking":
+          console.log(`Cancelling booking ${params.bookingId}`);
+          return {
+            type: "BOOKING_CANCELLED",
+            data: await this.bookingManager.cancelBooking(
+              params.bookingId,
+              params.reason
+            ),
+          };
+
+        case "view_user_profile":
+          console.log(`Fetching user profile for ${this.userId}`);
+          return {
+            type: "USER_PROFILE",
+            data: await this.userProfileManager.getProfile(),
+          };
+
+        case "update_user_profile":
+          console.log(`Updating user profile field ${params.field}`);
+          return {
+            type: "PROFILE_UPDATE",
+            data: await this.userProfileManager.updateProfile(
+              params.field,
+              params.value
+            ),
+          };
+
+        default:
+          throw new Error(`Unsupported tool: ${name}`);
+      }
+    } catch (error) {
+      console.error(`Tool execution error (${name}):`, error);
+      throw new Error(`Service unavailable for ${name}: ${error.message}`);
+    }
+  }
+
+  validateToolCall(name, params) {
+    console.log(`Validating tool call: ${name}`);
+
+    switch (name) {
+      case "request_service":
+        if (!params.serviceType || params.serviceType.trim() === "") {
+          throw new Error("Service type is required.");
+        }
+        if (!params.location || params.location.trim() === "") {
+          throw new Error("Location is required.");
+        }
+        break;
+
+      case "handle_provider_selection":
+        if (
+          !params.selectionNumber ||
+          isNaN(parseInt(params.selectionNumber))
+        ) {
+          throw new Error("Please provide a valid selection number.");
+        }
+        if (!params.serviceType || params.serviceType.trim() === "") {
+          throw new Error("Service type is required.");
+        }
+        if (!params.date || !this.isValidDate(params.date)) {
+          throw new Error("Please provide a valid date in YYYY-MM-DD format.");
+        }
+        if (!params.time || !this.isValidTime(params.time)) {
+          throw new Error("Please provide a valid time in HH:MM format.");
+        }
+        if (!params.location || params.location.trim() === "") {
+          throw new Error("Location is required.");
+        }
+        break;
+
+      case "view_service_providers":
+        if (!params.serviceType || params.serviceType.trim() === "") {
+          throw new Error("Service type is required.");
+        }
+        break;
+
+      case "reschedule_booking":
+        if (!params.bookingId) {
+          throw new Error("Booking ID is required.");
+        }
+        if (!params.newDate || !this.isValidDate(params.newDate)) {
+          throw new Error("Please provide a valid date in YYYY-MM-DD format.");
+        }
+        if (!params.newTime || !this.isValidTime(params.newTime)) {
+          throw new Error("Please provide a valid time in HH:MM format.");
+        }
+        break;
+
+      case "cancel_booking":
+        if (!params.bookingId) {
+          throw new Error("Booking ID is required.");
+        }
+        if (!params.reason || params.reason.length < 5) {
+          throw new Error(
+            "Please provide a reason for cancellation (at least 5 characters)."
+          );
+        }
+        break;
+
+      case "view_booking_details":
+        if (!params.bookingId) {
+          throw new Error("Booking ID is required.");
+        }
+        break;
+
+      case "update_user_profile":
+        if (!params.field || params.field.trim() === "") {
+          throw new Error("Profile field is required.");
+        }
+        if (params.value === undefined || params.value === null) {
+          throw new Error("Profile value is required.");
+        }
+        break;
+    }
+
+    console.log(`Tool call ${name} validation passed`);
+  }
+
+  isValidDate(dateString) {
+    const regex = /^\d{4}-\d{2}-\d{2}$/;
+    if (!regex.test(dateString)) return false;
+
+    const date = new Date(dateString);
+    const now = new Date();
+
+    // Check if date is valid and not in the past
+    return (
+      date instanceof Date &&
+      !isNaN(date) &&
+      date >= new Date(now.setHours(0, 0, 0, 0))
+    );
+  }
+
+  isValidTime(timeString) {
+    const regex = /^([01]\d|2[0-3]):([0-5]\d)$/;
+    return regex.test(timeString);
+  }
+
+  formatToolResults(results) {
+    console.log(`Formatting ${results.length} tool results`);
+
+    return results
+      .map((result) => {
+        if (result.error) {
+          return `❌ ${result.error}`;
+        }
+
+        try {
+          return this.formatResponseFromTemplate(result);
+        } catch (formatError) {
+          console.error("Response formatting failed:", formatError);
+          return CLIENT_CHAT_TEMPLATES.ERROR_MESSAGE;
+        }
+      })
+      .join("\n\n");
+  }
+
+  formatResponseFromTemplate(result) {
+    console.log(`Formatting response for type: ${result.type}`);
+
+    if (!result || !result.type) {
+      console.error("Invalid result object:", result);
+      return CLIENT_CHAT_TEMPLATES.ERROR_MESSAGE;
+    }
+
+    switch (result.type) {
+      case "SERVICE_REQUEST":
+        return CLIENT_CHAT_TEMPLATES.SERVICE_REQUEST_CREATED(result.data);
+
+      case "AVAILABLE_SERVICES":
+        return CLIENT_CHAT_TEMPLATES.AVAILABLE_SERVICES(result.data);
+
+      case "SERVICE_PROVIDERS_LIST":
+        return CLIENT_CHAT_TEMPLATES.SERVICE_PROVIDERS_LIST(result.data);
+
+      case "BOOKING_HISTORY":
+        return CLIENT_CHAT_TEMPLATES.BOOKING_HISTORY(result.data);
+
+      case "BOOKING_DETAILS":
+        return CLIENT_CHAT_TEMPLATES.BOOKING_DETAILS(result.data);
+
+      case "BOOKING_SCHEDULED":
+        return CLIENT_CHAT_TEMPLATES.BOOKING_SCHEDULED(result.data);
+
+      case "BOOKING_RESCHEDULED":
+        return CLIENT_CHAT_TEMPLATES.BOOKING_RESCHEDULED(result.data);
+
+      case "BOOKING_CANCELLED":
+        return CLIENT_CHAT_TEMPLATES.BOOKING_CANCELLED(result.data);
+
+      case "USER_PROFILE":
+        return CLIENT_CHAT_TEMPLATES.USER_PROFILE(result.data);
+
+      case "PROFILE_UPDATE":
+        return `✅ Successfully updated ${result.data.field} to: ${result.data.value}`;
+
+      case "VALIDATION_ERROR":
+        return `⚠️ Validation Error: ${result.error}`;
+
+      default:
+        console.warn(`Unknown result type: ${result.type}`);
+        return "I've completed your request. Is there anything else I can help with?";
+    }
+  }
+}
+
+module.exports = ChatHandler;

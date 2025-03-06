@@ -1,237 +1,273 @@
-const Service = require("./../../models/services.model")
-const User = require("./../../models/user.model")
-const ServiceRequest = require("./../../models/request.model")
-const mongoose = require("mongoose")
+const Service = require("./../../models/services.model");
+const User = require("./../../models/user.model");
+const ServiceRequest = require("./../../models/request.model");
+const crypto = require("crypto");
+const { redisHelper: redis } = require("../../utils/redis");
+
 class BookingManager {
-    constructor(userId) {
-        this.userId = userId;
-    }
+  constructor(userId) {
+    this.userId = userId;
+    this.cacheKey = `provider_selection_${userId}`;
+  }
 
-    async getBookingHistory() {
-        try {
-            return {
-                bookings: [
-                    {
-                        id: "booking_2024_abc12345",
-                        serviceType: "Plumbing",
-                        providerName: "John Smith",
-                        date: "2024-02-15",
-                        time: "14:00",
-                        status: "Completed",
-                        rating: "4.5/5"
-                    },
-                    {
-                        id: "booking_2024_def67890",
-                        serviceType: "Electrical",
-                        providerName: "Maria Johnson",
-                        date: "2024-02-20",
-                        time: "10:00",
-                        status: "Scheduled"
-                    },
-                    {
-                        id: "booking_2024_ghi12345",
-                        serviceType: "Cleaning",
-                        providerName: "Robert Khoza",
-                        date: "2024-01-25",
-                        time: "09:00",
-                        status: "Completed",
-                        rating: "5/5"
-                    }
-                ]
-            };
-        } catch (error) {
-            console.error("Error fetching booking history:", error);
-            throw new Error("Failed to fetch booking history");
+  // Generate a cryptographically secure unique booking ID
+  async generateUniqueBookingId() {
+    const attempts = 10;
+    for (let i = 0; i < attempts; i++) {
+      // Generate 8 random bytes and convert to alphanumeric string
+      const randomBytes = crypto.randomBytes(4); // 4 bytes gives 8 hex characters
+      const id = `req_${randomBytes.toString("hex").substring(0, 8)}`;
+      // Check if this ID exists in Redis cache
+      const exists = await redis.exists(`booking_id:${id}`);
+      if (!exists) {
+        // Check if ID exists in database
+        const bookingExists = await ServiceRequest.exists({ id });
+        if (!bookingExists) {
+          // Cache this ID to prevent simultaneous generation of the same ID
+          await redis.set(`booking_id:${id}`, "1", "EX", 3600); // Cache for 1 hour
+          return id;
         }
+      }
     }
 
-    async getBookingDetails(bookingId) {
-        try {
+    // Fallback to timestamp-based ID if all attempts fail, but this should be rare
+    const timestamp = Date.now().toString();
+    return `req_${timestamp.slice(-8)}`;
+  }
 
-            if (bookingId === "booking_2024_abc12345") {
-                return {
-                    id: bookingId,
-                    serviceType: "Plumbing",
-                    providerName: "John Smith",
-                    providerPhone: "+263 71 234 5678",
-                    date: "2024-02-15",
-                    time: "14:00",
-                    location: "123 Main St, Harare",
-                    status: "Completed",
-                    description: "Fix leaking kitchen sink",
-                    notes: "Replaced washer and sealed pipe connections",
-                    rating: "4.5/5"
-                };
-            }
-        } catch (error) {
-            console.error("Error fetching booking history:", error);
-            throw new Error("Failed to fetch booking history");
+  async getBookingHistory() {
+    try {
+      // Fetch actual bookings from database
+      const requests = await ServiceRequest.find({ requester: this.userId })
+        .populate("service", "title")
+        .populate("serviceProviders", "name")
+        .sort({ createdAt: -1 })
+        .limit(10);
+
+      // If no bookings found, return empty array
+      if (!requests || requests.length === 0) {
+        return { bookings: [] };
+      }
+
+      // Format the bookings data
+      const bookings = requests.map((req) => {
+        const provider =
+          req.serviceProviders && req.serviceProviders.length > 0
+            ? req.serviceProviders[0].name
+            : "Unassigned";
+
+        return {
+          id: req.id,
+          serviceType: req.service ? req.service.title : "Unknown Service",
+          providerName: provider,
+          date: req.date
+            ? new Date(req.date).toISOString().split("T")[0]
+            : "Not specified",
+          time: req.time || "Not specified",
+          status: req.status,
+          rating: req.rating ? `${req.rating}/5` : undefined,
+        };
+      });
+
+      return { bookings };
+    } catch (error) {
+      console.error("Error fetching booking history:", error);
+      // Return empty array instead of hardcoded data
+      return { bookings: [] };
+    }
+  }
+
+  async getBookingDetails(bookingId) {
+    try {
+      // Find the booking in the database
+      const request = await ServiceRequest.findOne({ id: bookingId })
+        .populate("service", "title description")
+        .populate("serviceProviders", "name phone");
+
+      if (!request) {
+        throw new Error(`Booking with ID ${bookingId} not found`);
+      }
+
+      // Format the booking details
+      const provider =
+        request.serviceProviders && request.serviceProviders.length > 0
+          ? request.serviceProviders[0]
+          : null;
+
+      return {
+        id: request.id,
+        serviceType: request.service
+          ? request.service.title
+          : "Unknown Service",
+        providerName: provider ? provider.name : "Unassigned",
+        providerPhone: provider ? provider.phone : "Not available",
+        date: request.date
+          ? new Date(request.date).toISOString().split("T")[0]
+          : "Not specified",
+        time: request.time || "Not specified",
+        location: request.address
+          ? request.address.physicalAddress
+          : "Not specified",
+        status: request.status,
+        description: request.notes || "No description provided",
+        notes: request.serviceNotes || "",
+        rating: request.rating ? `${request.rating}/5` : undefined,
+      };
+    } catch (error) {
+      console.error("Error fetching booking details:", error);
+      throw new Error(`Booking not found: ${error.message}`);
+    }
+  }
+
+  extractCity(location) {
+    if (!location) return "Unknown";
+
+    // Try different patterns to extract city
+    const cityMatch = location.match(/in\s+([A-Za-z\s]+)$/i);
+    if (cityMatch && cityMatch[1]) {
+      return cityMatch[1].trim();
+    }
+
+    const splitLocation = location.split(",");
+    if (splitLocation.length > 1) {
+      return splitLocation[splitLocation.length - 1].trim();
+    }
+
+    const words = location.split(" ");
+    if (words.length > 0) {
+      return words[words.length - 1].trim();
+    }
+
+    return "Unknown";
+  }
+
+  async scheduleBookingFromSelection(
+    selectionNumber,
+    serviceType,
+    date,
+    time,
+    location,
+    description
+  ) {
+    console.log(
+      `Scheduling booking from selection #${selectionNumber} for ${serviceType}`
+    );
+    try {
+      // Get providers from Redis cache
+      const cachedProvidersJson = await redis.get(this.cacheKey);
+      let providers = null;
+
+      if (cachedProvidersJson) {
+        try {
+          providers = JSON.parse(cachedProvidersJson);
+          console.log(`Retrieved ${providers.length} providers from cache`);
+        } catch (e) {
+          console.error("Error parsing cached providers:", e);
         }
-    }
+      }
 
+      // If not cached, fetch providers
+      if (!providers || providers.length === 0) {
+        const city = this.extractCity(location);
 
-    async getServiceProviders(serviceType, location) {
-        console.log(`Looking up providers for ${serviceType} in ${location}...`);
-        try {
+        // Find service
+        const service = await Service.findOne({
+          $text: { $search: serviceType, $caseSensitive: false },
+        });
 
+        if (!service) {
+          throw new Error(`Service type '${serviceType}' not found`);
+        }
 
-            const service = await Service.findOne({ $text: { $search: "plumbing", $caseSensitive: false } });
-            if (!service) {
-                console.error(`Service type '${serviceType}' not found`);
-                throw new Error(`Service type '${serviceType}' not found`);
-            }
-
-
-            let city = "Unknown";
-            const cityMatch = location.match(/in\s+([A-Za-z\s]+)$/);
-            if (cityMatch && cityMatch[1]) {
-                city = cityMatch[1].trim();
-            } else {
-
-                const splitLocation = location.split(',');
-                if (splitLocation.length > 1) {
-                    city = splitLocation[splitLocation.length - 1].trim();
-                } else {
-
-                    const words = location.split(' ');
-                    if (words.length > 0) {
-                        city = words[words.length - 1];
-                    }
-                }
-            }
-
-            console.log(`Searching for providers in city: ${city}`);
-
-            const providers = await User.find({
-                role: 'ServiceProvider',
-                services: service._id,
-                'address.city': { $regex: new RegExp(city, 'i') }
-            }).select('name rating reviewCount services rate').limit(10);
-
-            console.log(`Found ${providers.length} providers for ${serviceType} in ${city}`);
-            if (!providers || providers.length === 0) {
-                console.log(`No providers found in database, returning dummy data`);
-
-                return [
-                    {
-                        id: "provider_123",
-                        name: "John Doe",
-                        rating: 4.8,
-                        reviewCount: 47,
-                        specialties: [serviceType],
-                        rate: 25
+        // Find providers
+        providers = await User.find({
+          accountType: "ServiceProvider",
+          services: service._id,
+          ...(city && city !== "Unknown"
+            ? {
+                $or: [
+                  {
+                    "address.physicalAddress": {
+                      $regex: new RegExp(city, "i"),
                     },
-                    {
-                        id: "provider_456",
-                        name: "Jane Smith",
-                        rating: 4.6,
-                        reviewCount: 32,
-                        specialties: [serviceType],
-                        rate: 22
-                    },
-                    {
-                        id: "provider_789",
-                        name: "Robert Muza",
-                        rating: 4.9,
-                        reviewCount: 58,
-                        specialties: [serviceType],
-                        rate: 30
-                    }
-                ];
-            }
+                  },
+                  { "address.city": { $regex: new RegExp(city, "i") } },
+                ],
+              }
+            : {}),
+        })
+          .select("_id name rating reviewCount services rate")
+          .limit(5);
 
-            const formattedProviders = providers.map(provider => ({
-                id: provider._id.toString(),
-                name: provider.name,
-                rating: provider.rating || 4.5,
-                reviewCount: provider.reviewCount || Math.floor(Math.random() * 50) + 10,
-                specialties: [serviceType],
-                rate: provider.rate || Math.floor(Math.random() * 10) + 20
-            }));
-
-
-            const result = formattedProviders;
-            result.serviceType = serviceType;
-            result.location = location;
-
-            return result;
-        } catch (error) {
-            console.error("Error getting service providers:", error);
-
-
-            return [
-                {
-                    id: "provider_fallback1",
-                    name: "John (Fallback)",
-                    rating: 4.8,
-                    reviewCount: 47,
-                    specialties: [serviceType],
-                    rate: 25
-                },
-                {
-                    id: "provider_fallback2",
-                    name: "Maria (Fallback)",
-                    rating: 4.6,
-                    reviewCount: 32,
-                    specialties: [serviceType],
-                    rate: 22
-                }
-            ];
+        if (!providers || providers.length === 0) {
+          throw new Error(
+            `No service providers available for ${serviceType} in ${location}`
+          );
         }
+
+        // Format and cache providers
+        providers = providers.map((p) => ({
+          id: p._id.toString(),
+          name: p.name || "Unknown Provider",
+          rating: p.rating || 4.5,
+          reviewCount: p.reviewCount || 25,
+          specialties: [serviceType],
+          rate: p.rate || 25,
+        }));
+
+        // Cache for 1 hour
+        await redis.set(this.cacheKey, JSON.stringify(providers), "EX", 3600);
+      }
+
+      // Validate selection
+      const index = parseInt(selectionNumber) - 1;
+      if (isNaN(index) || index < 0 || index >= providers.length) {
+        throw new Error(
+          `Invalid selection number. Please select a number between 1 and ${providers.length}`
+        );
+      }
+
+      console.log(
+        `Selected provider index ${index} from ${providers.length} providers`
+      );
+
+      // Get selected provider
+      const selectedProvider = providers[index];
+      if (!selectedProvider || !selectedProvider.id) {
+        throw new Error("Selected provider information is invalid");
+      }
+
+      console.log(
+        `Selected provider: ${selectedProvider.name} (${selectedProvider.id})`
+      );
+
+      // Schedule the booking with the selected provider
+      return await this.scheduleBooking(
+        selectedProvider.id,
+        serviceType,
+        date,
+        time,
+        location,
+        description
+      );
+    } catch (error) {
+      console.error("Error in scheduleBookingFromSelection:", error);
+      throw new Error(`Failed to schedule booking: ${error.message}`);
     }
+  }
 
-    async scheduleBookingFromSelection(selectionNumber, serviceType, date, time, location, description) {
-        console.log(`Scheduling booking from selection #${selectionNumber} for ${serviceType}`);
-        try {
+  async notifyServiceProvider(providerId, requestDetails) {
+    try {
+      const provider = await User.findById(providerId).select("phone name");
 
-            const serviceProviders = await this.getServiceProviders(serviceType, location);
+      if (!provider) {
+        console.error(
+          `Provider with ID ${providerId} not found for notification`
+        );
+        return false;
+      }
 
-            if (!serviceProviders || serviceProviders.length === 0) {
-                throw new Error(`No service providers available for ${serviceType} in ${location}`);
-            }
-
-
-            const index = parseInt(selectionNumber) - 1;
-            if (isNaN(index) || index < 0 || index >= serviceProviders.length) {
-                throw new Error(`Invalid selection number. Please select a number between 1 and ${serviceProviders.length}`);
-            }
-
-            console.log(`Selected provider index ${index} from ${serviceProviders.length} providers`);
-
-
-            const selectedProvider = serviceProviders[index];
-            if (!selectedProvider || !selectedProvider.id) {
-                throw new Error("Selected provider information is invalid");
-            }
-
-            console.log(`Selected provider: ${selectedProvider.name} (${selectedProvider.id})`);
-
-            console.log("Selected provider:",selectedProvider)
-
-            return await this.scheduleBooking(
-                mongoose.Types.ObjectId(selectedProvider.id),
-                serviceType,
-                date,
-                time,
-                location,
-                description
-            );
-        } catch (error) {
-            console.error("Error in scheduleBookingFromSelection:", error);
-            throw new Error(`Failed to schedule booking: ${error.message}`);
-        }
-    }
-
-    async notifyServiceProvider(providerId, requestDetails) {
-        try {
-            const provider = await User.findById(providerId).select('phone email name');
-
-            if (!provider) {
-                console.error(`Provider with ID ${providerId} not found for notification`);
-                return;
-            }
-
-            const message = `
+      const message = `
 🔔 New Service Request 🔔
 
 Hello ${provider.name},
@@ -250,99 +286,177 @@ Thank you,
 Tesha Team
 `;
 
-            console.log(`[NOTIFICATION] Sending provider notification to ${provider.phone}`);
+      console.log(
+        `[NOTIFICATION] Would send provider notification to ${provider.phone}`
+      );
+      console.log(
+        `Successfully notified provider ${providerId} about request ${requestDetails.requestId}`
+      );
 
-            console.log(`Successfully notified provider ${providerId} about request ${requestDetails.requestId}`);
-        } catch (error) {
-            console.error("Error notifying service provider:", error);
-
-        }
+      // TODO: Send notification to provider about the new service request
+      return true;
+    } catch (error) {
+      console.error("Error notifying service provider:", error);
+      return false;
     }
+  }
 
+  async scheduleBooking(
+    serviceProviderId,
+    serviceType,
+    date,
+    time,
+    location,
+    description
+  ) {
+    console.log(
+      `Scheduling booking: ${serviceType} with provider ${serviceProviderId} on ${date} at ${time} at ${location}`
+    );
+    try {
+      // Find the service
+      let serviceObj = await Service.findOne({
+        $text: { $search: serviceType, $caseSensitive: false },
+      });
 
-    async scheduleBooking(serviceProviderId, serviceType, date, time, location, description) {
-        console.log(`Scheduling booking: ${serviceType} with provider ${serviceProviderId} on ${date} at ${time} at ${location}`);
-        try {
+      if (!serviceObj) {
+        // Try to find by title
+        serviceObj = await Service.findOne({
+          title: { $regex: new RegExp(serviceType, "i") },
+        });
 
-            const serviceObj = await Service.findOne({ $text: { $search: "plumbing", $caseSensitive: false } });
-            if (!serviceObj) {
-                throw new Error(`Service type '${serviceType}' not found`);
-            }
-
-            // 2. Generate a unique request ID with format req_XXXXXXXX
-            const requestId = `req_${Math.floor(Math.random() * 90000000) + 10000000}`;
-
-            // 3. Parse location to see if we can extract coordinates
-            let coordinates = null;
-            let city = "Unknown";
-
-            // Extract city from location if possible
-            const cityMatch = location.match(/in\s+([A-Za-z\s]+)$/);
-            if (cityMatch && cityMatch[1]) {
-                city = cityMatch[1].trim();
-            } else {
-                // Try to extract city name directly
-                const splitLocation = location.split(',');
-                if (splitLocation.length > 1) {
-                    city = splitLocation[splitLocation.length - 1].trim();
-                } else {
-                    // Just use the last word as city if nothing else works
-                    const words = location.split(' ');
-                    if (words.length > 0) {
-                        city = words[words.length - 1];
-                    }
-                }
-            }
-
-            // 4. Create the service request
-            const serviceRequest = new ServiceRequest({
-                service: serviceObj._id,
-                requester: this.userId,
-                serviceProviders: [serviceProviderId], // Add selected provider
-                status: 'Pending',
-                address: {
-                    physicalAddress: location,
-                    coordinates: coordinates
-                },
-                city: city,
-                notes: description || "No additional details provided",
-                id: requestId,
-                confirmed: true // Mark as confirmed since user selected a provider
-            });
-
-            await serviceRequest.save();
-            console.log(`Service request created: ${requestId}`);
-
-            // 5. Fetch provider details to include in response
-            const provider = await User.findById(serviceProviderId).select('name');
-            const providerName = provider ? provider.name : "Selected provider";
-
-            // 6. Send notification to service provider about new request
-            await this.notifyServiceProvider(serviceProviderId, {
-                requestId,
-                serviceType,
-                date,
-                time,
-                location,
-                description
-            });
-
-            // 7. Return booking details
-            return {
-                requestId,
-                serviceType,
-                date,
-                time,
-                location,
-                description,
-                providerName,
-                status: 'Pending'
-            };
-        } catch (error) {
-            console.error("Error in scheduleBooking:", error);
-            throw new Error(`Failed to schedule booking: ${error.message}`);
+        if (!serviceObj) {
+          throw new Error(`Service type '${serviceType}' not found`);
         }
+      }
+
+      // Generate a unique request ID
+      const requestId = await this.generateUniqueBookingId();
+
+      // Extract city from location
+      const city = this.extractCity(location);
+
+      // Create service request object
+      const serviceRequest = new ServiceRequest({
+        service: serviceObj._id,
+        requester: this.userId,
+        serviceProviders: [serviceProviderId],
+        status: "Pending",
+        address: {
+          physicalAddress: location,
+        },
+        city: city,
+        notes: description || "No additional details provided",
+        id: requestId,
+        confirmed: true,
+        date: date,
+        time: time,
+        createdAt: new Date(),
+      });
+
+      // Save the request to database
+      await serviceRequest.save();
+      console.log(`Service request created: ${requestId}`);
+
+      // Fetch provider details
+      let providerName = "Selected Provider";
+      try {
+        const provider = await User.findById(serviceProviderId).select("name");
+        if (provider) {
+          providerName = provider.name;
+        }
+      } catch (providerErr) {
+        console.error("Error fetching provider details:", providerErr);
+      }
+
+      // Notify the service provider
+      await this.notifyServiceProvider(serviceProviderId, {
+        requestId,
+        serviceType,
+        date,
+        time,
+        location,
+        description,
+      });
+
+      // Return booking details
+      return {
+        bookingId: requestId,
+        serviceType,
+        date,
+        time,
+        location,
+        description,
+        providerName,
+        status: "Pending",
+      };
+    } catch (error) {
+      console.error("Error in scheduleBooking:", error);
+      throw new Error(`Failed to schedule booking: ${error.message}`);
     }
+  }
+
+  async rescheduleBooking(bookingId, newDate, newTime) {
+    console.log(
+      `Rescheduling booking ${bookingId} to ${newDate} at ${newTime}`
+    );
+    try {
+      // Find the booking in database
+      const booking = await ServiceRequest.findOne({ id: bookingId });
+
+      if (!booking) {
+        throw new Error(`Booking with ID ${bookingId} not found`);
+      }
+
+      // Update the booking
+      booking.date = newDate;
+      booking.time = newTime;
+      booking.updatedAt = new Date();
+
+      await booking.save();
+
+      // TODO:  Notify provider of rescheduling
+
+      return {
+        bookingId,
+        newDate,
+        newTime,
+        success: true,
+      };
+    } catch (error) {
+      console.error("Error rescheduling booking:", error);
+      throw new Error(`Failed to reschedule booking: ${error.message}`);
+    }
+  }
+
+  async cancelBooking(bookingId, reason) {
+    console.log(`Cancelling booking ${bookingId} due to: ${reason}`);
+    try {
+      // Find the booking in database
+      const booking = await ServiceRequest.findOne({ id: bookingId });
+
+      if (!booking) {
+        throw new Error(`Booking with ID ${bookingId} not found`);
+      }
+
+      // Update booking status
+      booking.status = "Cancelled";
+      booking.cancelReason = reason;
+      booking.updatedAt = new Date();
+
+      await booking.save();
+
+      //  TODO: Notify provider of cancellation
+
+      return {
+        bookingId,
+        reason,
+        success: true,
+      };
+    } catch (error) {
+      console.error("Error cancelling booking:", error);
+      throw new Error(`Failed to cancel booking: ${error.message}`);
+    }
+  }
 }
 
 module.exports = BookingManager;
