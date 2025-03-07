@@ -2,12 +2,11 @@ const Service = require("./../../models/services.model");
 const User = require("./../../models/user.model");
 const ServiceRequest = require("./../../models/request.model");
 const crypto = require("crypto");
-const { redisHelper: redis } = require("../../utils/redis");
+const dateParser = require("../../utils/dateParser");
 
 class BookingManager {
   constructor(userId) {
     this.userId = userId;
-    this.cacheKey = `provider_selection_${userId}`;
   }
 
   // Generate a cryptographically secure unique booking ID
@@ -16,23 +15,17 @@ class BookingManager {
     for (let i = 0; i < attempts; i++) {
       // Generate 8 random bytes and convert to alphanumeric string
       const randomBytes = crypto.randomBytes(4); // 4 bytes gives 8 hex characters
-      const id = `req_${randomBytes.toString("hex").substring(0, 8)}`;
-      // Check if this ID exists in Redis cache
-      const exists = await redis.exists(`booking_id:${id}`);
-      if (!exists) {
-        // Check if ID exists in database
-        const bookingExists = await ServiceRequest.exists({ id });
-        if (!bookingExists) {
-          // Cache this ID to prevent simultaneous generation of the same ID
-          await redis.set(`booking_id:${id}`, "1", "EX", 3600); // Cache for 1 hour
-          return id;
-        }
+      const id = `REQ${randomBytes.toString("hex").substring(0, 8)}`;
+
+      // Check if ID exists in database directly (no Redis cache check)
+      const bookingExists = await ServiceRequest.exists({ id });
+      if (!bookingExists) {
+        return id;
       }
     }
-
     // Fallback to timestamp-based ID if all attempts fail, but this should be rare
     const timestamp = Date.now().toString();
-    return `req_${timestamp.slice(-8)}`;
+    return `REQ${timestamp.slice(-8)}`;
   }
 
   async getBookingHistory() {
@@ -153,86 +146,81 @@ class BookingManager {
       `Scheduling booking from selection #${selectionNumber} for ${serviceType}`
     );
     try {
-      // Get providers from Redis cache
-      const cachedProvidersJson = await redis.get(this.cacheKey);
-      let providers = null;
-
-      if (cachedProvidersJson) {
-        try {
-          providers = JSON.parse(cachedProvidersJson);
-          console.log(`Retrieved ${providers.length} providers from cache`);
-        } catch (e) {
-          console.error("Error parsing cached providers:", e);
-        }
+      // Parse date and time
+      const parsedDate = dateParser.parseDate(date);
+      if (!parsedDate.success) {
+        throw new Error(`Invalid date: ${parsedDate.message}`);
       }
 
-      // If not cached, fetch providers
-      if (!providers || providers.length === 0) {
-        const city = this.extractCity(location);
+      const parsedTime = dateParser.parseTime(time);
+      if (!parsedTime.success) {
+        throw new Error(`Invalid time: ${parsedTime.message}`);
+      }
 
-        // Find service
-        const service = await Service.findOne({
-          $text: { $search: serviceType, $caseSensitive: false },
-        });
+      // Find service
+      const service = await Service.findOne({
+        $text: { $search: serviceType, $caseSensitive: false },
+      });
 
-        if (!service) {
-          throw new Error(`Service type '${serviceType}' not found`);
-        }
+      if (!service) {
+        throw new Error(`Service type '${serviceType}' not found`);
+      }
 
-        // Find providers
-        providers = await User.find({
-          accountType: "ServiceProvider",
-          services: service._id,
-          ...(city && city !== "Unknown"
-            ? {
-                $or: [
-                  {
-                    "address.physicalAddress": {
-                      $regex: new RegExp(city, "i"),
-                    },
+      // Find providers directly from database
+      const city = this.extractCity(location);
+      const providers = await User.find({
+        accountType: "ServiceProvider",
+        services: service._id,
+        ...(city && city !== "Unknown"
+          ? {
+              $or: [
+                {
+                  "address.physicalAddress": {
+                    $regex: new RegExp(city, "i"),
                   },
-                  { "address.city": { $regex: new RegExp(city, "i") } },
-                ],
-              }
-            : {}),
-        })
-          .select("_id name rating reviewCount services rate")
-          .limit(5);
+                },
+                { "address.city": { $regex: new RegExp(city, "i") } },
+              ],
+            }
+          : {}),
+      })
+        .select("_id name rating reviewCount services rate")
+        .limit(5);
 
-        if (!providers || providers.length === 0) {
-          throw new Error(
-            `No service providers available for ${serviceType} in ${location}`
-          );
-        }
+    if (!providers || providers.length === 0) {
+      // Return empty array if no providers found
+      return {
+        bookingId: null,
+        message: `No service providers available for ${serviceType} in ${location}`,
+        providers: []
+      };
+    }
 
-        // Format and cache providers
-        providers = providers.map((p) => ({
-          id: p._id.toString(),
-          name: p.name || "Unknown Provider",
-          rating: p.rating || 4.5,
-          reviewCount: p.reviewCount || 25,
-          specialties: [serviceType],
-          rate: p.rate || 25,
-        }));
 
-        // Cache for 1 hour
-        await redis.set(this.cacheKey, JSON.stringify(providers), "EX", 3600);
-      }
+      // Format providers
+      const formattedProviders = providers.map((p) => ({
+        id: p._id.toString(),
+        name: p.name || "Unknown Provider",
+        rating: p.rating || 4.5,
+        reviewCount: p.reviewCount || 25,
+        specialties: [serviceType],
+        rate: p.rate || 25,
+      }));
 
       // Validate selection
       const index = parseInt(selectionNumber) - 1;
-      if (isNaN(index) || index < 0 || index >= providers.length) {
+      if (isNaN(index) || index < 0 || index >= formattedProviders.length) {
         throw new Error(
-          `Invalid selection number. Please select a number between 1 and ${providers.length}`
+          `Invalid selection number. Please select a number between 1 and ${formattedProviders.length}`
         );
       }
 
       console.log(
-        `Selected provider index ${index} from ${providers.length} providers`
+        `Selected provider index ${index} from ${formattedProviders.length} providers`
       );
 
       // Get selected provider
-      const selectedProvider = providers[index];
+      const selectedProvider = formattedProviders[index];
       if (!selectedProvider || !selectedProvider.id) {
         throw new Error("Selected provider information is invalid");
       }
@@ -245,8 +233,8 @@ class BookingManager {
       return await this.scheduleBooking(
         selectedProvider.id,
         serviceType,
-        date,
-        time,
+        parsedDate.date,
+        parsedTime.time,
         location,
         description
       );
@@ -267,6 +255,37 @@ class BookingManager {
         return false;
       }
 
+      // Format date and time for better readability
+      let displayDate = requestDetails.date;
+      let displayTime = requestDetails.time;
+
+      if (
+        typeof requestDetails.date === "string" &&
+        requestDetails.date.match(/^\d{4}-\d{2}-\d{2}$/)
+      ) {
+        displayDate = new Date(requestDetails.date).toLocaleDateString(
+          "en-US",
+          {
+            weekday: "long",
+            month: "long",
+            day: "numeric",
+          }
+        );
+      }
+
+      if (
+        typeof requestDetails.time === "string" &&
+        requestDetails.time.match(/^([01]\d|2[0-3]):([0-5]\d)$/)
+      ) {
+        displayTime = new Date(
+          `2000-01-01T${requestDetails.time}:00`
+        ).toLocaleTimeString("en-US", {
+          hour: "numeric",
+          minute: "numeric",
+          hour12: true,
+        });
+      }
+
       const message = `
 🔔 New Service Request 🔔
 
@@ -275,10 +294,10 @@ Hello ${provider.name},
 You have a new service request:
 - Request ID: ${requestDetails.requestId}
 - Service: ${requestDetails.serviceType}
-- Date: ${requestDetails.date}
-- Time: ${requestDetails.time}
+- Date: ${displayDate}
+- Time: ${displayTime}
 - Location: ${requestDetails.location}
-- Description: ${requestDetails.description}
+- Description: ${requestDetails.description || "No details provided"}
 
 Please login to your Tesha provider app to accept or decline this request.
 
@@ -293,7 +312,9 @@ Tesha Team
         `Successfully notified provider ${providerId} about request ${requestDetails.requestId}`
       );
 
-      // TODO: Send notification to provider about the new service request
+      // TODO: Implement actual WhatsApp notification integration here
+      // This could be a call to your WhatsApp messaging service
+
       return true;
     } catch (error) {
       console.error("Error notifying service provider:", error);
@@ -313,6 +334,29 @@ Tesha Team
       `Scheduling booking: ${serviceType} with provider ${serviceProviderId} on ${date} at ${time} at ${location}`
     );
     try {
+      // Parse date and time if they're in natural language format
+      let finalDate = date;
+      let finalTime = time;
+
+      if (typeof date === "string" && !date.match(/^\d{4}-\d{2}-\d{2}$/)) {
+        const parsedDate = dateParser.parseDate(date);
+        if (!parsedDate.success) {
+          throw new Error(`Invalid date: ${parsedDate.message}`);
+        }
+        finalDate = parsedDate.date;
+      }
+
+      if (
+        typeof time === "string" &&
+        !time.match(/^([01]\d|2[0-3]):([0-5]\d)$/)
+      ) {
+        const parsedTime = dateParser.parseTime(time);
+        if (!parsedTime.success) {
+          throw new Error(`Invalid time: ${parsedTime.message}`);
+        }
+        finalTime = parsedTime.time;
+      }
+
       // Find the service
       let serviceObj = await Service.findOne({
         $text: { $search: serviceType, $caseSensitive: false },
@@ -335,6 +379,9 @@ Tesha Team
       // Extract city from location
       const city = this.extractCity(location);
 
+      // Combine date and time for a full datetime object
+      const bookingDate = new Date(`${finalDate}T${finalTime}:00`);
+
       // Create service request object
       const serviceRequest = new ServiceRequest({
         service: serviceObj._id,
@@ -348,8 +395,8 @@ Tesha Team
         notes: description || "No additional details provided",
         id: requestId,
         confirmed: true,
-        date: date,
-        time: time,
+        date: bookingDate,
+        time: finalTime,
         createdAt: new Date(),
       });
 
@@ -360,30 +407,48 @@ Tesha Team
       // Fetch provider details
       let providerName = "Selected Provider";
       try {
-        const provider = await User.findById(serviceProviderId).select("name");
+        const provider = await User.findById(serviceProviderId).select(
+          "name phone"
+        );
         if (provider) {
           providerName = provider.name;
+
+          // Send notification to the provider
+          await this.notifyServiceProvider(providerId, {
+            requestId,
+            serviceType,
+            date: finalDate,
+            time: finalTime,
+            location,
+            description,
+          });
         }
       } catch (providerErr) {
         console.error("Error fetching provider details:", providerErr);
       }
 
-      // Notify the service provider
-      await this.notifyServiceProvider(serviceProviderId, {
-        requestId,
-        serviceType,
-        date,
-        time,
-        location,
-        description,
+      // Format date and time for display
+      const formattedDate = new Date(finalDate).toLocaleDateString("en-US", {
+        weekday: "long",
+        year: "numeric",
+        month: "long",
+        day: "numeric",
       });
+
+      const formattedTime = finalTime.match(/^([01]\d|2[0-3]):([0-5]\d)$/)
+        ? new Date(`2000-01-01T${finalTime}:00`).toLocaleTimeString("en-US", {
+            hour: "numeric",
+            minute: "numeric",
+            hour12: true,
+          })
+        : finalTime;
 
       // Return booking details
       return {
         bookingId: requestId,
         serviceType,
-        date,
-        time,
+        date: formattedDate,
+        time: formattedTime,
         location,
         description,
         providerName,

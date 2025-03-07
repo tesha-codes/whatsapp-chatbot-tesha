@@ -3,16 +3,14 @@ const User = require("./../../models/user.model");
 const ServiceProvider = require("./../../models/serviceProvider.model");
 const ServiceRequest = require("../../models/request.model");
 const crypto = require("crypto");
-const { redisHelper: redis } = require("../../utils/redis");
 const serviceMatcher = require("../../utils/serviceMatchingUtil");
+const dateParser = require("../../utils/dateParser");
 
 class ServiceRequestManager {
   constructor(userId) {
     this.userId = userId;
-    this.cachePrefix = `tesha_service_${userId}_`;
   }
 
-  // Generate a c
   async generateUniqueRequestId() {
     const attempts = 10;
 
@@ -20,16 +18,11 @@ class ServiceRequestManager {
       // Generate 8 random bytes and convert to alphanumeric string
       const randomBytes = crypto.randomBytes(4); // 4 bytes gives 8 hex characters
       const id = `REQ${randomBytes.toString("hex").substring(0, 8)}`;
-      // Check if this ID exists in Redis cache
-      const exists = await redis.exists(`request_id:${id}`);
-      if (!exists) {
-        // Check if ID exists in database
-        const requestExists = await ServiceRequest.exists({ id });
-        if (!requestExists) {
-          // Cache this ID to prevent simultaneous generation of the same ID
-          await redis.set(`request_id:${id}`, "1", "EX", 3600); // Cache for 1 hour
-          return id;
-        }
+
+      // Check if ID exists in database directly (no Redis cache check)
+      const requestExists = await ServiceRequest.exists({ id });
+      if (!requestExists) {
+        return id;
       }
     }
 
@@ -69,7 +62,44 @@ class ServiceRequestManager {
   ) {
     console.log(`Creating service request for ${serviceType} at ${location}`);
     try {
-      // Find the service in the database
+      // Parse date and time if provided
+      let finalDate = new Date();
+      let finalTime = "12:00";
+      let formattedDate = "Not specified";
+      let formattedTime = "Not specified";
+
+      if (preferredDate) {
+        const parsedDate = dateParser.parseDate(preferredDate);
+        if (parsedDate.success) {
+          finalDate = new Date(parsedDate.date);
+          formattedDate = parsedDate.formattedDate;
+        } else {
+          console.warn(
+            `Could not parse date: ${preferredDate}, using today instead`
+          );
+          finalDate = new Date();
+          formattedDate = finalDate.toLocaleDateString("en-US", {
+            weekday: "long",
+            year: "numeric",
+            month: "long",
+            day: "numeric",
+          });
+        }
+      }
+
+      if (preferredTime) {
+        const parsedTime = dateParser.parseTime(preferredTime);
+        if (parsedTime.success) {
+          finalTime = parsedTime.time;
+          formattedTime = parsedTime.formattedTime;
+        } else {
+          console.warn(
+            `Could not parse time: ${preferredTime}, using default time instead`
+          );
+        }
+      }
+
+      // Find the service in the database using service matcher or text search
       let serviceObj = await Service.findOne({
         $text: { $search: serviceType, $caseSensitive: false },
       });
@@ -102,8 +132,8 @@ class ServiceRequestManager {
         city: city,
         notes: description || "No additional details provided",
         id: requestId,
-        date: preferredDate,
-        time: preferredTime,
+        date: finalDate,
+        time: finalTime,
         createdAt: new Date(),
       });
 
@@ -116,8 +146,8 @@ class ServiceRequestManager {
         serviceType: serviceObj.title,
         description: description || "No description provided",
         location,
-        date: preferredDate,
-        time: preferredTime,
+        date: formattedDate,
+        time: formattedTime,
       };
     } catch (error) {
       console.error("Error creating service request:", error);
@@ -128,21 +158,7 @@ class ServiceRequestManager {
   async getAvailableServices() {
     console.log("Fetching available services");
     try {
-      // Try to get from cache first
-      const cachedServices = await redis.get(
-        `${this.cachePrefix}available_services`
-      );
-      if (cachedServices) {
-        try {
-          const services = JSON.parse(cachedServices);
-          console.log(`Retrieved ${services.length} services from cache`);
-          return { services };
-        } catch (e) {
-          console.error("Error parsing cached services:", e);
-        }
-      }
-
-      // Fetch services from database
+      // Fetch services directly from database (no cache check)
       const services = await Service.find()
         .select("title description serviceType")
         .limit(30);
@@ -157,14 +173,6 @@ class ServiceRequestManager {
         description: service.description || `${service.title} services`,
         types: service.serviceType || [],
       }));
-
-      // Cache the results for 1 day
-      await redis.set(
-        `${this.cachePrefix}available_services`,
-        JSON.stringify(formattedServices),
-        "EX",
-        86400
-      );
 
       return { services: formattedServices };
     } catch (error) {
@@ -187,33 +195,12 @@ class ServiceRequestManager {
     );
 
     try {
-      // Create a cache key based on search parameters
-      const cacheKey = `${this.cachePrefix}providers_${serviceType
-        .replace(/\s+/g, "_")
-        .toLowerCase()}_${
-        location
-          ? this.extractCity(location).replace(/\s+/g, "_").toLowerCase()
-          : "any"
-      }`;
-
-      // Try to get from cache first
-      const cachedProviders = await redis.get(cacheKey);
-      if (cachedProviders) {
-        try {
-          const result = JSON.parse(cachedProviders);
-          console.log(
-            `Retrieved ${result.providers.length} providers from cache for "${serviceType}"`
-          );
-          return result;
-        } catch (e) {
-          console.error("Error parsing cached providers:", e);
-        }
-      }
-
-      // Use the service matcher utility to find matching services
+      // Use the service matcher utility to find matching services (no cache check)
       const matchedServices = await serviceMatcher.findMatchingServices(
         serviceType
       );
+
+      console.log('matched services', matchedServices);
 
       if (!matchedServices || matchedServices.length === 0) {
         return {
@@ -232,6 +219,8 @@ class ServiceRequestManager {
       const serviceIds = matchedServices.map((service) => service._id);
       const primaryServiceTitle = matchedServices[0]?.title || serviceType;
 
+      console.log('serviveIds', serviceIds);
+
       // Extract city from location for geographic filtering
       const city = this.extractCity(location);
       console.log(`Searching for providers in city: ${city}`);
@@ -247,6 +236,8 @@ class ServiceRequestManager {
         .limit(10);
 
       let providers = [];
+
+      console.log('serviceProviders', serviceProviders);
 
       if (serviceProviders && serviceProviders.length > 0) {
         // Format service providers with user data
@@ -303,7 +294,7 @@ class ServiceRequestManager {
       }
 
       // Prepare result
-      const result = {
+      return {
         serviceType: primaryServiceTitle,
         location: location || "Not specified",
         providers: providers,
@@ -314,11 +305,6 @@ class ServiceRequestManager {
               }`
             : undefined,
       };
-
-      // Cache for 1 hour
-      await redis.set(cacheKey, JSON.stringify(result), "EX", 3600);
-
-      return result;
     } catch (error) {
       console.error("Error fetching service providers:", error);
       return {

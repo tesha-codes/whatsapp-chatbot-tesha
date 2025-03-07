@@ -1,10 +1,6 @@
 const Service = require("../models/services.model");
 const Category = require("../models/category.model");
 
-/**
- * Comprehensive service matching utility that maps natural language queries
- * to predefined service types and specific services
- */
 class ServiceMatcher {
   constructor() {
     // Initialize the service mapping dictionary
@@ -13,11 +9,9 @@ class ServiceMatcher {
     this.categoryIdMapping = null;
   }
 
-  /**
-   * Build comprehensive mapping dictionary from services and their tasks
-   */
+  //   service mapping dictionary
   _buildServiceMapping() {
-    // Core service type mapping - maps common terms to service types and categories
+    //
     const mapping = {
       // Household Services
       clean: ["Household", "Cleaning Services"],
@@ -195,9 +189,7 @@ class ServiceMatcher {
     return mapping;
   }
 
-  /**
-   * Load and cache category ID mapping for better performance
-   */
+  // load and cache category ID
   async _loadCategoryMapping() {
     if (this.categoryIdMapping) return this.categoryIdMapping;
 
@@ -316,65 +308,115 @@ class ServiceMatcher {
    */
   async findMatchingServices(query) {
     try {
-      // Get matched service types and specific services
-      const { serviceTypes, specificServices, score } = await this.matchService(
-        query
+      if (!query || query.trim() === "") {
+        return [];
+      }
+
+      const normalizedQuery = query.toLowerCase().trim();
+      console.log(`Finding matching services for: "${normalizedQuery}"`);
+
+      // STEP 1: Try direct title match first (highest priority)
+      const titleMatches = await Service.find({
+        title: { $regex: new RegExp(normalizedQuery, "i") },
+      }).limit(10);
+
+      if (titleMatches.length > 0) {
+        console.log(`Found ${titleMatches.length} direct title matches`);
+        return titleMatches;
+      }
+
+      // STEP 2: Try description match
+      const descMatches = await Service.find({
+        description: { $regex: new RegExp(normalizedQuery, "i") },
+      }).limit(10);
+
+      if (descMatches.length > 0) {
+        console.log(`Found ${descMatches.length} description matches`);
+        return descMatches;
+      }
+
+      // STEP 3: Try service type match using your dictionary
+      const { serviceTypes, specificServices } = await this.matchService(
+        normalizedQuery
       );
 
-      if (score === 0) {
-        // If no matches in our dictionary, just do a text search
-        return await Service.find({
-          $text: { $search: query, $caseSensitive: false },
-        })
-          .sort({ score: { $meta: "textScore" } })
-          .limit(5);
-      }
-
-      // Load category mapping if needed
-      await this._loadCategoryMapping();
-
-      // Use the matched service types to find services
-      let services = [];
-
-      // First try: search by service type
-      if (serviceTypes.length > 0) {
-        services = await Service.find({
-          serviceType: { $in: serviceTypes },
-        }).limit(10);
-      }
-
-      // Second try: search by specific service name
-      if (services.length === 0 && specificServices.length > 0) {
-        const regexPatterns = specificServices.map(
-          (service) => new RegExp(service, "i")
-        );
-
-        services = await Service.find({
+      if (specificServices.length > 0) {
+        // Try to find services that match the specific services in your dictionary
+        const specificMatches = await Service.find({
           $or: [
-            { title: { $in: regexPatterns } },
-            { description: { $in: regexPatterns } },
+            { title: { $in: specificServices.map((s) => new RegExp(s, "i")) } },
           ],
         }).limit(10);
+
+        if (specificMatches.length > 0) {
+          console.log(
+            `Found ${specificMatches.length} specific service matches`
+          );
+          return specificMatches;
+        }
       }
 
-      // Last resort: direct text search
-      if (services.length === 0) {
-        services = await Service.find({
-          $text: { $search: query, $caseSensitive: false },
-        })
-          .sort({ score: { $meta: "textScore" } })
-          .limit(5);
+      if (serviceTypes.length > 0) {
+        // Try to find services by service type
+        const typeMatches = await Service.find({
+          serviceType: { $in: serviceTypes },
+        }).limit(10);
+
+        if (typeMatches.length > 0) {
+          console.log(`Found ${typeMatches.length} service type matches`);
+          return typeMatches;
+        }
       }
 
-      return services;
+      // STEP 4: Try text search as last resort
+      const textMatches = await Service.find({
+        $text: { $search: normalizedQuery },
+      })
+        .sort({ score: { $meta: "textScore" } })
+        .limit(10);
+
+      console.log(`Found ${textMatches.length} text search matches`);
+      return textMatches;
     } catch (error) {
       console.error("Error finding matching services:", error);
       return [];
+    }
+  }
+
+  //   :
+  async testServiceMatcher() {
+    const queries = [
+      "I am looking for someone to clean my room",
+      "I need a cook",
+      "meal preparation",
+      "cleaning",
+      "plumbing",
+      "handyman",
+      "gardening",
+      "pet care",
+      "senior care",
+      "moving services",
+      "furniture assembly",
+      "yard work",
+    ];
+
+    for (const query of queries) {
+      console.log(`\nTesting query: "${query}"`);
+      const matches = await serviceMatcher.findMatchingServices(query);
+      console.log(`Found ${matches.length} matches:`);
+      matches.forEach((match, i) => {
+        console.log(
+          `${i + 1}. ${match.title} (${match.serviceType.join(", ")})`
+        );
+      });
     }
   }
 }
 
 // Create a singleton instance
 const serviceMatcher = new ServiceMatcher();
+
+// : UNCOMMENT TO TEST SERVICE MATCHER
+// serviceMatcher.testServiceMatcher().catch(console.error);
 
 module.exports = serviceMatcher;

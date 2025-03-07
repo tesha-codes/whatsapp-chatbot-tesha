@@ -4,6 +4,7 @@ const ServiceRequestManager = require("./serviceRequests");
 const BookingManager = require("./bookings");
 const UserProfileManager = require("./profile");
 const ChatHistoryManager = require("../../utils/chatHistory");
+const dateParser = require("../../utils/dateParser");
 const CLIENT_CHAT_TEMPLATES = require("./chatFlows");
 
 class ChatHandler {
@@ -24,10 +25,34 @@ class ChatHandler {
         "entries"
       );
 
+      // Get current date and time for prompt injection
+      const now = new Date();
+      const currentDate = now.toISOString().split("T")[0]; // YYYY-MM-DD
+      const currentTime = now.toTimeString().split(" ")[0].substring(0, 5); // HH:MM
+
+      // Calculate tomorrow and next week for reference
+      const tomorrow = new Date(now);
+      tomorrow.setDate(tomorrow.getDate() + 1);
+      const tomorrowDate = tomorrow.toISOString().split("T")[0];
+
+      const nextWeek = new Date(now);
+      nextWeek.setDate(nextWeek.getDate() + 7);
+      const nextWeekDate = nextWeek.toISOString().split("T")[0];
+
+      console.log('Time variables:', currentDate, currentTime, tomorrowDate, nextWeekDate);
+
       const messages = [
         {
           role: "system",
           content: `You are Tesha, a dedicated WhatsApp chatbot assistant for clients seeking services on the Tesha platform. You are developed by Tesha Inc (a subsidiary of Orbisminds Tech Pvt Ltd).
+
+IMPORTANT DATE AND TIME INFORMATION:
+- Today's date is ${currentDate} and the current time is ${currentTime}
+- Tomorrow's date is ${tomorrowDate}
+- Next week starts on ${nextWeekDate}
+- NEVER suggest or accept dates in the past (before ${currentDate})
+- When using the handle_provider_selection tool, always ensure the date parameter is today or a future date
+- Convert natural language dates like "tomorrow" or "next Monday" to proper YYYY-MM-DD format
 
 Your purpose is to assist clients with tasks strictly limited to:
 1. Requesting services
@@ -374,7 +399,6 @@ SUPPORT REDIRECT:
 
   validateToolCall(name, params) {
     console.log(`Validating tool call: ${name}`);
-
     switch (name) {
       case "request_service":
         if (!params.serviceType || params.serviceType.trim() === "") {
@@ -382,6 +406,22 @@ SUPPORT REDIRECT:
         }
         if (!params.location || params.location.trim() === "") {
           throw new Error("Location is required.");
+        }
+        if (params.date) {
+          const parsedDate = dateParser.parseDate(params.date);
+          if (!parsedDate.success) {
+            throw new Error(
+              `Invalid date: ${parsedDate.message}. Please provide a future date.`
+            );
+          }
+        }
+        if (params.time) {
+          const parsedTime = dateParser.parseTime(params.time);
+          if (!parsedTime.success) {
+            throw new Error(
+              `Invalid time: ${parsedTime.message}. Please provide a valid time.`
+            );
+          }
         }
         break;
 
@@ -395,12 +435,28 @@ SUPPORT REDIRECT:
         if (!params.serviceType || params.serviceType.trim() === "") {
           throw new Error("Service type is required.");
         }
-        if (!params.date || !this.isValidDate(params.date)) {
-          throw new Error("Please provide a valid date in YYYY-MM-DD format.");
+        if (!params.date) {
+          throw new Error("Date is required.");
         }
-        if (!params.time || !this.isValidTime(params.time)) {
-          throw new Error("Please provide a valid time in HH:MM format.");
+
+        const parsedDate = dateParser.parseDate(params.date);
+        if (!parsedDate.success) {
+          throw new Error(
+            `Invalid date: ${parsedDate.message}. Please provide a future date.`
+          );
         }
+
+        if (!params.time) {
+          throw new Error("Time is required.");
+        }
+
+        const parsedTime = dateParser.parseTime(params.time);
+        if (!parsedTime.success) {
+          throw new Error(
+            `Invalid time: ${parsedTime.message}. Please provide a valid time.`
+          );
+        }
+
         if (!params.location || params.location.trim() === "") {
           throw new Error("Location is required.");
         }
@@ -416,11 +472,19 @@ SUPPORT REDIRECT:
         if (!params.bookingId) {
           throw new Error("Booking ID is required.");
         }
-        if (!params.newDate || !this.isValidDate(params.newDate)) {
-          throw new Error("Please provide a valid date in YYYY-MM-DD format.");
+
+        const newParsedDate = dateParser.parseDate(params.newDate);
+        if (!newParsedDate.success) {
+          throw new Error(
+            `Invalid date: ${newParsedDate.message}. Please provide a future date.`
+          );
         }
-        if (!params.newTime || !this.isValidTime(params.newTime)) {
-          throw new Error("Please provide a valid time in HH:MM format.");
+
+        const newParsedTime = dateParser.parseTime(params.newTime);
+        if (!newParsedTime.success) {
+          throw new Error(
+            `Invalid time: ${newParsedTime.message}. Please provide a valid time.`
+          );
         }
         break;
 
@@ -453,30 +517,48 @@ SUPPORT REDIRECT:
 
     console.log(`Tool call ${name} validation passed`);
   }
-
   isValidDate(dateString) {
-    const regex = /^\d{4}-\d{2}-\d{2}$/;
-    if (!regex.test(dateString)) return false;
-
-    const date = new Date(dateString);
-    const now = new Date();
-
-    // Check if date is valid and not in the past
-    return (
-      date instanceof Date &&
-      !isNaN(date) &&
-      date >= new Date(now.setHours(0, 0, 0, 0))
-    );
+    const parsedDate = dateParser.parseDate(dateString);
+    return parsedDate.success;
   }
 
   isValidTime(timeString) {
-    const regex = /^([01]\d|2[0-3]):([0-5]\d)$/;
-    return regex.test(timeString);
+    const parsedTime = dateParser.parseTime(timeString);
+    return parsedTime.success;
   }
-
+  //
   formatToolResults(results) {
     console.log(`Formatting ${results.length} tool results`);
 
+    // Check if this is a service providers list result
+    const providersListResult = results.find(
+      (r) => r.type === "SERVICE_PROVIDERS_LIST"
+    );
+    if (
+      providersListResult &&
+      providersListResult.data &&
+      providersListResult.data.providers &&
+      providersListResult.data.providers.length > 0
+    ) {
+      // Add confirmation message
+      return (
+        CLIENT_CHAT_TEMPLATES.SERVICE_PROVIDERS_LIST(providersListResult.data) +
+        "\n\nPlease select a provider by number, or type 'cancel' to start over."
+      );
+    }
+
+    // Check if this is a booking scheduled result
+    const bookingResult = results.find((r) => r.type === "BOOKING_SCHEDULED");
+    if (bookingResult && bookingResult.data) {
+      // Add confirmation and next steps
+      return (
+        CLIENT_CHAT_TEMPLATES.BOOKING_SCHEDULED(bookingResult.data) +
+        "\n\nI've notified the service provider of your booking. They will review your request and confirm soon. " +
+        "You can check the status of your booking anytime by typing 'my bookings'."
+      );
+    }
+
+    // Regular handling for other results
     return results
       .map((result) => {
         if (result.error) {

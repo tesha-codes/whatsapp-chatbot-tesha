@@ -43,6 +43,7 @@ const ServiceRequestSchema = new mongoose.Schema(
       type: String,
       required: true,
       trim: true,
+      index: true, // Add index for faster lookups
     },
     date: {
       type: Date,
@@ -62,8 +63,27 @@ const ServiceRequestSchema = new mongoose.Schema(
       type: Boolean,
       default: false,
     },
+    // for better tracking
+    cancelReason: {
+      type: String,
+    },
+    providerRating: {
+      type: Number,
+      min: 1,
+      max: 5,
+    },
+    clientFeedback: {
+      type: String,
+    },
   },
   { timestamps: true }
 );
+
+// Indexes
+ServiceRequestSchema.index({ requester: 1, status: 1 });
+ServiceRequestSchema.index({ service: 1 });
+ServiceRequestSchema.index({ serviceProviders: 1 });
+ServiceRequestSchema.index({ date: 1 });
+ServiceRequestSchema.index({ city: 1 });
 
 module.exports = mongoose.model("ServiceRequest", ServiceRequestSchema);
