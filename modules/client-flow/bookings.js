@@ -134,8 +134,8 @@ class BookingManager {
     return "Unknown";
   }
 
-  async scheduleBookingFromSelection(
-    selectionNumber,
+  async scheduleBookingWithProvider(
+    provider,
     serviceType,
     date,
     time,
@@ -143,7 +143,7 @@ class BookingManager {
     description
   ) {
     console.log(
-      `Scheduling booking from selection #${selectionNumber} for ${serviceType}`
+      `Scheduling booking with saved provider: ${provider.name} (${provider.id}) for ${serviceType}`
     );
     try {
       // Parse date and time
@@ -158,206 +158,6 @@ class BookingManager {
       }
 
       // Find service
-      const service = await Service.findOne({
-        $text: { $search: serviceType, $caseSensitive: false },
-      });
-
-      if (!service) {
-        throw new Error(`Service type '${serviceType}' not found`);
-      }
-
-      // Find providers directly from database
-      const city = this.extractCity(location);
-      const providers = await User.find({
-        accountType: "ServiceProvider",
-        services: service._id,
-        ...(city && city !== "Unknown"
-          ? {
-              $or: [
-                {
-                  "address.physicalAddress": {
-                    $regex: new RegExp(city, "i"),
-                  },
-                },
-                { "address.city": { $regex: new RegExp(city, "i") } },
-              ],
-            }
-          : {}),
-      })
-        .select("_id name rating reviewCount services rate")
-        .limit(5);
-
-    if (!providers || providers.length === 0) {
-      // Return empty array if no providers found
-      return {
-        bookingId: null,
-        message: `No service providers available for ${serviceType} in ${location}`,
-        providers: []
-      };
-    }
-
-
-      // Format providers
-      const formattedProviders = providers.map((p) => ({
-        id: p._id.toString(),
-        name: p.name || "Unknown Provider",
-        rating: p.rating || 4.5,
-        reviewCount: p.reviewCount || 25,
-        specialties: [serviceType],
-        rate: p.rate || 25,
-      }));
-
-      // Validate selection
-      const index = parseInt(selectionNumber) - 1;
-      if (isNaN(index) || index < 0 || index >= formattedProviders.length) {
-        throw new Error(
-          `Invalid selection number. Please select a number between 1 and ${formattedProviders.length}`
-        );
-      }
-
-      console.log(
-        `Selected provider index ${index} from ${formattedProviders.length} providers`
-      );
-
-      // Get selected provider
-      const selectedProvider = formattedProviders[index];
-      if (!selectedProvider || !selectedProvider.id) {
-        throw new Error("Selected provider information is invalid");
-      }
-
-      console.log(
-        `Selected provider: ${selectedProvider.name} (${selectedProvider.id})`
-      );
-
-      // Schedule the booking with the selected provider
-      return await this.scheduleBooking(
-        selectedProvider.id,
-        serviceType,
-        parsedDate.date,
-        parsedTime.time,
-        location,
-        description
-      );
-    } catch (error) {
-      console.error("Error in scheduleBookingFromSelection:", error);
-      throw new Error(`Failed to schedule booking: ${error.message}`);
-    }
-  }
-
-  async notifyServiceProvider(providerId, requestDetails) {
-    try {
-      const provider = await User.findById(providerId).select("phone name");
-
-      if (!provider) {
-        console.error(
-          `Provider with ID ${providerId} not found for notification`
-        );
-        return false;
-      }
-
-      // Format date and time for better readability
-      let displayDate = requestDetails.date;
-      let displayTime = requestDetails.time;
-
-      if (
-        typeof requestDetails.date === "string" &&
-        requestDetails.date.match(/^\d{4}-\d{2}-\d{2}$/)
-      ) {
-        displayDate = new Date(requestDetails.date).toLocaleDateString(
-          "en-US",
-          {
-            weekday: "long",
-            month: "long",
-            day: "numeric",
-          }
-        );
-      }
-
-      if (
-        typeof requestDetails.time === "string" &&
-        requestDetails.time.match(/^([01]\d|2[0-3]):([0-5]\d)$/)
-      ) {
-        displayTime = new Date(
-          `2000-01-01T${requestDetails.time}:00`
-        ).toLocaleTimeString("en-US", {
-          hour: "numeric",
-          minute: "numeric",
-          hour12: true,
-        });
-      }
-
-      const message = `
-🔔 New Service Request 🔔
-
-Hello ${provider.name},
-
-You have a new service request:
-- Request ID: ${requestDetails.requestId}
-- Service: ${requestDetails.serviceType}
-- Date: ${displayDate}
-- Time: ${displayTime}
-- Location: ${requestDetails.location}
-- Description: ${requestDetails.description || "No details provided"}
-
-Please login to your Tesha provider app to accept or decline this request.
-
-Thank you,
-Tesha Team
-`;
-
-      console.log(
-        `[NOTIFICATION] Would send provider notification to ${provider.phone}`
-      );
-      console.log(
-        `Successfully notified provider ${providerId} about request ${requestDetails.requestId}`
-      );
-
-      // TODO: Implement actual WhatsApp notification integration here
-      // This could be a call to your WhatsApp messaging service
-
-      return true;
-    } catch (error) {
-      console.error("Error notifying service provider:", error);
-      return false;
-    }
-  }
-
-  async scheduleBooking(
-    serviceProviderId,
-    serviceType,
-    date,
-    time,
-    location,
-    description
-  ) {
-    console.log(
-      `Scheduling booking: ${serviceType} with provider ${serviceProviderId} on ${date} at ${time} at ${location}`
-    );
-    try {
-      // Parse date and time if they're in natural language format
-      let finalDate = date;
-      let finalTime = time;
-
-      if (typeof date === "string" && !date.match(/^\d{4}-\d{2}-\d{2}$/)) {
-        const parsedDate = dateParser.parseDate(date);
-        if (!parsedDate.success) {
-          throw new Error(`Invalid date: ${parsedDate.message}`);
-        }
-        finalDate = parsedDate.date;
-      }
-
-      if (
-        typeof time === "string" &&
-        !time.match(/^([01]\d|2[0-3]):([0-5]\d)$/)
-      ) {
-        const parsedTime = dateParser.parseTime(time);
-        if (!parsedTime.success) {
-          throw new Error(`Invalid time: ${parsedTime.message}`);
-        }
-        finalTime = parsedTime.time;
-      }
-
-      // Find the service
       let serviceObj = await Service.findOne({
         $text: { $search: serviceType, $caseSensitive: false },
       });
@@ -380,13 +180,13 @@ Tesha Team
       const city = this.extractCity(location);
 
       // Combine date and time for a full datetime object
-      const bookingDate = new Date(`${finalDate}T${finalTime}:00`);
+      const bookingDate = new Date(`${parsedDate.date}T${parsedTime.time}:00`);
 
       // Create service request object
       const serviceRequest = new ServiceRequest({
         service: serviceObj._id,
         requester: this.userId,
-        serviceProviders: [serviceProviderId],
+        serviceProviders: [provider.id],
         status: "Pending",
         address: {
           physicalAddress: location,
@@ -396,67 +196,90 @@ Tesha Team
         id: requestId,
         confirmed: true,
         date: bookingDate,
-        time: finalTime,
+        time: parsedTime.time,
         createdAt: new Date(),
       });
 
       // Save the request to database
       await serviceRequest.save();
-      console.log(`Service request created: ${requestId}`);
+      console.log(`Service request created with ID: ${requestId}`);
 
-      // Fetch provider details
-      let providerName = "Selected Provider";
-      try {
-        const provider = await User.findById(serviceProviderId).select(
-          "name phone"
-        );
-        if (provider) {
-          providerName = provider.name;
-
-          // Send notification to the provider
-          await this.notifyServiceProvider(providerId, {
-            requestId,
-            serviceType,
-            date: finalDate,
-            time: finalTime,
-            location,
-            description,
-          });
-        }
-      } catch (providerErr) {
-        console.error("Error fetching provider details:", providerErr);
-      }
-
-      // Format date and time for display
-      const formattedDate = new Date(finalDate).toLocaleDateString("en-US", {
-        weekday: "long",
-        year: "numeric",
-        month: "long",
-        day: "numeric",
+      // Send notification to the provider
+      await this.notifyServiceProvider(provider.id, {
+        requestId,
+        serviceType,
+        date: parsedDate.date,
+        time: parsedTime.time,
+        location,
+        description,
       });
-
-      const formattedTime = finalTime.match(/^([01]\d|2[0-3]):([0-5]\d)$/)
-        ? new Date(`2000-01-01T${finalTime}:00`).toLocaleTimeString("en-US", {
-            hour: "numeric",
-            minute: "numeric",
-            hour12: true,
-          })
-        : finalTime;
 
       // Return booking details
       return {
         bookingId: requestId,
         serviceType,
-        date: formattedDate,
-        time: formattedTime,
+        date,
+        time,
         location,
         description,
-        providerName,
+        providerName: provider.name,
         status: "Pending",
       };
     } catch (error) {
-      console.error("Error in scheduleBooking:", error);
+      console.error("Error in scheduleBookingWithProvider:", error);
       throw new Error(`Failed to schedule booking: ${error.message}`);
+    }
+  }
+
+  async notifyServiceProvider(providerId, requestDetails) {
+    try {
+      // Find the provider by ID
+      const provider = await User.findById(providerId).select("phone name");
+
+      if (!provider) {
+        console.error(
+          `Provider with ID ${providerId} not found for notification`
+        );
+        return false;
+      }
+
+      // Format date and time for better readability
+      let displayDate = requestDetails.date;
+      let displayTime = requestDetails.time;
+
+      const message = `
+🔔 New Service Request 🔔
+
+Hello ${provider.name},
+
+You have a new service request:
+- Request ID: ${requestDetails.requestId}
+- Service: ${requestDetails.serviceType}
+- Date: ${displayDate}
+- Time: ${displayTime}
+- Location: ${requestDetails.location}
+- Description: ${requestDetails.description || "No details provided"}
+
+Please login to your Tesha provider app to accept or decline this request.
+
+Thank you,
+Tesha Team
+`;
+
+      console.log(
+        `[NOTIFICATION] Sending provider notification to ${provider.phone}`
+      );
+      console.log(
+        `Successfully notified provider ${providerId} about request ${requestDetails.requestId}`
+      );
+
+      // TODO: Implement actual WhatsApp notification integration here
+      // This could be a call to your WhatsApp messaging service
+
+      return true;
+    } catch (error) {
+      console.error("Error notifying service provider:", error);
+      return false;
     }
   }
 

@@ -39,8 +39,6 @@ class ChatHandler {
       nextWeek.setDate(nextWeek.getDate() + 7);
       const nextWeekDate = nextWeek.toISOString().split("T")[0];
 
-      console.log('Time variables:', currentDate, currentTime, tomorrowDate, nextWeekDate);
-
       const messages = [
         {
           role: "system",
@@ -149,9 +147,8 @@ For booking services, always ask for:
 3. Preferred date and time
 4. Any specific requirements or details
 
-After getting this information, you have two options:
-1. Use the view_service_providers tool to show available providers, then handle_provider_selection to make the booking when the user selects a provider.
-2. Use the request_service tool to directly create a service request without selecting a specific provider first.
+After getting this information use the view_service_providers tool to show available providers, then handle_provider_selection to make the booking when the user selects a provider.
+
 
 Never engage in non-service-related topics, share internal logic, or discuss competitors.
 
@@ -272,7 +269,7 @@ SUPPORT REDIRECT:
       console.log(`Parsed parameters for ${name}:`, params);
 
       try {
-        this.validateToolCall(name, params);
+        await this.validateToolCall(name, params);
       } catch (validationError) {
         return {
           type: "VALIDATION_ERROR",
@@ -299,42 +296,120 @@ SUPPORT REDIRECT:
               params.location || "any location"
             }`
           );
-          return {
-            type: "SERVICE_PROVIDERS_LIST",
-            data: await this.serviceRequestManager.getServiceProviders(
+
+          const providersResult =
+            await this.serviceRequestManager.getServiceProviders(
               params.serviceType,
               params.location || ""
-            ),
-          };
+            );
 
+          // If we have providers, store them in Redis
+          if (
+            providersResult.providers &&
+            providersResult.providers.length > 0
+          ) {
+            await ChatHistoryManager.storeMetadata(
+              this.phone,
+              "lastProvidersList",
+              {
+                providers: providersResult.providers,
+                serviceType: params.serviceType,
+                location: params.location || "",
+                timestamp: Date.now(),
+              }
+            );
+
+            console.log(
+              `Stored ${providersResult.providers.length} providers in Redis for phone ${this.phone}`
+            );
+          }
+          return {
+            type: "SERVICE_PROVIDERS_LIST",
+            data: providersResult,
+          };
+        // handle booking selection
         case "handle_provider_selection":
           console.log(
             `Handling provider selection: #${params.selectionNumber} for ${params.serviceType}`
           );
-          return {
-            type: "BOOKING_SCHEDULED",
-            data: await this.bookingManager.scheduleBookingFromSelection(
-              parseInt(params.selectionNumber),
-              params.serviceType,
-              params.date,
-              params.time,
-              params.location,
-              params.description || ""
-            ),
-          };
+          try {
+            // Get providers list from Redis
+            const providersListData = await ChatHistoryManager.getMetadata(
+              this.phone,
+              "lastProvidersList"
+            );
 
-        case "request_service":
-          console.log(`Creating service request for ${params.serviceType}`);
-          return {
-            type: "SERVICE_REQUEST",
-            data: await this.serviceRequestManager.createServiceRequest(
-              params.serviceType,
-              params.description || "",
-              params.location,
-              params.date,
-              params.time
-            ),
-          };
+            if (
+              !providersListData ||
+              !providersListData.providers ||
+              providersListData.providers.length === 0
+            ) {
+              return {
+                type: "VALIDATION_ERROR",
+                error:
+                  "No provider list found. Please search for providers first.",
+                tool: name,
+              };
+            }
+
+            // Check if the service type matches
+            if (providersListData.serviceType !== params.serviceType) {
+              console.warn(
+                `Service type mismatch: requested ${params.serviceType} but found ${providersListData.serviceType}`
+              );
+            }
+
+            // Get the selected provider
+            const selectionIndex = parseInt(params.selectionNumber) - 1;
+            if (
+              isNaN(selectionIndex) ||
+              selectionIndex < 0 ||
+              selectionIndex >= providersListData.providers.length
+            ) {
+              return {
+                type: "VALIDATION_ERROR",
+                error: `Invalid selection. Please choose a number between 1 and ${providersListData.providers.length}.`,
+                tool: name,
+              };
+            }
+
+            // Get the selected provider
+            const selectedProvider =
+              providersListData.providers[selectionIndex];
+            console.log(
+              `Selected provider from Redis: ${selectedProvider.name} (${selectedProvider.id})`
+            );
+
+            // Schedule booking with the selected provider
+            const bookingResult =
+              await this.bookingManager.scheduleBookingWithProvider(
+                selectedProvider,
+                params.serviceType,
+                params.date,
+                params.time,
+                params.location,
+                params.description || ""
+              );
+
+            // Clear the providers list after successful booking
+            await ChatHistoryManager.storeMetadata(
+              this.phone,
+              "lastProvidersList",
+              null
+            );
+
+            return {
+              type: "BOOKING_SCHEDULED",
+              data: bookingResult,
+            };
+          } catch (error) {
+            console.error("Error in handle_provider_selection:", error);
+            return {
+              type: "VALIDATION_ERROR",
+              error: `Failed to schedule booking: ${error.message}`,
+              tool: name,
+            };
+          }
 
         case "view_bookings_history":
           console.log(`Fetching booking history for user ${this.userId}`);
@@ -397,7 +472,7 @@ SUPPORT REDIRECT:
     }
   }
 
-  validateToolCall(name, params) {
+  async validateToolCall(name, params) {
     console.log(`Validating tool call: ${name}`);
     switch (name) {
       case "request_service":
@@ -432,9 +507,43 @@ SUPPORT REDIRECT:
         ) {
           throw new Error("Please provide a valid selection number.");
         }
+        // Try to get providers from Redis
+        try {
+          const savedProviders = await ChatHistoryManager.getMetadata(
+            this.phone,
+            "lastProvidersList"
+          );
+
+          if (
+            !savedProviders ||
+            !savedProviders.providers ||
+            savedProviders.providers.length === 0
+          ) {
+            throw new Error(
+              "Please search for service providers first before making a selection."
+            );
+          }
+
+          const selIndex = parseInt(params.selectionNumber) - 1;
+          if (selIndex < 0 || selIndex >= savedProviders.providers.length) {
+            throw new Error(
+              `Please select a valid provider number between 1 and ${savedProviders.providers.length}.`
+            );
+          }
+        } catch (validationError) {
+          console.error(
+            "Provider selection validation error:",
+            validationError
+          );
+          throw new Error(
+            "Please search for service providers first before making a selection."
+          );
+        }
+
         if (!params.serviceType || params.serviceType.trim() === "") {
           throw new Error("Service type is required.");
         }
+
         if (!params.date) {
           throw new Error("Date is required.");
         }
@@ -530,6 +639,12 @@ SUPPORT REDIRECT:
   formatToolResults(results) {
     console.log(`Formatting ${results.length} tool results`);
 
+    // Check if this is a validation error
+    const validationError = results.find((r) => r.type === "VALIDATION_ERROR");
+    if (validationError) {
+      return `❌ ${validationError.error}`;
+    }
+
     // Check if this is a service providers list result
     const providersListResult = results.find(
       (r) => r.type === "SERVICE_PROVIDERS_LIST"
@@ -549,13 +664,19 @@ SUPPORT REDIRECT:
 
     // Check if this is a booking scheduled result
     const bookingResult = results.find((r) => r.type === "BOOKING_SCHEDULED");
-    if (bookingResult && bookingResult.data) {
-      // Add confirmation and next steps
-      return (
-        CLIENT_CHAT_TEMPLATES.BOOKING_SCHEDULED(bookingResult.data) +
-        "\n\nI've notified the service provider of your booking. They will review your request and confirm soon. " +
-        "You can check the status of your booking anytime by typing 'my bookings'."
-      );
+    if (bookingResult) {
+      if (bookingResult.error) {
+        return `❌ ${bookingResult.error}`;
+      }
+
+      if (bookingResult.data) {
+        // Add confirmation and next steps
+        return (
+          CLIENT_CHAT_TEMPLATES.BOOKING_SCHEDULED(bookingResult.data) +
+          "\n\nI've notified the service provider of your booking. They will review your request and confirm soon. " +
+          "You can check the status of your booking anytime by typing 'my bookings'."
+        );
+      }
     }
 
     // Regular handling for other results

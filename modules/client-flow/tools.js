@@ -81,40 +81,6 @@ const clientFunctions = [
   {
     type: "function",
     function: {
-      name: "request_service",
-      description:
-        "Request a new service without selecting a specific provider",
-      parameters: {
-        type: "object",
-        properties: {
-          serviceType: {
-            type: "string",
-            description: "Type of service requested",
-          },
-          description: {
-            type: "string",
-            description: "Description of the service needed",
-          },
-          location: {
-            type: "string",
-            description: "Location where service is needed",
-          },
-          date: {
-            type: "string",
-            description: "Date for the service (YYYY-MM-DD format)",
-          },
-          time: {
-            type: "string",
-            description: "Time for the service (HH:MM format)",
-          },
-        },
-        required: ["serviceType", "location"],
-      },
-    },
-  },
-  {
-    type: "function",
-    function: {
       name: "view_bookings_history",
       description: "Get a list of all bookings made by the client",
       parameters: {

@@ -1,4 +1,4 @@
-const { getSession, setSession } = require("./redis");
+const { getSession, setSession, redisHelper } = require("./redis");
 
 const CHAT_HISTORY_TTL = 24 * 60 * 60; // 24 hours
 
@@ -35,6 +35,62 @@ class ChatHistoryManager {
   static async clear(phone) {
     const key = `chat:${phone}`;
     await setSession(key, { messages: JSON.stringify([]) }, CHAT_HISTORY_TTL);
+  }
+  // phone chat meta data
+  static async storeMetadata(phone, key, data) {
+    try {
+      const metadataKey = `chat:metadata:${phone}`;
+
+      // Get existing metadata if any
+      let metadata = {};
+      const existingData = await redisHelper.get(metadataKey);
+
+      if (existingData) {
+        try {
+          metadata = JSON.parse(existingData);
+        } catch (parseError) {
+          console.error("Error parsing metadata:", parseError);
+        }
+      }
+
+      // Update with new data
+      metadata[key] = data;
+
+      // Store in Redis with 12 hour expiry
+      await redisHelper.set(
+        metadataKey,
+        JSON.stringify(metadata),
+        "EX",
+        12 * 60 * 60
+      );
+
+      return true;
+    } catch (error) {
+      console.error(`Failed to store metadata (${key}):`, error);
+      return false;
+    }
+  }
+
+  static async getMetadata(phone, key = null) {
+    try {
+      const metadataKey = `chat:metadata:${phone}`;
+      const data = await redisHelper.get(metadataKey);
+
+      if (!data) {
+        return key ? null : {};
+      }
+
+      try {
+        const metadata = JSON.parse(data);
+        return key ? metadata[key] : metadata;
+      } catch (parseError) {
+        console.error("Error parsing metadata:", parseError);
+        return key ? null : {};
+      }
+    } catch (error) {
+      console.error(`Failed to get metadata${key ? ` (${key})` : ""}:`, error);
+      return key ? null : {};
+    }
   }
 }
 

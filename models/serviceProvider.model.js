@@ -49,4 +49,9 @@ ServiceProviderSchema.index({ category: 1 });
 ServiceProviderSchema.index({ service: 1 });
 ServiceProviderSchema.index({ city: 1 });
 
-module.exports = mongoose.model("ServiceProvider", ServiceProviderSchema);
+const ServiceProvider = mongoose.model(
+  "ServiceProvider",
+  ServiceProviderSchema
+);
+
+module.exports = ServiceProvider;

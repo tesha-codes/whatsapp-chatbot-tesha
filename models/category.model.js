@@ -17,8 +17,11 @@ const CategorySchema = new mongoose.Schema({
     }
 }, { timestamps: true });
 
-const Category = mongoose.model('Category', CategorySchema);
+// Create indexes for search performance
+CategorySchema.index({ name: 'text' });
+CategorySchema.index({ description: "text" });
 
-Category.createIndexes();
+
+const Category = mongoose.model('Category', CategorySchema);
 
 module.exports = Category;
