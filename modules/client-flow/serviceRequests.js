@@ -2,32 +2,11 @@ const Service = require("./../../models/services.model");
 const User = require("./../../models/user.model");
 const ServiceProvider = require("./../../models/serviceProvider.model");
 const serviceMatcher = require("../../utils/serviceMatchingUtil");
+const BookingUtil = require("../../utils/bookingUtil");
 
 class ServiceRequestManager {
   constructor(userId) {
     this.userId = userId;
-  }
-
-  extractCity(location) {
-    if (!location) return "Unknown";
-
-    // Try different patterns to extract city
-    const cityMatch = location.match(/in\s+([A-Za-z\s]+)$/i);
-    if (cityMatch && cityMatch[1]) {
-      return cityMatch[1].trim();
-    }
-
-    const splitLocation = location.split(",");
-    if (splitLocation.length > 1) {
-      return splitLocation[splitLocation.length - 1].trim();
-    }
-
-    const words = location.split(" ");
-    if (words.length > 0) {
-      return words[words.length - 1].trim();
-    }
-
-    return "Unknown";
   }
 
   async getAvailableServices() {
@@ -89,7 +68,7 @@ class ServiceRequestManager {
       const primaryServiceTitle = matchedServices[0]?.title || serviceType;
 
       // Extract city from location for geographic filtering
-      const city = this.extractCity(location);
+      const city = BookingUtil.extractCity(location);
       console.log(`Searching for providers in city: ${city}`);
 
       // Find service providers with geographic filtering if city is available

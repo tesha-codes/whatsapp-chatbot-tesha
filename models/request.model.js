@@ -86,4 +86,6 @@ ServiceRequestSchema.index({ serviceProviders: 1 });
 ServiceRequestSchema.index({ date: 1 });
 ServiceRequestSchema.index({ city: 1 });
 
-module.exports = mongoose.model("ServiceRequest", ServiceRequestSchema);
+const ServiceRequest = mongoose.model("ServiceRequest", ServiceRequestSchema);
+
+module.exports = ServiceRequest;

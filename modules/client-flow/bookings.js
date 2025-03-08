@@ -1,33 +1,13 @@
-const Service = require("./../../models/services.model");
-const User = require("./../../models/user.model");
-const ServiceRequest = require("./../../models/request.model");
-const crypto = require("crypto");
+const Service = require("../../models/services.model");
+const ServiceProvider = require("../../models/serviceProvider.model");
+const ServiceRequest = require("../../models/request.model");
 const dateParser = require("../../utils/dateParser");
+const BookingUtil = require("../../utils/bookingUtil");
 
 class BookingManager {
   constructor(userId) {
     this.userId = userId;
   }
-
-  // Generate a cryptographically secure unique booking ID
-  async generateUniqueBookingId() {
-    const attempts = 10;
-    for (let i = 0; i < attempts; i++) {
-      // Generate 8 random bytes and convert to alphanumeric string
-      const randomBytes = crypto.randomBytes(4); // 4 bytes gives 8 hex characters
-      const id = `REQ${randomBytes.toString("hex").substring(0, 8)}`;
-
-      // Check if ID exists in database directly (no Redis cache check)
-      const bookingExists = await ServiceRequest.exists({ id });
-      if (!bookingExists) {
-        return id;
-      }
-    }
-    // Fallback to timestamp-based ID if all attempts fail, but this should be rare
-    const timestamp = Date.now().toString();
-    return `REQ${timestamp.slice(-8)}`;
-  }
-
   async getBookingHistory() {
     try {
       // Fetch actual bookings from database
@@ -111,29 +91,6 @@ class BookingManager {
       throw new Error(`Booking not found: ${error.message}`);
     }
   }
-
-  extractCity(location) {
-    if (!location) return "Unknown";
-
-    // Try different patterns to extract city
-    const cityMatch = location.match(/in\s+([A-Za-z\s]+)$/i);
-    if (cityMatch && cityMatch[1]) {
-      return cityMatch[1].trim();
-    }
-
-    const splitLocation = location.split(",");
-    if (splitLocation.length > 1) {
-      return splitLocation[splitLocation.length - 1].trim();
-    }
-
-    const words = location.split(" ");
-    if (words.length > 0) {
-      return words[words.length - 1].trim();
-    }
-
-    return "Unknown";
-  }
-
   async scheduleBookingWithProvider(
     provider,
     serviceType,
@@ -174,10 +131,10 @@ class BookingManager {
       }
 
       // Generate a unique request ID
-      const requestId = await this.generateUniqueBookingId();
+      const requestId = await BookingUtil.generateUniqueBookingId()
 
       // Extract city from location
-      const city = this.extractCity(location);
+      const city = BookingUtil.extractCity(location);
 
       // Combine date and time for a full datetime object
       const bookingDate = new Date(`${parsedDate.date}T${parsedTime.time}:00`);
@@ -234,8 +191,7 @@ class BookingManager {
   async notifyServiceProvider(providerId, requestDetails) {
     try {
       // Find the provider by ID
-      const provider = await User.findById(providerId).select("phone name");
-
+      const provider = await ServiceProvider.findById(providerId).populate("user", "firstName lastName phone");
       if (!provider) {
         console.error(
           `Provider with ID ${providerId} not found for notification`
@@ -243,20 +199,16 @@ class BookingManager {
         return false;
       }
 
-      // Format date and time for better readability
-      let displayDate = requestDetails.date;
-      let displayTime = requestDetails.time;
-
       const message = `
 🔔 New Service Request 🔔
 
-Hello ${provider.name},
+Hello ${provider.user?.firstName || provider.user?.lastName || "Provider"},
 
 You have a new service request:
 - Request ID: ${requestDetails.requestId}
 - Service: ${requestDetails.serviceType}
-- Date: ${displayDate}
-- Time: ${displayTime}
+- Date: ${requestDetails.date}
+- Time: ${requestDetails.time}
 - Location: ${requestDetails.location}
 - Description: ${requestDetails.description || "No details provided"}
 
@@ -265,9 +217,9 @@ Please login to your Tesha provider app to accept or decline this request.
 Thank you,
 Tesha Team
 `;
-
+      console.log(message);
       console.log(
-        `[NOTIFICATION] Sending provider notification to ${provider.phone}`
+        `[NOTIFICATION] Sending provider notification to ${provider.user?.phone}`
       );
       console.log(
         `Successfully notified provider ${providerId} about request ${requestDetails.requestId}`
