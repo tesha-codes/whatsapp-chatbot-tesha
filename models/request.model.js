@@ -12,11 +12,10 @@ const ServiceRequestSchema = new mongoose.Schema(
       required: true,
       ref: "User",
     },
-    serviceProviders: {
-      type: [mongoose.Types.ObjectId],
+    serviceProvider: {
+      type: mongoose.Types.ObjectId,
       required: true,
-      ref: "User",
-      default: [],
+      ref: "ServiceProvider",
     },
     status: {
       type: String,
@@ -82,7 +81,7 @@ const ServiceRequestSchema = new mongoose.Schema(
 // Indexes
 ServiceRequestSchema.index({ requester: 1, status: 1 });
 ServiceRequestSchema.index({ service: 1 });
-ServiceRequestSchema.index({ serviceProviders: 1 });
+ServiceRequestSchema.index({ serviceProvider: 1 });
 ServiceRequestSchema.index({ date: 1 });
 ServiceRequestSchema.index({ city: 1 });
 

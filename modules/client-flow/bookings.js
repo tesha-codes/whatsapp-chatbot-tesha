@@ -1,4 +1,3 @@
-const Service = require("../../models/services.model");
 const ServiceProvider = require("../../models/serviceProvider.model");
 const ServiceRequest = require("../../models/request.model");
 const dateParser = require("../../utils/dateParser");
@@ -10,85 +9,97 @@ class BookingManager {
   }
   async getBookingHistory() {
     try {
-      // Fetch actual bookings from database
       const requests = await ServiceRequest.find({ requester: this.userId })
         .populate("service", "title")
-        .populate("serviceProviders", "name")
+        .populate({
+          path: "serviceProvider",
+          select: "user", // Select the user field from ServiceProvider
+          populate: {
+            path: "user", //  populate User model through ServiceProvider
+            select: "firstName lastName phone",
+          },
+        })
         .sort({ createdAt: -1 })
         .limit(10);
 
-      // If no bookings found, return empty array
+      console.log("requests", requests);
+
       if (!requests || requests.length === 0) {
         return { bookings: [] };
       }
 
-      // Format the bookings data
       const bookings = requests.map((req) => {
-        const provider =
-          req.serviceProviders && req.serviceProviders.length > 0
-            ? req.serviceProviders[0].name
-            : "Unassigned";
-
+        //
+        const user = req.serviceProvider?.user || {};
         return {
           id: req.id,
-          serviceType: req.service ? req.service.title : "Unknown Service",
-          providerName: provider,
+          serviceType: req.service?.title || "Unknown Service",
+          providerName: user.firstName || user.lastName || "Unassigned",
+          phone: user.phone || "Not available",
           date: req.date
             ? new Date(req.date).toISOString().split("T")[0]
             : "Not specified",
           time: req.time || "Not specified",
           status: req.status,
-          rating: req.rating ? `${req.rating}/5` : undefined,
         };
       });
 
       return { bookings };
     } catch (error) {
       console.error("Error fetching booking history:", error);
-      // Return empty array instead of hardcoded data
       return { bookings: [] };
     }
   }
 
   async getBookingDetails(bookingId) {
     try {
-      // Find the booking in the database
       const request = await ServiceRequest.findOne({ id: bookingId })
         .populate("service", "title description")
-        .populate("serviceProviders", "name phone");
+        .populate({
+          path: "serviceProvider",
+          select: "user",
+          populate: {
+            path: "user",
+            select: "firstName lastName phone",
+          },
+        });
 
       if (!request) {
-        throw new Error(`Booking with ID ${bookingId} not found`);
+        return { message: "Booking not found" };
       }
 
-      // Format the booking details
-      const provider =
-        request.serviceProviders && request.serviceProviders.length > 0
-          ? request.serviceProviders[0]
-          : null;
+      // Access user through serviceProvider
+      const providerUser = request.serviceProvider?.user || {};
 
       return {
         id: request.id,
-        serviceType: request.service
-          ? request.service.title
-          : "Unknown Service",
-        providerName: provider ? provider.name : "Unassigned",
-        providerPhone: provider ? provider.phone : "Not available",
+        serviceType: request.service?.title || "Unknown Service",
+        serviceDescription:
+          request.service?.description || "No description available",
+        providerName:
+          `${providerUser.firstName || ""} ${
+            providerUser.lastName || ""
+          }`.trim() || "Unassigned",
+        providerPhone: providerUser.phone || "Not specified",
         date: request.date
           ? new Date(request.date).toISOString().split("T")[0]
           : "Not specified",
         time: request.time || "Not specified",
-        location: request.address
-          ? request.address.physicalAddress
-          : "Not specified",
+        location:
+          [request.address?.physicalAddress, request.city]
+            .filter(Boolean)
+            .join(", ") || "Not specified",
         status: request.status,
-        description: request.notes || "No description provided",
-        notes: request.serviceNotes || "",
-        rating: request.rating ? `${request.rating}/5` : undefined,
+        description: request.notes || "No additional notes",
+        rating: request.providerRating
+          ? `${request.providerRating}/5`
+          : "Not rated yet",
+        cancelReason: request.cancelReason || undefined, // Only include if present
+        clientFeedback: request.clientFeedback || undefined, // Only include if present
       };
     } catch (error) {
       console.error("Error fetching booking details:", error);
-      throw new Error(`Booking not found: ${error.message}`);
+      throw new Error(`Failed to retrieve booking: ${error.message}`);
     }
   }
   async scheduleBookingWithProvider(
@@ -114,24 +125,8 @@ class BookingManager {
         throw new Error(`Invalid time: ${parsedTime.message}`);
       }
 
-      // Find service
-      let serviceObj = await Service.findOne({
-        $text: { $search: serviceType, $caseSensitive: false },
-      });
-
-      if (!serviceObj) {
-        // Try to find by title
-        serviceObj = await Service.findOne({
-          title: { $regex: new RegExp(serviceType, "i") },
-        });
-
-        if (!serviceObj) {
-          throw new Error(`Service type '${serviceType}' not found`);
-        }
-      }
-
       // Generate a unique request ID
-      const requestId = await BookingUtil.generateUniqueBookingId()
+      const requestId = await BookingUtil.generateUniqueBookingId();
 
       // Extract city from location
       const city = BookingUtil.extractCity(location);
@@ -141,9 +136,9 @@ class BookingManager {
 
       // Create service request object
       const serviceRequest = new ServiceRequest({
-        service: serviceObj._id,
+        service: provider.service_id,
         requester: this.userId,
-        serviceProviders: [provider.id],
+        serviceProvider: provider.id,
         status: "Pending",
         address: {
           physicalAddress: location,
@@ -191,7 +186,10 @@ class BookingManager {
   async notifyServiceProvider(providerId, requestDetails) {
     try {
       // Find the provider by ID
-      const provider = await ServiceProvider.findById(providerId).populate("user", "firstName lastName phone");
+      const provider = await ServiceProvider.findById(providerId).populate(
+        "user",
+        "firstName lastName phone"
+      );
       if (!provider) {
         console.error(
           `Provider with ID ${providerId} not found for notification`
@@ -244,7 +242,10 @@ Tesha Team
       const booking = await ServiceRequest.findOne({ id: bookingId });
 
       if (!booking) {
-        throw new Error(`Booking with ID ${bookingId} not found`);
+        return {
+          success: false,
+          message: `Booking with ID ${bookingId} not found`,
+        };
       }
 
       // Update the booking

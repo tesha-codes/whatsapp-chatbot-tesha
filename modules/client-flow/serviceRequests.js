@@ -48,8 +48,6 @@ class ServiceRequestManager {
         serviceType
       );
 
-      console.log("matched services", matchedServices);
-
       if (!matchedServices || matchedServices.length === 0) {
         return {
           serviceType,
@@ -66,6 +64,10 @@ class ServiceRequestManager {
       // Get service IDs for provider search
       const serviceIds = matchedServices.map((service) => service._id);
       const primaryServiceTitle = matchedServices[0]?.title || serviceType;
+
+      console.log(
+        `Searching for service providers for services: ${serviceIds.join(", ")}`
+      );
 
       // Extract city from location for geographic filtering
       const city = BookingUtil.extractCity(location);
@@ -100,6 +102,7 @@ class ServiceRequestManager {
             name:
               `${user.firstName || ""} ${user.lastName || ""}`.trim() ||
               "Unknown Provider",
+            service_id: sp.service._id,
             rating: sp.rating || 4.5,
             reviewCount: Math.floor(Math.random() * 30) + 10, // Mock data
             specialties: [sp.service?.title || primaryServiceTitle],
