@@ -34,7 +34,9 @@ class BookingManager {
         return {
           id: req.id,
           serviceType: req.service?.title || "Unknown Service",
-          providerName: user.firstName || user.lastName || "Unassigned",
+          providerName:
+            `${user.firstName || ""} ${user.lastName || ""}`.trim() ||
+            "Unassigned",
           phone: user.phone || "Not available",
           date: req.date
             ? new Date(req.date).toISOString().split("T")[0]
