@@ -79,28 +79,29 @@ Would you like to view details for any specific booking? Just type the booking I
       return "❌ I couldn't find details for this booking. Please check the booking ID and try again.";
     }
 
-    return `📋 Booking Details for ${data.id}:
+    const details = [
+      `📋 Booking Details for ${data.id}:`,
+      `• Service: ${data.serviceType}`,
+      `• Service Description: ${data.serviceDescription}`,
+      `• Provider: ${data.providerName} ${data.providerPhone ? `(${data.providerPhone})` : ""}`,
+      `• Date: ${data.date}`,
+      `• Time: ${data.time}`,
+      `• Location: ${data.location}`,
+      `• Status: ${data.status}`,
+      `• Description: ${data.description}`,
+      data.cancelReason && `• Cancellation Reason: ${data.cancelReason}`,
+      data.clientFeedback && `• Client Feedback: ${data.clientFeedback}`,
+      data.rating && `• Rating: ${data.rating}`
+    ].filter(Boolean).join("\n");
 
-- Service: ${data.serviceType || "Not specified"}
-- Provider: ${data.providerName || "Not assigned"} ${
-      data.providerPhone ? `(${data.providerPhone})` : ""
-    }
-- Date & Time: ${data.date || "Not specified"} ${
-      data.time ? `at ${data.time}` : ""
-    }
-- Location: ${data.location || "Not specified"}
-- Status: ${data.status || "Pending"}
-- Description: ${data.description || "No description provided"}
-${data.notes ? `• Notes: ${data.notes}` : ""}
-${data.rating ? `• Rating: ${data.rating}` : ""}
+    const actionPrompt = 
+      data.status === "Scheduled" || data.status === "Pending"
+      ? "\nWould you like to reschedule or cancel this booking? Just let me know."
+      : data.status === "Completed" && data.rating === "Not rated yet"
+      ? "\nWould you like to rate this service? You can say 'Rate this booking 4.5 stars'."
+      : "\nIs there anything else you'd like to know?";
 
-${
-  data.status === "Scheduled" || data.status === "Pending"
-    ? "Would you like to reschedule or cancel this booking? Just let me know."
-    : data.status === "Completed" && !data.rating
-    ? "Would you like to rate this service? You can say 'Rate this booking 4.5 stars'."
-    : "Is there anything else you'd like to know?"
-}`;
+    return details + actionPrompt;
   },
 
   BOOKING_SCHEDULED: (data) => {
