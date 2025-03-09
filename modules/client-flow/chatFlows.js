@@ -3,17 +3,9 @@ const CLIENT_CHAT_TEMPLATES = {
     "🚫 I'm sorry, but I encountered an error processing your request. Please try again or contact our support team at support@tesha.co.zw or +263 78 2244 051.",
 
   AVAILABLE_SERVICES: (data) => {
-    if (!data || !data.services || data.services.length === 0) {
-      return "📋 I'm sorry, but I couldn't retrieve any services at the moment. Would you like to tell me what kind of service you're looking for and I can check if it's available?";
-    }
-
-    const servicesList = data.services
-      .map((service) => `• ${service.name}: ${service.description}`)
-      .join("\n");
-
     return `📋 Here are the services currently available on Tesha:
 
-${servicesList}
+${data}
 
 Would you like to request any of these services today? Simply tell me which service you need, your location, and your preferred date and time. 😊`;
   },
@@ -80,10 +72,12 @@ Would you like to view details for any specific booking? Just type the booking I
     }
 
     const details = [
-      `📋 Booking Details for ${data.id}:`,
+      `📋 Booking Details for ${data.id}:\n`,
       `• Service: ${data.serviceType}`,
       `• Service Description: ${data.serviceDescription}`,
-      `• Provider: ${data.providerName} ${data.providerPhone ? `(${data.providerPhone})` : ""}`,
+      `• Provider: ${data.providerName} ${
+        data.providerPhone ? `(${data.providerPhone})` : ""
+      }`,
       `• Date: ${data.date}`,
       `• Time: ${data.time}`,
       `• Location: ${data.location}`,
@@ -91,15 +85,17 @@ Would you like to view details for any specific booking? Just type the booking I
       `• Description: ${data.description}`,
       data.cancelReason && `• Cancellation Reason: ${data.cancelReason}`,
       data.clientFeedback && `• Client Feedback: ${data.clientFeedback}`,
-      data.rating && `• Rating: ${data.rating}`
-    ].filter(Boolean).join("\n");
+      data.rating && `• Rating: ${data.rating}`,
+    ]
+      .filter(Boolean)
+      .join("\n");
 
-    const actionPrompt = 
+    const actionPrompt =
       data.status === "Scheduled" || data.status === "Pending"
-      ? "\nWould you like to reschedule or cancel this booking? Just let me know."
-      : data.status === "Completed" && data.rating === "Not rated yet"
-      ? "\nWould you like to rate this service? You can say 'Rate this booking 4.5 stars'."
-      : "\nIs there anything else you'd like to know?";
+        ? "\n\nWould you like to reschedule or cancel this booking? Just let me know."
+        : data.status === "Completed" && data.rating === "Not rated yet"
+        ? "\n\nWould you like to rate this service? You can say 'Rate this booking 4.5 stars'."
+        : "\n\nIs there anything else you'd like to know?";
 
     return details + actionPrompt;
   },
@@ -122,6 +118,8 @@ Would you like to view details for any specific booking? Just type the booking I
 ${data.description ? `• Description: ${data.description}` : ""}
 
 The service provider will be notified of your booking. You'll receive a confirmation message shortly.
+
+You can check the status of your booking anytime by typing 'my bookings'.
 
 Is there anything else you need help with today? 😊`;
   },
@@ -156,55 +154,23 @@ Would you like to schedule a new booking or find another service provider?`;
   },
 
   USER_PROFILE: (data) => {
-    if (!data || !data.name) {
+    if (!data) {
       return "❌ I couldn't retrieve your profile information. Please try again later.";
     }
 
     return `📋 Your Profile Information:
 
-- Name: ${data.name || "Not set"}
-- Phone: ${data.phone || "Not set"}
-${data.email ? `• Email: ${data.email}` : ""}
-- Address: ${data.address || "Not set"}
-${data.defaultLocation ? `• Default Location: ${data.defaultLocation}` : ""}
-- Member since: ${data.memberSince || "Not available"}
+  📝 Name: ${data.firstName} ${data.lastName}
+  📱 Phone: ${data.phone}
+  🏠 Address: ${data.address.physicalAddress || "Not set"}
+  🪪 National ID: ${data.nationalId || "Not set"}
+  ⭐ Account Status: ${data.accountStatus || "Not available"}
 
-Would you like to update any of this information? Just let me know which field you'd like to change.`;
-  },
-
-  SERVICE_REQUEST_CREATED: (data) => {
-    if (!data || !data.requestId) {
-      return "❌ There was an error creating your service request. Please try again.";
-    }
-
-    // If there's a provider name, then this was a direct booking
-    if (data.providerName) {
-      return `✅ Great! Your service request has been created successfully.
-
-📋 Request Details:
-- Request ID: ${data.requestId}
-- Service: ${data.serviceType || "Not specified"}
-- When: ${data.date || "Not specified"} ${data.time ? `at ${data.time}` : ""}
-- Where: ${data.location || "Not specified"}
-${data.description ? `• Description: ${data.description}` : ""}
-
-Your selected provider ${
-        data.providerName
-      } has been notified and will confirm shortly.
-I'll update you on the status of your request. Is there anything else you need help with?`;
-    }
-
-    // If no provider name, then this was just a service request
-    return `✅ I've created your service request!
-
-📋 Request Details:
-- Request ID: ${data.requestId}
-- Service: ${data.serviceType || "Not specified"}
-- When: ${data.date || "Not specified"} ${data.time ? `at ${data.time}` : ""}
-- Where: ${data.location || "Not specified"}
-${data.description ? `• Description: ${data.description}` : ""}
-
-Would you like to see available service providers for this request?`;
+  *Need to make changes?*
+Simply send a message like:
+- "Update firstname to John"
+- "Change address to 1 Hacker Way, Harare"
+`;
   },
 };
 

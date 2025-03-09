@@ -190,16 +190,6 @@ app.post("/bot", async (req, res) => {
         if (session?.accountType) {
           // client
           if (session.accountType === "Client") {
-            // console.log("Client session: ", session);
-            // const client = new Client(
-            //   res,
-            //   userResponse,
-            //   session,
-            //   user,
-            //   steps,
-            //   messages
-            // );
-            // return await client.mainEntry();
 
             const dynamicClient = new DynamicClient(
               res,

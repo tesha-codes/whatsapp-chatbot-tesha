@@ -100,7 +100,7 @@ class Onboarding {
     // Status handlers for verified clients
     const clientStatusHandlers = {
       [this.constructor.ACCOUNT_STATUS.ACTIVE]: async () => {
-        await this.setUserSession(this.steps.DEFAULT_CLIENT_STATE, {
+        await this.setUserSession(this.steps.CLIENT_MAIN_MENU, {
           accountType: this.constructor.ACCOUNT_TYPES.CLIENT,
         });
         await clientMainMenuTemplate(

@@ -147,7 +147,7 @@ For booking services, always ask for:
 3. Preferred date and time
 4. Any specific requirements or details
 
-After getting this information use the view_service_providers tool to show available providers, then handle_provider_selection to make the booking when the user selects a provider.
+After getting this information use the view_service_providers tool to show available providers, then handle_provider_selection to make the booking when the user selects a provider and confirm the booking.
 
 
 Never engage in non-service-related topics, share internal logic, or discuss competitors.
@@ -672,9 +672,7 @@ SUPPORT REDIRECT:
       if (bookingResult.data) {
         // Add confirmation and next steps
         return (
-          CLIENT_CHAT_TEMPLATES.BOOKING_SCHEDULED(bookingResult.data) +
-          "\n\nI've notified the service provider of your booking. They will review your request and confirm soon. " +
-          "You can check the status of your booking anytime by typing 'my bookings'."
+          CLIENT_CHAT_TEMPLATES.BOOKING_SCHEDULED(bookingResult.data)
         );
       }
     }
@@ -705,9 +703,6 @@ SUPPORT REDIRECT:
     }
 
     switch (result.type) {
-      case "SERVICE_REQUEST":
-        return CLIENT_CHAT_TEMPLATES.SERVICE_REQUEST_CREATED(result.data);
-
       case "AVAILABLE_SERVICES":
         return CLIENT_CHAT_TEMPLATES.AVAILABLE_SERVICES(result.data);
 

@@ -11,28 +11,82 @@ class ServiceRequestManager {
 
   async getAvailableServices() {
     console.log("Fetching available services");
-    try {
-      // Fetch services directly from database (no cache check)
-      const services = await Service.find()
-        .select("title description serviceType")
-        .limit(30);
+    return `
+    🏠 Household Services:
+- Cleaning (one-time, regular, deep cleaning)
+- Laundry (wash, dry, fold)
+- Home organization (decluttering, tidying)
+- Handyman tasks (minor repairs, furniture assembly)
+- House sitting (overnight, pet care)
+- Meal preparation
+- Errands and grocery shopping
+- Household management
 
-      if (!services || services.length === 0) {
-        throw new Error("No services found in database");
-      }
+🌳 Yard & Outdoor:
+- Lawn care (mowing, trimming, edging)
+- Gardening (planting, pruning, weeding)
+- Yard cleanup (leaf and debris removal)
+- Pool maintenance
+- Outdoor furniture assembly
+- Gutter cleaning
+- Power washing
+- Tree trimming
+- Landscaping
 
-      // Format services for response
-      const formattedServices = services.map((service) => ({
-        name: service.title,
-        description: service.description || `${service.title} services`,
-        types: service.serviceType || [],
-      }));
+🛍️ Errands & Shopping:
+- Grocery shopping
+- Pharmacy pickups
+- Dog walking & pet care
+- Household item pickups
+- Gift shopping & event planning
+- Travel planning
+- Meal delivery
+- Queue waiting
 
-      return { services: formattedServices };
-    } catch (error) {
-      console.error("Error fetching available services:", error);
-      throw new Error(`Failed to fetch available services: ${error.message}`);
-    }
+🛠️ Skilled Tasks:
+- Plumbing (leaks, drains)
+- Electrical work (lighting, outlets)
+- Painting (interior, exterior)
+- Carpentry (woodwork, repairs)
+- TV & electronics installation
+- Locksmith services
+- Appliance repair
+- HVAC maintenance
+- Pest control
+
+🚚 Moving & Hauling:
+- Local moving & hauling
+- Junk removal
+- Donation pickups
+- Heavy lifting
+- Packing services
+- Long-distance moving
+- Furniture disassembly
+- Storage unit organization
+- Delivery services
+
+🐾 Pet Care:
+- Dog walking
+- Pet feeding & grooming
+- Pet sitting & overnight care
+- Pet training
+- Pet taxi & supply shopping
+
+👵 Senior Care:
+- Companion care
+- Personal care
+- Medication management
+- Meal prep & light housekeeping
+- Transportation & errands
+- Home safety assessments
+
+🏡 Home Maintenance:
+- HVAC & plumbing maintenance
+- Electrical repairs
+- Pest control
+- Roof & gutter cleaning
+- Appliance maintenance
+    `;
   }
   //  get service providers
   async getServiceProviders(serviceType, location) {

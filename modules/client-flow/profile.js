@@ -10,6 +10,8 @@ class UserProfileManager {
       if (!user) {
         throw new Error("User not found");
       }
+      console.log('Retrieved user: ', user._id);
+      
       return user;
     } catch (error) {
       console.error("Error fetching user profile:", error);
