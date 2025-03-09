@@ -22,7 +22,7 @@ class BookingManager {
         .sort({ createdAt: -1 })
         .limit(10);
 
-      console.log("requests", requests);
+      console.log("Fetched booking history count :", requests.length);
 
       if (!requests || requests.length === 0) {
         return { bookings: [] };
