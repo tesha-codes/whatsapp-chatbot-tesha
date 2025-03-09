@@ -33,6 +33,10 @@ const clientFunctions = [
             type: "string",
             description: "Description of what needs to be done",
           },
+          confirmation: {
+            type: "boolean",
+            description: "Final confirmation of service request",
+          },
         },
         required: [
           "selectionNumber",
@@ -40,7 +44,9 @@ const clientFunctions = [
           "date",
           "time",
           "location",
+          "confirmation"
         ],
+        additionalProperties: false,
       },
     },
   },
@@ -52,6 +58,7 @@ const clientFunctions = [
       parameters: {
         type: "object",
         properties: {},
+        additionalProperties: false,
       },
     },
   },
@@ -75,6 +82,7 @@ const clientFunctions = [
           },
         },
         required: ["serviceType"],
+        additionalProperties: false,
       },
     },
   },
@@ -86,6 +94,7 @@ const clientFunctions = [
       parameters: {
         type: "object",
         properties: {},
+        additionalProperties: false,
       },
     },
   },
@@ -103,6 +112,7 @@ const clientFunctions = [
           },
         },
         required: ["bookingId"],
+        additionalProperties: false,
       },
     },
   },
@@ -128,6 +138,7 @@ const clientFunctions = [
           },
         },
         required: ["bookingId", "newDate", "newTime"],
+        additionalProperties: false,
       },
     },
   },
@@ -149,6 +160,7 @@ const clientFunctions = [
           },
         },
         required: ["bookingId", "reason"],
+        additionalProperties: false,
       },
     },
   },
@@ -160,6 +172,7 @@ const clientFunctions = [
       parameters: {
         type: "object",
         properties: {},
+        additionalProperties: false,
       },
     },
   },
@@ -173,7 +186,8 @@ const clientFunctions = [
         properties: {
           field: {
             type: "string",
-            description: "Field to update (name, phone, email, address)",
+            enum: ["firstName", "lastName", "address.physicalAddress"],
+            description: "Field to update (case-sensitive)",
           },
           value: {
             type: "string",
@@ -181,6 +195,30 @@ const clientFunctions = [
           },
         },
         required: ["field", "value"],
+        additionalProperties: false,
+      },
+    },
+  },
+  {
+    type: "function",
+    function: {
+      name: "delete_account",
+      description: "Delete service provider's account",
+      strict: true,
+      parameters: {
+        type: "object",
+        properties: {
+          reason: {
+            type: "string",
+            description: "Reason for account deletion (minimum 10 characters)",
+          },
+          confirmation: {
+            type: "boolean",
+            description: "Final confirmation of deletion action",
+          },
+        },
+        required: ["reason", "confirmation"],
+        additionalProperties: false,
       },
     },
   },

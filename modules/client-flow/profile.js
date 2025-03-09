@@ -1,50 +1,93 @@
-const User =  require("./../../models/user.model")
+const User = require("./../../models/user.model");
 class UserProfileManager {
-    constructor(userId) {
-        this.userId = userId;
+  constructor(userId) {
+    this.userId = userId;
+  }
+
+  async getProfile() {
+    try {
+      const user = await User.findById(this.userId);
+      if (!user) {
+        throw new Error("User not found");
+      }
+      return user;
+    } catch (error) {
+      console.error("Error fetching user profile:", error);
+      throw new Error("Failed to fetch user profile");
     }
+  }
+  //  update user profile
+  async updateProfile(field, value) {
+    try {
+      const validations = {
+        firstName: (val) =>
+          val.length >= 2 ? null : "First name must be at least 2 characters",
+        lastName: (val) =>
+          val.length >= 2 ? null : "Last name must be at least 2 characters",
+        "address.physicalAddress": (val) =>
+          val.length >= 10 ? null : "Address must be at least 10 characters",
+      };
 
-    async getProfile() {
-        try {
-            
-            return {
-                name: "Jane Doe",
-                phone: "+263 71 123 4567",
-                email: "jane.doe@example.com",
-                address: "45 Park Avenue, Harare",
-                defaultLocation: "Harare Central",
-                memberSince: "January 2023"
-            };
-        } catch (error) {
-            console.error("Error fetching user profile:", error);
-            throw new Error("Failed to fetch user profile");
-        }
+      if (!validations[field]) {
+        throw new Error("Invalid field name");
+      }
+
+      const validationError = validations[field](value);
+      if (validationError) {
+        throw new Error(validationError);
+      }
+
+      const userUpdate = {
+        [field]: value,
+      };
+
+      if (field === "address.physicalAddress") {
+        userUpdate.$push = {
+          locationHistory: {
+            physicalAddress: value,
+            timestamp: new Date(),
+          },
+        };
+      }
+      const user = await User.findByIdAndUpdate(this.userId, userUpdate, {
+        new: true,
+      });
+      if (!user) throw new Error("User not found");
+      return {
+        field,
+        value,
+        message: "Profile updated successfully",
+      };
+    } catch (error) {
+      console.error("Error updating user profile:", error);
+      throw new Error(`Failed to update user profile: ${error.message}`);
     }
+  }
+  //   delete user profile
+  async deleteAccount(reason) {
+    try {
+      // Start a session for transaction
+      const session = await User.startSession();
+      session.startTransaction();
+      try {
+        // Delete user record
+        await User.findByIdAndDelete(this.userId, { session });
+        // TODO: delete all user records in redis cache
+        // Commit transaction
+        await session.commitTransaction();
+      } catch (error) {
+        await session.abortTransaction();
+        throw error;
+      } finally {
+        session.endSession();
+      }
 
-    async updateProfile(field, value) {
-        try {
-            const validFields = ["name", "phone", "email", "address", "defaultLocation"];
-            if (!validFields.includes(field)) {
-                throw new Error(`Invalid field: ${field}`);
-            }
-
-            console.log(`Updating user ${this.userId} profile field ${field} to ${value}`);
-
-            await User.updateOne({
-                id: this.userId,
-                [field]: value
-            });
-
-            return {
-                field,
-                value,
-                success: true
-            };
-        } catch (error) {
-            console.error("Error updating user profile:", error);
-            throw new Error(`Failed to update user profile: ${error.message}`);
-        }
+      return true;
+    } catch (error) {
+      console.error("Error deleting account:", error);
+      throw error;
     }
+  }
 }
 
 module.exports = UserProfileManager;
