@@ -36,8 +36,6 @@ class Client {
           return this.handlePromptAccount();
         case this.steps.COLLECT_CLIENT_FULL_NAME:
           return this.handleCollectFullName();
-        case this.steps.CLIENT_REGISTRATION_COMPLETE:
-          return this.handleRegistrationComplete();
         case this.steps.CLIENT_MAIN_MENU:
           return this.handleClientChat();
 
@@ -99,36 +97,21 @@ class Client {
 
     await updateUser({ phone: this.phone, firstName, lastName });
     await setSession(this.phone, {
-      step: this.steps.CLIENT_REGISTRATION_COMPLETE,
+      step: this.steps.CLIENT_MAIN_MENU,
       message: this.message,
       lActivity: this.lActivity,
     });
-    return this.res.status(StatusCodes.OK).send(this.messages.GET_NATIONAL_ID);
-  }
 
-  
-  async handleRegistrationComplete() {
-    try {
+    setImmediate(async () => {
       await clientMainMenuTemplate(
         this.phone,
         this.user?.firstName || this.user?.lastName
       );
+    });
 
-      // Update session to main menu
-      await setSession(this.phone, {
-        step: this.steps.CLIENT_MAIN_MENU,
-        message: this.message,
-        lActivity: this.lActivity,
-      });
-
-      return this.res.status(StatusCodes.OK).send("");
-    } catch (error) {
-      console.error("Error in handleRegistrationComplete:", error);
-      return this.res
-        .status(StatusCodes.INTERNAL_SERVER_ERROR)
-        .send("There was an error setting up your account. Please try again.");
-    }
+    return this.res.status(StatusCodes.OK).send("");
   }
+
 
   async handleClientChat() {
     try {
@@ -144,7 +127,7 @@ class Client {
         .status(StatusCodes.ACCEPTED)
         .send(
           this.messages.ERROR_OCCURRED ||
-            "An error occurred processing your message. Please try again."
+          "An error occurred processing your message. Please try again."
         );
     }
   }
