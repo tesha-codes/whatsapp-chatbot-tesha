@@ -36,14 +36,6 @@ class Client {
           return this.handlePromptAccount();
         case this.steps.COLLECT_CLIENT_FULL_NAME:
           return this.handleCollectFullName();
-        case this.steps.COLLECT_CLIENT_NATIONAL_ID:
-          return this.handleCollectNationalId();
-        case this.steps.COLLECT_CLIENT_ID_IMAGE:
-          return this.handleCollectIdImage();
-        case this.steps.COLLECT_CLIENT_ADDRESS:
-          return this.handleCollectAddress();
-        case this.steps.COLLECT_CLIENT_LOCATION:
-          return this.handleCollectLocation();
         case this.steps.CLIENT_REGISTRATION_COMPLETE:
           return this.handleRegistrationComplete();
         case this.steps.CLIENT_MAIN_MENU:
@@ -107,117 +99,14 @@ class Client {
 
     await updateUser({ phone: this.phone, firstName, lastName });
     await setSession(this.phone, {
-      step: this.steps.COLLECT_CLIENT_NATIONAL_ID,
+      step: this.steps.CLIENT_REGISTRATION_COMPLETE,
       message: this.message,
       lActivity: this.lActivity,
     });
     return this.res.status(StatusCodes.OK).send(this.messages.GET_NATIONAL_ID);
   }
 
-  async handleCollectNationalId() {
-    const pattern = /^(\d{2})-(\d{7})-([A-Z])-(\d{2})$/;
-    if (!pattern.test(this.message.toString())) {
-      return this.res
-        .status(StatusCodes.OK)
-        .send(
-          "❌ Invalid National Id format, please provide id in the format specified in the example."
-        );
-    }
-
-    const nationalId = this.message.toString();
-    await updateUser({ phone: this.phone, nationalId });
-    await setSession(this.phone, {
-      step: this.steps.COLLECT_CLIENT_ID_IMAGE,
-      message: this.message,
-      lActivity: this.lActivity,
-    });
-    return this.res.status(StatusCodes.OK).send(this.messages.UPLOAD_ID_IMAGE);
-  }
-
-  async handleCollectIdImage() {
-    const nationalIdImageUrl = this.message?.url;
-    if (!nationalIdImageUrl) {
-      return this.res
-        .status(StatusCodes.OK)
-        .send("❌ Please upload a valid ID image.");
-    }
-    // Check content type
-    const contentType = this.message?.contentType;
-    if (!contentType || !contentType.startsWith("image/")) {
-      return this.res
-        .status(StatusCodes.OK)
-        .send("❌ Invalid image format. Please upload an image file.");
-    }
-
-    // Here you'd typically upload to S3 or another storage service
-    console.log("Would upload ID image to storage:", nationalIdImageUrl);
-
-    await setSession(this.phone, {
-      step: this.steps.COLLECT_CLIENT_ADDRESS,
-      message: this.message.toString(),
-      lActivity: this.lActivity,
-    });
-    return this.res.status(StatusCodes.OK).send(this.messages.GET_ADDRESS);
-  }
-
-  async handleCollectAddress() {
-    const street = this.message.toString();
-    await updateUser({
-      phone: this.phone,
-      address: {
-        physicalAddress: street,
-      },
-    });
-    await setSession(this.phone, {
-      step: this.steps.COLLECT_CLIENT_LOCATION,
-      message: this.message,
-      lActivity: this.lActivity,
-    });
-    const locationImgURL =
-      "https://tesha-util.s3.af-south-1.amazonaws.com/WhatsApp+Image+2024-10-06+at+11.49.44_12568059.jpg";
-    await sendMediaImageMessage(
-      this.phone,
-      locationImgURL,
-      "Please share your location by tapping the location icon in WhatsApp and selecting 'Send your current location'"
-    );
-    return this.res.status(StatusCodes.OK).send("");
-  }
-
-  async handleCollectLocation() {
-    console.log("Location:", this.message);
-    if (typeof this.message !== "object") {
-      return this.res
-        .status(StatusCodes.OK)
-        .send("❌ Invalid location format. Please send your location.");
-    }
-    await updateUser({
-      phone: this.phone,
-      address: {
-        coordinates: this.message,
-      },
-    });
-    await setSession(this.phone, {
-      step: this.steps.CLIENT_MAIN_MENU,
-      message: JSON.stringify(this.message),
-      lActivity: this.lActivity,
-    });
-
-    const successMessage = `*Profile Setup Confirmation*
-
-✅ Thank you! Your profile has been successfully set up. You're all set! 🎉
-
-Here's what is available to you today:
-
-🛎️ *Request a Service Provider* e.g (I am looking for a someone to sweep my yard today at 12pm.)
-🔧 *Update Your Profile* e.g (Update my name to [your name])
-🗑️ *Deactivate Account*
-📝 *View Booking History*
-
-What would you like to do today?
-`;
-    return this.res.status(StatusCodes.OK).send(successMessage);
-  }
-
+  
   async handleRegistrationComplete() {
     try {
       await clientMainMenuTemplate(
