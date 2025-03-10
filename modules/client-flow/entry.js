@@ -109,7 +109,11 @@ class Client {
       );
     });
 
-    return this.res.status(StatusCodes.OK).send("");
+    let msg = `
+    ✅ Thank you for completing your registration! Your account has been successfully created with the name ${firstName} ${lastName}. You can now access all services through the main menu. Welcome aboard!.
+    `
+
+    return this.res.status(StatusCodes.OK).send(msg);
   }
 
 

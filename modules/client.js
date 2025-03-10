@@ -118,8 +118,6 @@ Please select a category by replying with the corresponding number:
 To proceed, we'll need a few details from you. Please provide the following information.
 
 -*Full Name:* e.g., John Doe 
--*National ID Number:* e.g., 63-1234567-Z-63
--*National Address:* e.g., 123 Main Street, Harare
     `,
 
     GET_FULL_NAME: `
