@@ -302,7 +302,7 @@ class ServiceProvider {
 
   async handleCollectHourRate(){
     const hourlyRate = +this.message
-    if(NaN(rate)){
+    if (NaN(hourlyRate)){
       return this.res.status(StatusCodes.CONFLICT).send("Provided rate isn't a number!")
     }
 
