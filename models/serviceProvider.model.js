@@ -39,6 +39,10 @@ const ServiceProviderSchema = new mongoose.Schema(
     rating: {
       type: Number,
       default: 1.0
+    },
+    hourlyRate: {
+      type: Number,
+      default: 1.0
     }
   },
   { timestamps: true }

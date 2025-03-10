@@ -68,6 +68,8 @@ class ServiceProvider {
           return this.handleCollectService();
         case steps.PROVIDER_COLLECT_DESCRIPTION:
           return this.handleCollectDescription();
+        case steps.PROVIDER_COLLECT_HOURLY_RATE:
+          return this.handleCollectHourRate()
         case steps.PROVIDER_COLLECT_ID_IMAGE:
           return this.handleCollectIdImage();
         case steps.WAITING_FOR_VERIFICATION:
@@ -290,6 +292,21 @@ class ServiceProvider {
         );
     }
     await updateProvider(this.user._id, { description });
+    await setSession(this.phone, {
+      step: this.steps.PROVIDER_COLLECT_HOURLY_RATE,
+      message: this.message,
+      lActivity: this.lActivity,
+    });
+    return this.res.status(StatusCodes.OK).send(this.messages.GET_HOURLY_RATE);
+  }
+
+  async handleCollectHourRate(){
+    const hourlyRate = +this.message
+    if(NaN(rate)){
+      return this.res.status(StatusCodes.CONFLICT).send("Provided rate isn't a number!")
+    }
+
+    await updateProvider(this.user._id, { hourlyRate });
     await setSession(this.phone, {
       step: this.steps.PROVIDER_COLLECT_ID_IMAGE,
       message: this.message,

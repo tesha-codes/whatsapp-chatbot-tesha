@@ -142,6 +142,8 @@ Example: 123 Main Street, Harare`,
       "🛠️ Based on your category, please choose a specific service:",
     GET_DESCRIPTION:
       "📝 Please provide a brief description of your services (maximum 200 characters).",
+    GET_HOURLY_RATE:
+      "💲 Please enter your hourly rate in USD.This is the amount you'll charge clients per hour of service. Example: Enter '25' for $25 per hour.",
     CHOOSE_SUBSCRIPTION:
       "🎉 Good news! You're eligible for a free 1-month subscription. Choose your plan:\n1. Basic\n2. Standard\n3. Premium\nReply with the number of your choice.",
     UPLOAD_ID_IMAGE:
@@ -219,7 +221,7 @@ Please reply with the number of your choice (e.g., 1, 2, 3, or 4):
 
 4. *Billing & Payment History*  
 `,
-    CREATE_CLIENT_ACCOUNT:`
+    CREATE_CLIENT_ACCOUNT: `
     To set up your account, you have to provide us with the following details: - Full Name - Address - ID Number Reply with 
     *1* to create your account or 
     *2* to cancel. 
