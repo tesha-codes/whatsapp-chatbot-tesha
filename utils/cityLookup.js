@@ -11,6 +11,14 @@ class CityLookupService {
     this.citiesData = citiesData;
     this.exactLookup = this.createExactLookup(citiesData);
     this.searchIndex = this.createSearchIndex(citiesData);
+
+    // Create a list of all neighborhood and city names for entity extraction
+    this.allLocations = new Set(
+      [...Object.keys(citiesData), ...Object.values(citiesData).flat()].map(
+        (loc) => loc.toLowerCase()
+      )
+    );
+
     console.log(
       `CityLookupService initialized with ${
         Object.keys(citiesData).length
@@ -78,7 +86,6 @@ class CityLookupService {
       index.get(word).add(city);
 
       // Index prefixes of the word for partial matching
-      // e.g., "Kapondoro" -> "ka", "kap", "kapo", etc.
       for (let i = 3; i < word.length; i++) {
         const prefix = word.substring(0, i);
         if (!index.has(prefix)) {
@@ -89,7 +96,91 @@ class CityLookupService {
     }
   }
 
-  // Main lookup function
+  // Extract potential location entities from text
+  extractLocations(text) {
+    if (!text) return [];
+
+    const normalizedText = text.toLowerCase();
+    const extractedLocations = [];
+
+    // Check for exact matches of multi-word locations (most specific first)
+    const sortedLocations = Array.from(this.allLocations)
+      .filter((loc) => loc.includes(" ")) // Only multi-word locations
+      .sort((a, b) => b.split(/\s+/).length - a.split(/\s+/).length); // Sort by word count (descending)
+
+    for (const location of sortedLocations) {
+      if (normalizedText.includes(location)) {
+        extractedLocations.push(location);
+      }
+    }
+
+    // Check for single-word locations that are complete words
+    const words = normalizedText.split(/\s+/);
+    for (const word of words) {
+      // Skip non-alphabetic words (like numbers) and short words
+      if (!/^[a-z]+$/.test(word) || word.length < 3) continue;
+
+      if (this.allLocations.has(word)) {
+        extractedLocations.push(word);
+      }
+    }
+
+    // Clean up: remove duplicates and handle overlaps
+    return [...new Set(extractedLocations)];
+  }
+
+  // New main lookup function that can handle natural language
+  lookupFromText(text) {
+    if (!text) return null;
+
+    // First, try to extract location entities from the text
+    const extractedLocations = this.extractLocations(text);
+
+    // If we found potential locations, try to look them up
+    for (const location of extractedLocations) {
+      const result = this.lookup(location);
+      if (result) {
+        return {
+          city: result,
+          matchedLocation: location,
+          originalText: text,
+          confidence: "high",
+        };
+      }
+    }
+
+    // If no explicit locations found, try the whole text
+    const result = this.lookup(text);
+    if (result) {
+      return {
+        city: result,
+        matchedLocation: text,
+        originalText: text,
+        confidence: "medium",
+      };
+    }
+
+    // Last resort: do word-by-word analysis
+    const words = text
+      .toLowerCase()
+      .split(/\s+/)
+      .filter((w) => w.length >= 3);
+    for (const word of words) {
+      const result = this.lookup(word);
+      if (result) {
+        return {
+          city: result,
+          matchedLocation: word,
+          originalText: text,
+          confidence: "low",
+        };
+      }
+    }
+
+    return null;
+  }
+
+  // Original lookup function (for exact location queries)
   lookup(location) {
     if (!location) return null;
     const query = location.trim().toLowerCase();
@@ -214,7 +305,7 @@ const cityLookupService = new CityLookupService(locationsData);
 //   { input: "avondale", expected: "Harare" },
 //   { input: "mbare", expected: "Harare" },
 //   { input: "Kapond", expected: "Mutoko" },
-//   { input: "chite", expected: "Fuzzy match" }, 
+//   { input: "chite", expected: "Fuzzy match" },
 //   { input: "unknown", expected: null },
 // ];
 
@@ -234,5 +325,39 @@ const cityLookupService = new CityLookupService(locationsData);
 
 // console.log("Suggestions:", suggestions);
 // console.log("Neighborhoods:", neighborhoods);
+
+// Test cases for natural language processing
+// const testCases = [
+//   "I am at 108 Avenues",
+//   "Just arrived at Borrowdale",
+//   "Meeting my friend in Mbare tomorrow",
+//   "Heading to The Avenues for dinner",
+//   "I live near Kapondoro",
+//   "My office is in the Central Business District",
+//   "I'm at 23 Harare Drive near Mount Pleasant",
+//   "We're going to visit my aunt in Highfield this weekend",
+//   "Can you tell me how to get to Mufakose from here?",
+//   "The new shop opened at CBD near Eastlea",
+//   "kapon",
+//   "We're going to visit",
+//   "HARARE Drive",
+//   "sino"
+
+// ];
+
+// console.log("Testing natural language location extraction:");
+// console.log("==============================================");
+
+// testCases.forEach(text => {
+//   const result = cityLookupService.lookupFromText(text);
+  
+//   console.log(`\nInput: "${text}"`);
+  
+//   if (result) {
+//     console.log(`✓ Found: ${result.matchedLocation} -> ${result.city} (Confidence: ${result.confidence})`);
+//   } else {
+//     console.log(`✗ No location found`);
+//   }
+// });
 
 module.exports = cityLookupService;

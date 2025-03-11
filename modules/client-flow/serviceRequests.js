@@ -1,8 +1,7 @@
-const Service = require("./../../models/services.model");
-const User = require("./../../models/user.model");
 const ServiceProvider = require("./../../models/serviceProvider.model");
 const serviceMatcher = require("../../utils/serviceMatchingUtil");
 const BookingUtil = require("../../utils/bookingUtil");
+
 
 class ServiceRequestManager {
   constructor(userId) {
@@ -124,7 +123,7 @@ class ServiceRequestManager {
       );
 
       // Extract city from location for geographic filtering
-      const city = BookingUtil.extractCity(location);
+      const city = BookingUtil.getCity(location);
       console.log(`Searching for providers in city: ${city}`);
 
       // Find service providers with geographic filtering if city is available

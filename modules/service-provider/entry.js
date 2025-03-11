@@ -14,6 +14,7 @@ const {
 const Category = require("../../models/category.model");
 const Service = require("../../models/services.model");
 const { uploadToS3 } = require("../../utils/uploadToS3");
+const cityLookupService = require("../../utils/cityLookup");
 
 class ServiceProvider {
   constructor(res, userResponse, session, user, steps, messages) {
@@ -69,7 +70,7 @@ class ServiceProvider {
         case steps.PROVIDER_COLLECT_DESCRIPTION:
           return this.handleCollectDescription();
         case steps.PROVIDER_COLLECT_HOURLY_RATE:
-          return this.handleCollectHourRate()
+          return this.handleCollectHourRate();
         case steps.PROVIDER_COLLECT_ID_IMAGE:
           return this.handleCollectIdImage();
         case steps.WAITING_FOR_VERIFICATION:
@@ -158,7 +159,14 @@ class ServiceProvider {
 
   async handleCollectCity() {
     const city = this.message.toString();
-    await createServiceProvider({ user: this.user._id, city });
+    //  enforce cities in our lookup service
+    const result = cityLookupService.lookupFromText(city);
+    if (!result) {
+      return this.res
+        .status(StatusCodes.OK)
+        .send("❌ Invalid city. Please provide a valid city.");
+    }
+    await createServiceProvider({ user: this.user._id, city: result?.city });
     await setSession(this.phone, {
       step: this.steps.COLLECT_USER_ADDRESS,
       message: this.message,
@@ -300,10 +308,12 @@ class ServiceProvider {
     return this.res.status(StatusCodes.OK).send(this.messages.GET_HOURLY_RATE);
   }
 
-  async handleCollectHourRate(){
-    const hourlyRate = +this.message
-    if (isNaN(hourlyRate)){
-      return this.res.status(StatusCodes.CONFLICT).send("Provided rate isn't a number!")
+  async handleCollectHourRate() {
+    const hourlyRate = +this.message;
+    if (isNaN(hourlyRate)) {
+      return this.res
+        .status(StatusCodes.CONFLICT)
+        .send("Provided rate isn't a number!");
     }
 
     await updateProvider(this.user._id, { hourlyRate });

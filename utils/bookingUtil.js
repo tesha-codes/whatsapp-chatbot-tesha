@@ -1,5 +1,6 @@
 const crypto = require("crypto");
 const ServiceRequest = require("../models/request.model");
+const cityLookupService = require("./cityLookup");
 class BookingUtil {
   static async generateUniqueBookingId() {
     const attempts = 10;
@@ -41,6 +42,19 @@ class BookingUtil {
     }
 
     return "Unknown";
+  }
+  static getCity(location) {
+    const result = cityLookupService.lookupFromText(location);
+    // 
+    if (result) {
+      console.log(
+        `✓ Found: ${result.matchedLocation} -> ${result.city} (Confidence: ${result.confidence})`
+      );
+      return result.city;
+    } else {
+      console.log(`✗ No location found, falling back to manual lookup`);
+      return extractCity(location);
+    }
   }
 }
 

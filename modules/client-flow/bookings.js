@@ -131,7 +131,7 @@ class BookingManager {
       const requestId = await BookingUtil.generateUniqueBookingId();
 
       // Extract city from location
-      const city = BookingUtil.extractCity(location);
+      const city = BookingUtil.getCity(location);
 
       // Combine date and time for a full datetime object
       const bookingDate = new Date(`${parsedDate.date}T${parsedTime.time}:00`);
