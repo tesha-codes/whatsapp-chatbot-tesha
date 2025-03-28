@@ -127,7 +127,7 @@ Example: John Doe`,
 
     GET_NATIONAL_ID: `
 *🆔 Please enter your National ID number*
-Example: 63-1234567-Z-63`,
+Example: 63-1234568Z63`,
     GET_ADDRESS: `
 
 *🏡 Please enter your full residential address*

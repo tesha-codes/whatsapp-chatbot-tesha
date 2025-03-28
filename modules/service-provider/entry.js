@@ -138,7 +138,7 @@ class ServiceProvider {
   }
 
   async handleCollectNationalId() {
-    const pattern = /^(\d{2})-(\d{7})-([A-Z])-(\d{2})$/;
+    const pattern = /^\d{2}-\d{4,}[A-Za-z]\d{2}$/;
     if (!pattern.test(this.message.toString())) {
       return this.res
         .status(StatusCodes.OK)
@@ -147,7 +147,7 @@ class ServiceProvider {
         );
     }
 
-    const nationalId = this.message.toString();
+    const nationalId = this.message.toString().toUpperCase();
     await updateUser({ phone: this.phone, nationalId });
     await setSession(this.phone, {
       step: this.steps.PROVIDER_COLLECT_CITY,
