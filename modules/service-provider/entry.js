@@ -312,8 +312,8 @@ class ServiceProvider {
     const hourlyRate = +this.message;
     if (isNaN(hourlyRate)) {
       return this.res
-        .status(StatusCodes.CONFLICT)
-        .send("Provided rate isn't a number!");
+        .status(StatusCodes.OK)
+        .send("Please provide a valid hourly rate in USD. e.g. 25");
     }
 
     await updateProvider(this.user._id, { hourlyRate });
