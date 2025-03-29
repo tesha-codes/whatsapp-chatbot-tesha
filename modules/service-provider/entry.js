@@ -127,7 +127,7 @@ class ServiceProvider {
     const userNames = this.message.toString().split(" ");
     const lastName = userNames[userNames.length - 1];
     const firstName = this.message.toString().replace(lastName, " ").trim();
-
+    //
     await updateUser({ phone: this.phone, firstName, lastName });
     await setSession(this.phone, {
       step: this.steps.COLLECT_USER_ID,
