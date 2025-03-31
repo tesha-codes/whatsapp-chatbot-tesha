@@ -212,7 +212,7 @@ You have a new service request:
 - Location: ${requestDetails.location}
 - Description: ${requestDetails.description || "No details provided"}
 
-Please login to your Tesha provider app to accept or decline this request.
+Please review and accept or decline this request. Reply with 'accept' or 'decline' to proceed.
 
 Thank you,
 Tesha Team

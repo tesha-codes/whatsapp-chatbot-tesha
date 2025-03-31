@@ -139,7 +139,7 @@ class ServiceRequestManager {
       const serviceProviders = await ServiceProvider.find(query)
         .populate({
           path: "user",
-          select: "firstName lastName phone address rating",
+          select: "firstName lastName phone address rating hourlyRate",
         })
         .populate("service")
         .limit(10);
@@ -157,9 +157,9 @@ class ServiceRequestManager {
               "Unknown Provider",
             service_id: sp.service._id,
             rating: sp.rating || 4.5,
-            reviewCount: Math.floor(Math.random() * 30) + 10, // Mock data
+            reviewCount: Math.floor(Math.random() * 10) + 10, // Mock data
             specialties: [sp.service?.title || primaryServiceTitle],
-            rate: Math.floor(Math.random() * 30) + 20, // Mock rate
+            rate: sp.hourlyRate || 'Unspecified',
           };
         });
       }
