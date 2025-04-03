@@ -18,8 +18,11 @@ class ChatHandler {
   async processMessage(message) {
     try {
       const chatHistory = await ChatHistoryManager.get(this.phone);
-      // debug
-      console.log("chatHistory", chatHistory);
+      console.log(
+        "Processing message with chat history:",
+        chatHistory.length,
+        "entries"
+      );
       const messages = [
         {
           role: "system",
@@ -200,6 +203,21 @@ SUPPORT REDIRECT:
             data: await this.billingManager.getBillingHistory(),
           };
 
+        case "accept_service_request":
+          return {
+            type: "REQUEST_ACCEPTED",
+            data: await this.taskManager.acceptServiceRequest(params.requestId),
+          };
+
+        case "decline_service_request":
+          return {
+            type: "REQUEST_DECLINED",
+            data: await this.taskManager.declineServiceRequest(
+              params.requestId,
+              params.reason || "No reason provided"
+            ),
+          };
+
         default:
           throw new Error(`Unsupported tool: ${name}`);
       }
@@ -281,6 +299,12 @@ SUPPORT REDIRECT:
 
       case "VALIDATION_ERROR":
         return `⚠️ Validation Error: ${result.error}`;
+
+      case "REQUEST_ACCEPTED":
+        return CHAT_TEMPLATES.REQUEST_ACCEPTED(result.data);
+
+      case "REQUEST_DECLINED":
+        return CHAT_TEMPLATES.REQUEST_DECLINED(result.data);
 
       default:
         return "I've completed your request. Is there anything else I can help with?";

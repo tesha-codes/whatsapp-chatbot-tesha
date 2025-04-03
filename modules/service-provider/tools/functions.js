@@ -157,6 +157,48 @@ const tools = [
       },
     },
   },
+  {
+    type: "function",
+    function: {
+      name: "accept_service_request",
+      description: "Accept a service request from a client",
+      strict: true,
+      parameters: {
+        type: "object",
+        properties: {
+          requestId: {
+            type: "string",
+            description: "ID of the service request to accept",
+          },
+        },
+        required: ["requestId"],
+        additionalProperties: false,
+      },
+    },
+  },
+  {
+    type: "function",
+    function: {
+      name: "decline_service_request",
+      description: "Decline a service request from a client",
+      strict: true,
+      parameters: {
+        type: "object",
+        properties: {
+          requestId: {
+            type: "string",
+            description: "ID of the service request to decline",
+          },
+          reason: {
+            type: "string",
+            description: "Reason for declining the request",
+          },
+        },
+        required: ["requestId", "reason"],
+        additionalProperties: false,
+      },
+    },
+  },
 ];
 
 module.exports = tools;

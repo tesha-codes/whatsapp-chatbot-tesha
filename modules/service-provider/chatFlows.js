@@ -85,6 +85,31 @@ ${getStatusEmoji(sub.status)} Status: ${sub.status}
     );
   },
 
+  REQUEST_ACCEPTED: (data) =>
+    `✅ You have successfully accepted the service request ${
+      data.requestId
+    }. The client has been notified.
+
+Please prepare for this appointment:
+- Date: ${
+      data.date
+        ? new Date(result.data.date).toLocaleDateString()
+        : "Not specified"
+    }
+- Time: ${data.time || "Not specified"}
+- Location: ${data.location || "Check request details"}
+
+You will receive a reminder closer to the appointment time.`,
+
+  REQUEST_DECLINED: (data) =>
+`❌ You have declined the service request ${
+          data.requestId
+        }. The client has been notified.
+
+Reason: ${data.reason || "No reason provided"}
+
+Thank you for your prompt response.`,
+
   ERROR_MESSAGE: `
 ⚠️ *Oops! Something went wrong*
 We encountered a temporary issue. Please:
