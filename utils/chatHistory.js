@@ -1,6 +1,7 @@
 const { getSession, setSession, redisHelper } = require("./redis");
 
 const CHAT_HISTORY_TTL = 24 * 60 * 60; // 24 hours
+const METADATA_TTL = 12 * 60 * 60; // 12 hours
 
 class ChatHistoryManager {
   static async get(phone) {
@@ -23,7 +24,7 @@ class ChatHistoryManager {
       ...history,
       { role: "user", content: userMessage },
       { role: "assistant", content: botResponse },
-    ].slice(-10);
+    ].slice(-50); // limit to 50 messages
 
     await setSession(
       key,
@@ -61,7 +62,7 @@ class ChatHistoryManager {
         metadataKey,
         JSON.stringify(metadata),
         "EX",
-        12 * 60 * 60
+        METADATA_TTL
       );
 
       return true;

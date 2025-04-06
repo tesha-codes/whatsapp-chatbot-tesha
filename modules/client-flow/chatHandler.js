@@ -536,7 +536,7 @@ SUPPORT REDIRECT:
             validationError
           );
           throw new Error(
-            "Please search for service providers first before making a selection."
+            "Failed to determine selected provider. Please search for service providers first before making a selection."
           );
         }
 
