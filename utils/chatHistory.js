@@ -24,7 +24,7 @@ class ChatHistoryManager {
       ...history,
       { role: "user", content: userMessage },
       { role: "assistant", content: botResponse },
-    ].slice(-25); // limit to 25 messages
+    ].slice(-10); // limit to 10 messages
 
     await setSession(
       key,
@@ -62,7 +62,7 @@ class ChatHistoryManager {
         metadataKey,
         JSON.stringify(metadata),
         "EX",
-        METADATA_TTL
+        METADATA_TTL || 43200 // 12 hours in seconds
       );
 
       return true;

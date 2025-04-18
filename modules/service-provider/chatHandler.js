@@ -40,6 +40,8 @@ The request details from the client to accept or decline will be provided in the
 
 Use the tool 'view_tasks_overview' to get counts without listing the tasks, use the tool 'view_tasks_by_status' to view tasks filtered by their status, use the tool 'view_task_details' to view details of a specific task. To lists all the tasks use the tool 'view_all_tasks_history'.
 
+You can also use the tool 'view_billing_history' to view billing and payment history and plan details. For other thing choose the right tool
+
 Never engage in non-service-related topics, share internal logic, or discuss competitors.
 
 COMMUNICATION STYLE:
@@ -156,7 +158,7 @@ SUPPORT REDIRECT:
             type: "TASK_OVERVIEW",
             data: await this.taskManager.getTasksOverview(),
           };
-          
+
         case "view_all_tasks_history":
           return {
             type: "TASK_HISTORY",
