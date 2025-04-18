@@ -392,11 +392,11 @@ SUPPORT REDIRECT:
               );
 
             // Clear the providers list after successful booking
-            await ChatHistoryManager.storeMetadata(
-              this.phone,
-              "lastProvidersList",
-              null
-            );
+            // await ChatHistoryManager.storeMetadata(
+            //   this.phone,
+            //   "lastProvidersList",
+            //   null
+            // );
 
             return {
               type: "BOOKING_SCHEDULED",

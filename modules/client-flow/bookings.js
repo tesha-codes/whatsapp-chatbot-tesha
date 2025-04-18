@@ -1,5 +1,6 @@
 const ServiceProvider = require("../../models/serviceProvider.model");
 const ServiceRequest = require("../../models/request.model");
+const User = require("../../models/user.model");
 const dateParser = require("../../utils/dateParser");
 const BookingUtil = require("../../utils/bookingUtil");
 const { sendTextMessage } = require("../../services/whatsappService");
@@ -203,6 +204,10 @@ class BookingManager {
         return false;
       }
 
+      const requester = await User.findById(this.userId).select(
+        "_id firstName lastName phone"
+      );
+
       const requestMessage = `
 🔔 New Service Request 🔔
 
@@ -210,17 +215,16 @@ Hello ${provider.user?.firstName || provider.user?.lastName || "Provider"},
 
 You have a new service request:
 - Request ID: ${requestDetails.requestId}
+- Client Name: ${requester.firstName} ${requester.lastName}
+- Client Phone: +${requester.phone}
 - Service: ${requestDetails.serviceType}
 - Date: ${requestDetails.date}
 - Time: ${requestDetails.time}
 - Location: ${requestDetails.location}
 - Description: ${requestDetails.description || "No details provided"}
 
-Please review and accept or decline this request. Reply with 'ACCEPT ${
-        requestDetails.requestId
-      }' or 'DECLINE ${requestDetails.requestId}' to proceed.
+Please review and accept or decline this request. Reply with 'ACCEPT or 'DECLINE to proceed.
 `;
-      console.log(message);
       console.log(
         `[NOTIFICATION] Sending provider notification to ${provider.user?.phone}`
       );
@@ -242,13 +246,12 @@ Please review and accept or decline this request. Reply with 'ACCEPT ${
           });
         }
         // inject chat histoty
-         const chatHistory = await ChatHistoryManager.get(providerPhone);
-         const mockUserMessage = 'Whats is my pending requests?';
-          await ChatHistoryManager.append(
-            providerPhone,
-            mockUserMessage,
-            requestMessage
-          );
+        const mockUserMessage = "Whats is my pending requests?";
+        await ChatHistoryManager.append(
+          providerPhone,
+          mockUserMessage,
+          requestMessage
+        );
         // inject pending requests details
         await ChatHistoryManager.storeMetadata(
           providerPhone,
@@ -285,14 +288,43 @@ Please review and accept or decline this request. Reply with 'ACCEPT ${
     );
     try {
       // Find the booking in database
-      const booking = await ServiceRequest.findOne({ id: bookingId });
+      const booking = await ServiceRequest.findOne({ id: bookingId })
+        .populate("requester", "_id firstName lastName phone")
+        .populate({
+          path: "serviceProvider",
+          select: "user",
+          populate: {
+            path: "user",
+            select: "_id firstName lastName phone",
+          },
+        });
 
       if (!booking) {
         return {
           success: false,
-          message: `Booking with ID ${bookingId} not found`,
+          message: `Service Request with ID ${bookingId} not found`,
         };
       }
+
+      // check if the booking can be rescheduled
+      if (booking.status !== "Pending") {
+        return {
+          success: false,
+          message: `Service Request with ID ${bookingId} cannot be rescheduled at this time`,
+        };
+      }
+
+      //  check if this user can actually reschedule this booking
+      if (booking.requester._id.toString() !== this.userId.toString()) {
+        return {
+          success: false,
+          message: `You are not authorized to reschedule this booking`,
+        };
+      }
+
+      // old date and time
+      const oldDate = booking.date;
+      const oldTime = booking.time;
 
       // Update the booking
       booking.date = newDate;
@@ -301,7 +333,31 @@ Please review and accept or decline this request. Reply with 'ACCEPT ${
 
       await booking.save();
 
-      // TODO:  Notify provider of rescheduling
+      // Notify provider of rescheduling
+      const provider = booking.serviceProvider?.user || {};
+      const rescheduleMessage = `
+🔄 Booking Rescheduled 🔄
+
+Hello ${provider.firstName || provider.lastName || "Provider"},
+
+Your booking has been rescheduled:
+- Booking ID: ${bookingId}
+- New Date: ${oldDate} -> ${newDate}
+- New Time: ${oldTime} -> ${newTime}
+- Client Name: ${booking.requester.firstName} ${booking.requester.lastName}
+- Client Phone: +${booking.requester.phone}
+
+Please confirm this change with the client.
+
+You can check the status of your booking anytime by typing 'my bookings'.
+      `;
+
+      setImmediate(async () => {
+        await sendTextMessage(provider.phone, rescheduleMessage);
+        console.log(
+          `Successfully notified provider ${provider._id} about rescheduling booking ${bookingId}`
+        );
+      });
 
       return {
         bookingId,
@@ -319,10 +375,35 @@ Please review and accept or decline this request. Reply with 'ACCEPT ${
     console.log(`Cancelling booking ${bookingId} due to: ${reason}`);
     try {
       // Find the booking in database
-      const booking = await ServiceRequest.findOne({ id: bookingId });
+      const booking = await ServiceRequest.findOne({ id: bookingId })
+        .populate("requester", "_id firstName lastName phone")
+        .populate({
+          path: "serviceProvider",
+          select: "user",
+          populate: {
+            path: "user",
+            select: "_id firstName lastName phone",
+          },
+        });
 
       if (!booking) {
-        throw new Error(`Booking with ID ${bookingId} not found`);
+        throw new Error(`Service Request with ID ${bookingId} not found`);
+      }
+
+      // check if the booking can be rescheduled
+      if (booking.status !== "Pending") {
+        return {
+          success: false,
+          message: `Service Request with ID ${bookingId} cannot be rescheduled at this time`,
+        };
+      }
+
+      //  check if this user can actually reschedule this booking
+      if (booking.requester._id.toString() !== this.userId.toString()) {
+        return {
+          success: false,
+          message: `You are not authorized to reschedule this booking`,
+        };
       }
 
       // Update booking status
@@ -332,7 +413,28 @@ Please review and accept or decline this request. Reply with 'ACCEPT ${
 
       await booking.save();
 
-      //  TODO: Notify provider of cancellation
+      //  Notify provider of cancellation
+      const provider = booking.serviceProvider?.user || {};
+      const cancelMessage = `
+❌ Booking Cancelled ❌
+
+Hello ${provider.firstName || provider.lastName || "Provider"},
+
+Your booking has been cancelled:
+- Booking ID: ${bookingId}
+- Client Name: ${booking.requester.firstName} ${booking.requester.lastName}
+- Client Phone: +${booking.requester.phone}
+- Reason: ${reason}
+
+You can check the status of your booking anytime by typing 'my bookings'.
+      `;
+
+      setImmediate(async () => {
+        await sendTextMessage(provider.phone, cancelMessage);
+        console.log(
+          `Successfully notified provider ${provider._id} about cancellation of booking ${bookingId}`
+        );
+      });
 
       return {
         bookingId,

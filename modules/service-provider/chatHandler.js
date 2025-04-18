@@ -35,6 +35,9 @@ Your purpose is to assist service providers with tasks strictly limited to:
 3. Billing/payment status inquiries
 4. Task notifications and platform guidance
 
+Use the tool 'accept_service_request' to accept service requests from clients. If a request is declined, provide a reason using 'decline_service_request'.
+The request details from the client to accept or decline will be provided in the chat history. The client might just type 'accept' or 'decline' without specifying the request ID or they may provide the request ID. if not specified check the your recent chat history for the request ID and validate. if provides use the provided one and validate.
+
 Never engage in non-service-related topics, share internal logic, or discuss competitors.
 
 COMMUNICATION STYLE:
@@ -188,6 +191,83 @@ SUPPORT REDIRECT:
             ),
           };
 
+        case "accept_service_request":
+          console.log("Handling accept_service_request with params: ", params);
+          try {
+            // Check if the request ID is provided in the parameters
+            if (!params.requestId) {
+              // If not, check the recent pending requests meta data
+              const pendingRequest = await ChatHistoryManager.getMetadata(
+                this.phone,
+                "pendingRequest"
+              );
+              console.log("Pending request from metadata: ", pendingRequest);
+              // If no pending request is found, return an error
+              if (!pendingRequest || !pendingRequest.requestId) {
+                return {
+                  type: "VALIDATION_ERROR",
+                  error:
+                    "No request ID provided and no recent pending requests found.",
+                  tool: name,
+                };
+              }
+              params.requestId = pendingRequest.requestId;
+            }
+            // clear the pending request metadata
+            // await ChatHistoryManager.storeMetadata(this.phone, "pendingRequest", null);
+            // 
+            return {
+              type: "REQUEST_ACCEPTED",
+              data: await this.taskManager.acceptServiceRequest(
+                params.requestId
+              ),
+            };
+          } catch (error) {
+            console.error("Error accepting service request:", error);
+            return {
+              type: "VALIDATION_ERROR",
+              error: error.message,
+              tool: name,
+            };
+          };
+        case "decline_service_request":
+          console.log("Handling decline_service_request with params: ", params);
+          try {
+            // Check if the request ID is provided in the parameters
+            if (!params.requestId) {
+              // If not, check the recent pending requests meta data
+              const pendingRequest = await ChatHistoryManager.getMetadata(
+                this.phone,
+                "pendingRequest"
+              );
+              console.log("Pending request from metadata: ", pendingRequest);
+              // If no pending request is found, return an error
+              if (!pendingRequest || !pendingRequest.requestId) {
+                return {
+                  type: "VALIDATION_ERROR",
+                  error:
+                    "No request ID provided and no recent pending requests found.",
+                  tool: name,
+                };
+              }
+              params.requestId = pendingRequest.requestId;
+            }
+            return {
+              type: "REQUEST_DECLINED",
+              data: await this.taskManager.declineServiceRequest(
+                params.requestId,
+                params.reason
+              ),
+            };
+          } catch (error) {
+            console.error("Error declining service request:", error);
+            return {
+              type: "VALIDATION_ERROR",
+              error: error.message,
+              tool: name,
+            };
+            
+          }
         case "delete_account":
           if (params.confirmation) {
             await this.accountManager.deleteAccount(params.reason);
@@ -282,6 +362,12 @@ SUPPORT REDIRECT:
 
       case "BILLING_HISTORY":
         return CHAT_TEMPLATES.BILLING_HISTORY(result.data);
+
+      case "REQUEST_ACCEPTED":
+        return CHAT_TEMPLATES.REQUEST_ACCEPTED(result.data);
+
+      case "REQUEST_DECLINED":
+        return CHAT_TEMPLATES.REQUEST_DECLINED(result.data);
 
       case "VALIDATION_ERROR":
         return `⚠️ Validation Error: ${result.error}`;

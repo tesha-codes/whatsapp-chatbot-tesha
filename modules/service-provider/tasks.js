@@ -1,4 +1,5 @@
 const ServiceRequest = require("../../models/request.model");
+const { sendTextMessage } = require("../../services/whatsappService");
 class TaskManager {
   constructor(userId) {
     this.userId = userId;
@@ -104,34 +105,54 @@ class TaskManager {
       // :
       const request = await ServiceRequest.findOne({
         id: requestId.toUpperCase(),
-      });
+      })
+        .populate("requester", "_id firstName lastName phone")
+        .populate({
+          path: "serviceProvider",
+          select: "user", // Select the user field from ServiceProvider
+          populate: {
+            path: "user", //  populate User model through ServiceProvider
+            select: "_id firstName lastName phone",
+          },
+        });
 
       if (!request) {
         throw new Error(`Request with ID ${requestId} not found`);
       }
-      console.log("request", request);
+      console.log("Request: ", request);
       // Check if this provider is assigned to this request
-      if (request.serviceProvider.toString() !== this.userId.toString()) {
+      if (
+        request.serviceProvider?.user._id.toString() !== this.userId.toString()
+      ) {
         throw new Error("You are not assigned to this request");
       }
-
       // Updated status check to match schema enum values
       if (request.status !== "Pending") {
         throw new Error(
           `Request cannot be accepted as it is already in ${request.status} state`
         );
       }
-      
+      // save the request
+      request.status = "In Progress";
+      await request.save();
 
-     
-      return result;
+      // Notify the requester about the acceptance
+      setImmediate(async () => {
+        await sendTextMessage(
+          request.requester.phone,
+          `✅ Your service request *${requestId}* has been accepted by *${
+            request.serviceProvider.user.firstName ||
+            request.serviceProvider.user.lastName
+          }* (${
+            request.serviceProvider.user.phone
+          }). They will contact you soon and don't forget to mark the task as completed once the task is completed.`
+        );
+      });
+
+      return request;
     } catch (error) {
       console.error(`Error accepting request ${requestId}:`, error);
-      return {
-        success: false,
-        requestId,
-        error: error.message,
-      };
+      throw error;
     }
   }
 
@@ -140,14 +161,25 @@ class TaskManager {
       // :
       const request = await ServiceRequest.findOne({
         id: requestId.toUpperCase(),
-      });
+      })
+        .populate("requester", "_id firstName lastName phone")
+        .populate({
+          path: "serviceProvider",
+          select: "user",
+          populate: {
+            path: "user",
+            select: "_id firstName lastName phone",
+          },
+        });
 
       if (!request) {
         throw new Error(`Request with ID ${requestId} not found`);
       }
 
       // Check if this provider is assigned to this request
-      if (request.serviceProvider.toString() !== this.userId) {
+      if (
+        request.serviceProvider?.user._id.toString() !== this.userId.toString()
+      ) {
         throw new Error("You are not assigned to this request");
       }
 
@@ -159,26 +191,26 @@ class TaskManager {
       }
       // Store cancel reason
       request.cancelReason = reason;
-      request.status = "Cancelled";
+      request.status = "Declined";
       await request.save();
 
-      // Create a BookingManager instance to handle client notification
-      const bookingManager = new BookingManager(request.requester);
-      // Use the BookingManager to handle the decline
-      const result = await bookingManager.handleRequestDecline(
-        requestId,
-        this.userId,
-        reason
-      );
+      //: Notify the requester about the decline
+      setImmediate(async () => {
+        await sendTextMessage(
+          request.requester.phone,
+          `❌ Your service request *${requestId}* has been declined by *${
+            request.serviceProvider.user.firstName ||
+            request.serviceProvider.user.lastName
+          }* (${
+            request.serviceProvider.user.phone
+          }). Reason: ${reason}`
+        );
+      });
 
-      return result;
+      return request;
     } catch (error) {
       console.error(`Error declining request ${requestId}:`, error);
-      return {
-        success: false,
-        requestId,
-        error: error.message,
-      };
+      throw error;
     }
   }
 }

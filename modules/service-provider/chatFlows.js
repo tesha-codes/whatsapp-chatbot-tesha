@@ -87,24 +87,31 @@ ${getStatusEmoji(sub.status)} Status: ${sub.status}
 
   REQUEST_ACCEPTED: (data) =>
     `✅ You have successfully accepted the service request ${
-      data.requestId
+      data.id
     }. The client has been notified.
 
-Please prepare for this appointment:
+Please prepare for this task and ensure you have all necessary materials:
+
+- Client: ${data.requester.firstName} ${data.requester.lastName}
+- Phone: +${data.requester.phone}
 - Date: ${
       data.date
-        ? new Date(result.data.date).toLocaleDateString()
+        ? new Date(data.date).toLocaleDateString()
         : "Not specified"
     }
 - Time: ${data.time || "Not specified"}
-- Location: ${data.location || "Check request details"}
+- Location: ${data.city || "Check request details"}
+- Notes: ${data.notes || "No notes provided"}
 
-You will receive a reminder closer to the appointment time.`,
+Feel free to contact the client directly for any clarifications or directions.
+
+Thank you for your prompt response.
+`,
 
   REQUEST_DECLINED: (data) =>
-`❌ You have declined the service request ${
-          data.requestId
-        }. The client has been notified.
+    `❌ You have declined the service request ${
+      data.requestId
+    }. The client has been notified.
 
 Reason: ${data.reason || "No reason provided"}
 
