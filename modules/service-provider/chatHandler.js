@@ -38,6 +38,8 @@ Your purpose is to assist service providers with tasks strictly limited to:
 Use the tool 'accept_service_request' to accept service requests from clients. If a request is declined, provide a reason using 'decline_service_request'.
 The request details from the client to accept or decline will be provided in the chat history. The client might just type 'accept' or 'decline' without specifying the request ID or they may provide the request ID. if not specified check the your recent chat history for the request ID and validate. if provides use the provided one and validate.
 
+Use the tool 'view_tasks_overview' to get counts without listing the tasks, use the tool 'view_tasks_by_status' to view tasks filtered by their status, use the tool 'view_task_details' to view details of a specific task. To lists all the tasks use the tool 'view_all_tasks_history'.
+
 Never engage in non-service-related topics, share internal logic, or discuss competitors.
 
 COMMUNICATION STYLE:
@@ -154,10 +156,16 @@ SUPPORT REDIRECT:
             type: "TASK_OVERVIEW",
             data: await this.taskManager.getTasksOverview(),
           };
+          
+        case "view_all_tasks_history":
+          return {
+            type: "TASK_HISTORY",
+            data: await this.taskManager.getAllTasksHistory(),
+          };
 
         case "view_tasks_by_status":
           return {
-            type: "TASK_LIST",
+            type: "LIST_TASK_BY_STATUS",
             data: await this.taskManager.getTasksByStatus(params.status),
           };
 
@@ -215,7 +223,7 @@ SUPPORT REDIRECT:
             }
             // clear the pending request metadata
             // await ChatHistoryManager.storeMetadata(this.phone, "pendingRequest", null);
-            // 
+            //
             return {
               type: "REQUEST_ACCEPTED",
               data: await this.taskManager.acceptServiceRequest(
@@ -229,7 +237,7 @@ SUPPORT REDIRECT:
               error: error.message,
               tool: name,
             };
-          };
+          }
         case "decline_service_request":
           console.log("Handling decline_service_request with params: ", params);
           try {
@@ -266,7 +274,6 @@ SUPPORT REDIRECT:
               error: error.message,
               tool: name,
             };
-            
           }
         case "delete_account":
           if (params.confirmation) {
@@ -342,8 +349,11 @@ SUPPORT REDIRECT:
       case "TASK_OVERVIEW":
         return CHAT_TEMPLATES.TASK_OVERVIEW(result.data);
 
-      case "TASK_LIST":
-        return CHAT_TEMPLATES.TASK_LIST(result.data);
+      case "TASK_HISTORY":
+        return CHAT_TEMPLATES.TASK_HISTORY(result.data);
+
+      case "LIST_TASK_BY_STATUS":
+        return CHAT_TEMPLATES.LIST_TASK_BY_STATUS(result.data);
 
       case "TASK_DETAILS":
         return CHAT_TEMPLATES.TASK_DETAILS(result.data);

@@ -1,16 +1,28 @@
 const ServiceRequest = require("../../models/request.model");
+const ServiceProvider = require("../../models/serviceProvider.model");
 const { sendTextMessage } = require("../../services/whatsappService");
+
 class TaskManager {
   constructor(userId) {
     this.userId = userId;
   }
 
+  async getServiceProviderId() {
+    const serviceProvider = await ServiceProvider.findOne({
+      user: this.userId,
+    });
+    if (!serviceProvider) throw new Error("ServiceProvider not found");
+    return serviceProvider._id;
+  }
+
   async getTasksOverview() {
     try {
+      const serviceProviderId = await this.getServiceProviderId();
+
       const aggregation = await ServiceRequest.aggregate([
         {
           $match: {
-            serviceProviders: this.userId,
+            serviceProvider: serviceProviderId,
           },
         },
         {
@@ -21,18 +33,13 @@ class TaskManager {
         },
       ]);
 
-      const overview = {
-        total: 0,
-        Pending: 0,
-        Completed: 0,
-        Cancelled: 0,
-      };
-
+      const overview = { total: 0, Pending: 0, Completed: 0, Declined: 0, "In Progress": 0,  Cancelled: 0 };
       aggregation.forEach((item) => {
         overview[item._id] = item.count;
         overview.total += item.count;
       });
 
+      console.log("Tasks overview:", overview);
       return overview;
     } catch (error) {
       console.error("Error getting tasks overview:", error);
@@ -40,14 +47,44 @@ class TaskManager {
     }
   }
 
+  async getAllTasksHistory() {
+    try {
+      const serviceProviderId = await this.getServiceProviderId();
+
+      const tasks = await ServiceRequest.find({
+        serviceProvider: serviceProviderId,
+      })
+        .populate("service")
+        .populate("requester", "firstName lastName phone")
+        .sort({ createdAt: -1 })
+        .limit(10);
+
+      return tasks;
+
+    } catch (error) {
+      console.error("Error getting tasks history:", error);
+      throw error;
+    }
+  }
+
   async getTasksByStatus(status) {
     try {
+      const serviceProviderId = await this.getServiceProviderId();
+
       const tasks = await ServiceRequest.find({
-        serviceProviders: this.userId,
+        serviceProvider: serviceProviderId,
         status,
       })
         .populate("service")
         .populate("requester", "firstName lastName phone")
+        .populate({
+          path: "serviceProvider",
+          select: "user",
+          populate: {
+            path: "user",
+            select: "firstName lastName phone",
+          },
+        })
         .sort({ createdAt: -1 });
 
       return tasks;
@@ -59,18 +96,24 @@ class TaskManager {
 
   async getTaskDetails(taskId) {
     try {
+      const serviceProviderId = await this.getServiceProviderId();
+
       const task = await ServiceRequest.findOne({
-        _id: taskId,
-        serviceProviders: this.userId,
+        id: taskId.toUpperCase(),
+        serviceProvider: serviceProviderId,
       })
         .populate("service")
         .populate("requester", "firstName lastName phone")
-        .populate("serviceProviders", "firstName lastName phone");
+        .populate({
+          path: "serviceProvider",
+          select: "user",
+          populate: {
+            path: "user",
+            select: "firstName lastName phone",
+          },
+        });
 
-      if (!task) {
-        throw new Error("Task not found");
-      }
-
+      if (!task) throw new Error("Task not found");
       return task;
     } catch (error) {
       console.error("Error getting task details:", error);
@@ -80,15 +123,14 @@ class TaskManager {
 
   async updateTaskStatus(taskId, newStatus) {
     try {
+      const serviceProviderId = await this.getServiceProviderId();
       const task = await ServiceRequest.findOne({
-        _id: taskId,
-        serviceProviders: this.userId,
+        id: taskId.toUpperCase(),
+        serviceProvider: serviceProviderId,
         status: "Pending",
       });
 
-      if (!task) {
-        throw new Error("Task not found or cannot be updated");
-      }
+      if (!task) throw new Error("Task not found or cannot be updated");
 
       task.status = newStatus;
       await task.save();
@@ -143,9 +185,9 @@ class TaskManager {
           `✅ Your service request *${requestId}* has been accepted by *${
             request.serviceProvider.user.firstName ||
             request.serviceProvider.user.lastName
-          }* (${
+          }* (+${
             request.serviceProvider.user.phone
-          }). They will contact you soon and don't forget to mark the task as completed once the task is completed.`
+          }).\nThey will contact you soon and don't forget to mark the task as completed once the task is completed.`
         );
       });
 
@@ -201,9 +243,7 @@ class TaskManager {
           `❌ Your service request *${requestId}* has been declined by *${
             request.serviceProvider.user.firstName ||
             request.serviceProvider.user.lastName
-          }* (${
-            request.serviceProvider.user.phone
-          }). Reason: ${reason}`
+          }* (+${request.serviceProvider.user.phone}). Reason: ${reason}`
         );
       });
 

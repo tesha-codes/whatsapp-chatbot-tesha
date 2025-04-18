@@ -3,7 +3,7 @@ const tools = [
     type: "function",
     function: {
       name: "view_tasks_overview",
-      description: "Get an overview of all tasks with their counts by status",
+      description: "Get an overview of all tasks with their counts by status, do not lists tasks",
       strict: true,
       parameters: {
         type: "object",
@@ -24,11 +24,29 @@ const tools = [
         properties: {
           status: {
             type: "string",
-            enum: ["Pending", "Completed", "Cancelled"],
+            enum: [
+              "Pending",
+              "Completed",
+              "Declined",
+              "In Progress",
+              "Cancelled",
+            ],
             description: "Status of tasks to filter (case-sensitive)",
           },
         },
         required: ["status"],
+        additionalProperties: false,
+      },
+    },
+  },
+  {
+    type: "function",
+    function: {
+      name: "view_all_tasks_history",
+      description: "Get all tasks history for the service provider",
+      parameters: {
+        type: "object",
+        properties: {},
         additionalProperties: false,
       },
     },

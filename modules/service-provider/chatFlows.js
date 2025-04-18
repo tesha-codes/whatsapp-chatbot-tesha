@@ -4,30 +4,63 @@ const CHAT_TEMPLATES = {
 ━━━━━━━━━━━━━━━━━━
 📈 Total Tasks: ${data.total}
 ⏳ Pending: ${data.Pending}
-✅ Completed: ${data.Completed}
+🔥 In Progress: ${data["In Progress"]}
+❌ Declined: ${data.Declined}
 🚫 Cancelled: ${data.Cancelled}
+✅ Completed: ${data.Completed}
 
 *What would you like to do next?*
 - Type "pending" to view pending tasks
 - Type "completed" to view completed tasks
 - Type "cancelled" to view cancelled tasks
-- Type "task details" followed by task ID to view specific details`,
+- Type "task details" followed by task/request ID to view specific details`,
 
-  TASK_LIST: (tasks) => {
+  TASK_HISTORY: (tasks) => {
+    if (!tasks.length) {
+      return "📭 No tasks found in your history. Your task list is currently empty.";
+    }
+
+    return (
+      `*Your Task History*\n━━━━━━━━━━━━━━━━━━\n` +
+      tasks
+        .map(
+          (task, index) => `
+🔹 *Task #${index + 1}*
+Request ID: ${task.id}
+Service: ${task.service.title}
+Client: ${task.requester.firstName} ${task.requester.lastName}
+Phone: +${task.requester.phone}
+City: ${task.city}
+Date: ${task.date}
+Time: ${task.time}
+Price: ${task.service.unitPrice}
+Status: ${task.status}
+Notes: ${task.notes || "No notes provided"}
+━━━━━━━━━━━━━━━━━━`
+        )
+        .join("\n")
+    );
+  },
+
+  LIST_TASK_BY_STATUS: (tasks) => {
     if (!tasks.length) {
       return "📭 No tasks found in this category. Your task list is currently empty.";
     }
 
     return (
-      `*Your Tasks*\n━━━━━━━━━━━━━━━━━━\n` +
+      `*Your Tasks - ${tasks[0].status}*\n━━━━━━━━━━━━━━━━━━\n` +
       tasks
         .map(
           (task, index) => `
 🔹 *Task #${index + 1}*
-🆔 ${task.id}
-💼 ${task.service.title}
-📍 ${task.address.physicalAddress}
-📅 ${new Date(task.createdAt).toLocaleDateString()}
+- Request ID: ${task.id}
+- Client: ${task.requester.firstName} ${task.requester.lastName}
+- Phone: +${task.requester.phone}
+- Service: ${task.service.title}
+- City: ${task.city}
+- Date: ${new Date(task.date).toLocaleDateString()}
+- Time: ${task.time}
+
 ${getStatusEmoji(task.status)} ${task.status}
 ━━━━━━━━━━━━━━━━━━`
         )
@@ -42,6 +75,8 @@ ${getStatusEmoji(task.status)} ${task.status}
 📱 Phone: ${profile.phone}
 🌍 City: ${profile.provider.city}
 💼 Service: ${profile.provider.service.title}
+💰 Price: ${profile.provider.service.unitPrice}
+📍 Address: ${profile.provider.address.physicalAddress}
 ⭐ Rating: ${profile.provider.rating}/5
 
 *Need to make changes?*
@@ -49,6 +84,21 @@ Simply send a message like:
 - "Update name to John Smith"
 - "Change city to Mutare"
 - "Update service description to..."`,
+
+  TASK_DETAILS: (task) => `
+🔍 *Task/Booking Details*
+━━━━━━━━━━━━━━━━━━
+🆔 Request ID: ${task.id}
+📦 Service: ${task.service.title}
+💼 Client Name: ${task.requester.firstName} ${task.requester.lastName}
+📱 Phone: +${task.requester.phone}
+📍 City : ${task.city}
+📅 Date: ${task.date}
+🕒 Time: ${task.time}
+💰 Price: ${task.service.unitPrice}
+💡 Status:  ${task.status}
+📝 Notes: ${task.notes || "No notes provided"}
+`,
 
   SUBSCRIPTION_INFO: (data) => `
 💳 *Subscription Details*
@@ -95,9 +145,7 @@ Please prepare for this task and ensure you have all necessary materials:
 - Client: ${data.requester.firstName} ${data.requester.lastName}
 - Phone: +${data.requester.phone}
 - Date: ${
-      data.date
-        ? new Date(data.date).toLocaleDateString()
-        : "Not specified"
+      data.date ? new Date(data.date).toLocaleDateString() : "Not specified"
     }
 - Time: ${data.time || "Not specified"}
 - Location: ${data.city || "Check request details"}
