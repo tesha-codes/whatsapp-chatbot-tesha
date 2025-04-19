@@ -51,6 +51,16 @@ const WHATSAPP_TEMPLATES = {
       "21b95137-fc03-4c44-8e07-1f17d818f4a7",
     ],
   },
+  sendProviderARequest: {
+    name: "sendProviderARequest",
+    ids: [
+      "eb3a6e5d-5128-4ee2-93d7-5de37ccf75ca",
+      "d0943148-6f2a-4bc0-a25e-cd4703e5357b",
+      "10e61239-f702-4d67-bd7d-3ed4af3929ab",
+      "30a70608-208a-486c-8abc-842c1c1230d4",
+      "fe434a2b-6e36-4d66-ae7c-60f657f7aaf7",
+    ],
+  },
 };
 
 module.exports = WHATSAPP_TEMPLATES;

@@ -264,6 +264,73 @@ const serviceProviderMainMenuTemplate = async (userMobileNumber, name) => {
   return axios.post(TEMPLATE_MSG_URL, params, config);
 };
 
+// send a proviver a request template
+const sendProviderARequestTemplate = async (requestData) => {
+  // destructure the request data
+  const {
+    providerName,
+    providerPhone,
+    requestId,
+    clientName,
+    clientPhone,
+    date,
+    serviceType,
+    time,
+    location,
+    description,
+  } = requestData;
+  // get the template id from the template manager
+  const templateId = await templateManager.getAvailableTemplateId(
+    "sendProviderARequest",
+    providerPhone
+  );
+  //  no template, send a regular message
+  if (!templateId) {
+    const requestMessage = `
+🔔 New Service Request 🔔
+
+Hello ${providerName},
+
+You have a new service request:
+- Request ID: ${requestId}
+- Client Name: ${clientName}
+- Client Phone: +${clientPhone}
+- Service: ${serviceType}
+- Date: ${date}
+- Time: ${time}
+- Location: ${location}
+- Description: ${description}
+
+Please review and accept or decline this request. Reply with 'ACCEPT or 'DECLINE to proceed.
+    `;
+
+    return sendTextMessage(providerPhone, requestMessage);
+  }
+  // send the template message
+  const params = getUrlEncodedData({
+    source: SOURCE_MOBILE_NUMBER,
+    destination: providerPhone,
+    "src.name": APP_NAME,
+    template: {
+      id: templateId,
+      params: [
+        providerName,
+        requestId,
+        serviceType,
+        date,
+        time,
+        location,
+        description,
+        clientName,
+        clientPhone,
+      ],
+    },
+    message: {},
+  });
+
+  return axios.post(TEMPLATE_MSG_URL, params, config);
+};
+
 module.exports = {
   getTemplatesList,
   markBulkOptIn,
@@ -278,4 +345,5 @@ module.exports = {
   welcomeMessageTemplate,
   registerServiceProviderTemplate,
   serviceProviderMainMenuTemplate,
+  sendProviderARequestTemplate,
 };

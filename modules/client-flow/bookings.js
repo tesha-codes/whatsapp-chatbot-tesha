@@ -3,7 +3,10 @@ const ServiceRequest = require("../../models/request.model");
 const User = require("../../models/user.model");
 const dateParser = require("../../utils/dateParser");
 const BookingUtil = require("../../utils/bookingUtil");
-const { sendTextMessage } = require("../../services/whatsappService");
+const {
+  sendTextMessage,
+  sendProviderARequestTemplate,
+} = require("../../services/whatsappService");
 const { getSession, setSession } = require("../../utils/redis");
 const { formatDateTime } = require("../../utils/dateUtil");
 const ChatHistoryManager = require("../../utils/chatHistory");
@@ -207,30 +210,48 @@ class BookingManager {
       const requester = await User.findById(this.userId).select(
         "_id firstName lastName phone"
       );
-
+      //
       const requestMessage = `
-🔔 New Service Request 🔔
+      🔔 New Service Request 🔔
 
-Hello ${provider.user?.firstName || provider.user?.lastName || "Provider"},
+      Hello ${
+        provider.user?.firstName || provider.user?.lastName || "Provider"
+      },
 
-You have a new service request:
-- Request ID: ${requestDetails.requestId}
-- Client Name: ${requester.firstName} ${requester.lastName}
-- Client Phone: +${requester.phone}
-- Service: ${requestDetails.serviceType}
-- Date: ${requestDetails.date}
-- Time: ${requestDetails.time}
-- Location: ${requestDetails.location}
-- Description: ${requestDetails.description || "No details provided"}
+      You have a new service request:
+      - Request ID: ${requestDetails.requestId}
+      - Client Name: ${requester.firstName} ${requester.lastName}
+      - Client Phone: +${requester.phone}
+      - Service: ${requestDetails.serviceType}
+      - Date: ${requestDetails.date}
+      - Time: ${requestDetails.time}
+      - Location: ${requestDetails.location}
+      - Description: ${requestDetails.description || "No details provided"}
 
-Please review and accept or decline this request. Reply with 'ACCEPT or 'DECLINE to proceed.
-`;
+      Please review and accept or decline this request. Reply with 'ACCEPT or 'DECLINE to proceed.
+      `;
+      //
       console.log(
         `[NOTIFICATION] Sending provider notification to ${provider.user?.phone}`
       );
       console.log(
         `Successfully notified provider ${providerId} about request ${requestDetails.requestId}`
       );
+
+      const requestData = {
+        providerName: `${provider.user?.firstName} ${
+          provider.user?.lastName || ""
+        }`.trim(),
+        providerPhone: provider.user?.phone,
+        requestId: requestDetails.requestId,
+        clientName: `${requester.firstName} ${requester.lastName}`,
+        clientPhone: requester.phone,
+        serviceType: requestDetails.serviceType,
+        date: requestDetails.date,
+        time: requestDetails.time,
+        location: requestDetails.location,
+        description: requestDetails.description || "No details provided",
+      };
       // run the notification in the next event loop iteration
       setImmediate(async () => {
         const providerPhone = provider.user?.phone;
@@ -273,7 +294,10 @@ Please review and accept or decline this request. Reply with 'ACCEPT or 'DECLINE
           `Stored pending requests metadata for ${provider.user?.phone}`
         );
         // send the request
-        await sendTextMessage(provider.user?.phone, requestMessage);
+        await sendProviderARequestTemplate(requestData);
+        console.log(
+          `Successfully sent request template to ${provider.user?.phone}`
+        );
       });
       return true;
     } catch (error) {
