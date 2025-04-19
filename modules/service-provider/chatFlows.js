@@ -158,10 +158,10 @@ Thank you for your prompt response.
 
   REQUEST_DECLINED: (data) =>
     `❌ You have declined the service request ${
-      data.requestId
+      data.id
     }. The client has been notified.
 
-Reason: ${data.reason || "No reason provided"}
+Reason: ${data.cancelReason || "No reason provided"}
 
 Thank you for your prompt response.`,
 
