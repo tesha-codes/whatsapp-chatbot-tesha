@@ -99,42 +99,6 @@ Simply send a message like:
 💡 Status:  ${task.status}
 📝 Notes: ${task.notes || "No notes provided"}
 `,
-
-  SUBSCRIPTION_INFO: (data) => `
-💳 *Subscription Details*
-━━━━━━━━━━━━━━━━━━
-📦 Plan: ${data.currentPlan.plan}
-${data.currentPlan.active ? "✅ Status: Active" : "⚠️ Status: Inactive"}
-💰 Price: $${data.currentPlan.price}/month
-
-✨ *Plan Features:*
-${data.currentPlan.features.map((f) => `• ${f}`).join("\n")}
-
-Need to change your plan? Type "plans" to see available options.`,
-
-  BILLING_HISTORY: (data) => {
-    if (!data.history.length) {
-      return "📊 Your billing history is currently empty. New transactions will appear here.";
-    }
-
-    return (
-      `
-💳 *Billing History*
-━━━━━━━━━━━━━━━━━━\n` +
-      data.history
-        .map(
-          (sub, index) => `
-🔹 *Transaction #${index + 1}*
-📦 Plan: ${sub.plan}
-📅 Started: ${new Date(sub.startDate).toLocaleDateString()}
-📅 Ends: ${new Date(sub.endDate).toLocaleDateString()}
-${getStatusEmoji(sub.status)} Status: ${sub.status}
-━━━━━━━━━━━━━━━━━━`
-        )
-        .join("\n")
-    );
-  },
-
   REQUEST_ACCEPTED: (data) =>
     `✅ You have successfully accepted the service request ${
       data.id
@@ -164,6 +128,135 @@ Thank you for your prompt response.
 Reason: ${data.cancelReason || "No reason provided"}
 
 Thank you for your prompt response.`,
+
+  SUBSCRIPTION_PLANS: (data) => {
+    let response = "📊 *Available Subscription Plans* 📊\n\n";
+
+    // Group plans by billing cycle
+    const monthlyPlans = data.filter((plan) => plan.cycle === "Monthly");
+    const yearlyPlans = data.filter((plan) => plan.cycle === "Yearly");
+
+    // Add monthly plans
+    response += "📅 *Monthly Plans*\n";
+    monthlyPlans.forEach((plan) => {
+      response += `\n*${plan.name} Plan*: $${plan.price}/month\n`;
+      response += "✅ Features:\n";
+      plan.features.slice(0, 5).forEach((feature) => {
+        response += `• ${feature}\n`;
+      });
+      if (plan.features.length > 5) {
+        response += `• ...and ${plan.features.length - 5} more features\n`;
+      }
+    });
+
+    // Add yearly plans
+    response += "\n📆 *Yearly Plans* (Best Value)\n";
+    yearlyPlans.forEach((plan) => {
+      response += `\n*${plan.name} Plan*: $${plan.price}/year (Save $${plan.savings})\n`;
+      response += "✅ Features:\n";
+      plan.features.slice(0, 5).forEach((feature) => {
+        response += `• ${feature}\n`;
+      });
+      if (plan.features.length > 5) {
+        response += `• ...and ${plan.features.length - 5} more features\n`;
+      }
+    });
+
+    response +=
+      "\nTo subscribe, reply: 'Subscribe to [Plan Name] [Monthly/Yearly]'\nExample: 'Subscribe to Basic Monthly'";
+
+    return response;
+  },
+
+  CURRENT_SUBSCRIPTION: (data) => {
+    if (data.status === "No active subscription") {
+      return "📱 You don't have an active subscription. Would you like to view available plans? Reply 'View plans' to see options.";
+    }
+
+    let response = "📊 *Your Current Subscription* 📊\n\n";
+    response += `*Plan*: ${data.plan}\n`;
+    response += `*Billing Cycle*: ${data.billingCycle}\n`;
+    response += `*Status*: ${data.status}\n`;
+    response += `*Start Date*: ${new Date(
+      data.startDate
+    ).toLocaleDateString()}\n`;
+    response += `*End Date*: ${new Date(data.endDate).toLocaleDateString()}\n`;
+    response += `*Days Remaining*: ${data.daysRemaining}\n`;
+    response += `*Auto-Renewal*: ${data.autoRenew ? "Enabled" : "Disabled"}\n`;
+
+    if (data.isExpiringSoon) {
+      response +=
+        "\n⚠️ *Your subscription is expiring soon!* Would you like to renew?";
+    }
+
+    return response;
+  },
+
+  PAYMENT_INITIATED: (data) => {
+    let response = "💰 *Payment Initiated* 💰\n\n";
+    response += `*Plan*: ${data.plan}\n`;
+    response += `*Billing Cycle*: ${data.billingCycle}\n`;
+    response += `*Amount*: $${data.amount}\n`;
+    response += `*Payment Method*: ${data.paymentMethod}\n`;
+    response += `*Payment Reference*: ${data.paymentReference}\n`;
+    response += `*Payment Phone*: ${data.paymentPhone}\n\n`;
+
+    response += "📱 *Instructions:*\n";
+    if (data.instructions) {
+      response += data.instructions + "\n\n";
+    } else {
+      response += `1. You'll receive a ${data.paymentMethod} prompt on your phone\n`;
+      response += `2. Enter your ${data.paymentMethod} PIN to confirm payment\n`;
+      response += "3. We'll notify you once your payment is confirmed\n\n";
+    }
+
+    response += "⏳ Your payment is being processed...";
+
+    return response;
+  },
+
+  BILLING_HISTORY: (data) => {
+    if (!data.currentPlan || data.currentPlan === "No active subscription") {
+      return "📋 You don't have any billing history yet. Start by subscribing to a plan!";
+    }
+
+    let response = "📊 *Billing History* 📊\n\n";
+
+    // Current plan info
+    response += "*Current Plan:* " + data.currentPlan.plan + "\n";
+    response += "*Status:* " + data.currentPlan.status + "\n";
+    if (
+      data.currentPlan.billingCycle &&
+      data.currentPlan.billingCycle !== "N/A"
+    ) {
+      response += "*Billing Cycle:* " + data.currentPlan.billingCycle + "\n";
+    }
+    response += "*Price:* $" + data.currentPlan.price + "\n";
+
+    // Payment history if any
+    if (data.paymentHistory && data.paymentHistory.length > 0) {
+      response += "\n*Recent Payments:*\n";
+      data.paymentHistory.slice(0, 3).forEach((payment, i) => {
+        response += `${i + 1}. $${payment.amount} - ${new Date(
+          payment.paymentDate
+        ).toLocaleDateString()} (${payment.status})\n`;
+      });
+    }
+
+    // Subscription history
+    if (data.history && data.history.length > 0) {
+      response += "\n*Subscription History:*\n";
+      data.history.slice(0, 3).forEach((sub, i) => {
+        response += `${i + 1}. ${sub.plan} (${sub.status}) - From ${new Date(
+          sub.startDate
+        ).toLocaleDateString()} to ${new Date(
+          sub.endDate
+        ).toLocaleDateString()}\n`;
+      });
+    }
+
+    return response;
+  },
 
   ERROR_MESSAGE: `
 ⚠️ *Oops! Something went wrong*

@@ -3,7 +3,8 @@ const tools = [
     type: "function",
     function: {
       name: "view_tasks_overview",
-      description: "Get an overview of all tasks with their counts by status, do not lists tasks",
+      description:
+        "Get an overview of all tasks with their counts by status, do not lists tasks",
       strict: true,
       parameters: {
         type: "object",
@@ -94,6 +95,7 @@ const tools = [
       },
     },
   },
+  // Profile tools
   {
     type: "function",
     function: {
@@ -161,20 +163,7 @@ const tools = [
       },
     },
   },
-  {
-    type: "function",
-    function: {
-      name: "view_billing_history",
-      description: "View billing and payment history",
-      strict: true,
-      parameters: {
-        type: "object",
-        properties: {},
-        required: [],
-        additionalProperties: false,
-      },
-    },
-  },
+  // Service request tools
   {
     type: "function",
     function: {
@@ -213,6 +202,85 @@ const tools = [
           },
         },
         required: ["requestId", "reason"],
+        additionalProperties: false,
+      },
+    },
+  },
+  // Subscription tools
+  {
+    type: "function",
+    function: {
+      name: "view_billing_history",
+      description: "View billing and payment history",
+      strict: true,
+      parameters: {
+        type: "object",
+        properties: {},
+        required: [],
+        additionalProperties: false,
+      },
+    },
+  },
+  {
+    type: "function",
+    function: {
+      name: "view_subscription_plans",
+      description: "View available subscription plans for service providers",
+      strict: true,
+      parameters: {
+        type: "object",
+        properties: {},
+        required: [],
+        additionalProperties: false,
+      },
+    },
+  },
+  {
+    type: "function",
+    function: {
+      name: "view_current_subscription",
+      description: "Check current subscription status and details",
+      strict: true,
+      parameters: {
+        type: "object",
+        properties: {},
+        required: [],
+        additionalProperties: false,
+      },
+    },
+  },
+  {
+    type: "function",
+    function: {
+      name: "initiate_subscription_payment",
+      description: "Initiate a payment for subscription using mobile money",
+      strict: true,
+      parameters: {
+        type: "object",
+        properties: {
+          plan: {
+            type: "string",
+            enum: ["Basic", "Premium"],
+            description: "The subscription plan to purchase",
+          },
+          billingCycle: {
+            type: "string",
+            enum: ["Monthly", "Yearly"],
+            description: "The billing cycle for the subscription",
+          },
+          paymentPhone: {
+            type: "string",
+            description:
+              "Phone number to process payment (e.g., 0771234567)",
+          },
+          paymentMethod: {
+            type: "string",
+            enum: ["ecocash", "innbucks"],
+            description: "Payment method to use (EcoCash or InnBucks)",
+            default: "ecocash",
+          },
+        },
+        required: ["plan", "billingCycle", "paymentPhone", "paymentMethod"],
         additionalProperties: false,
       },
     },

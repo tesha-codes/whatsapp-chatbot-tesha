@@ -1,36 +1,78 @@
-const mongoose = require('mongoose');
-const { fieldEncryption } = require('mongoose-field-encryption');
-const cypto = require("node:crypto")
+const mongoose = require("mongoose");
+const { fieldEncryption } = require("mongoose-field-encryption");
+const crypto = require("node:crypto");
 
-const SubscriptionSchema = new mongoose.Schema({
-    _id: mongoose.Types.ObjectId,
+const SubscriptionSchema = new mongoose.Schema(
+  {
     user: {
-        type: mongoose.Types.ObjectId
+      type: mongoose.Types.ObjectId,
+      ref: "User",
+      required: true,
+    },
+    serviceProvider: {
+      type: mongoose.Types.ObjectId,
+      ref: "ServiceProvider",
+      required: true,
     },
     plan: {
-        type: String,
-        enum: ['Basic', 'Premium', 'Free Trial'],
-        required: true,
-        default: 'Free Trial'
+      type: String,
+      enum: ["Basic", "Premium", "Free Trial"],
+      required: true,
+      default: "Free Trial",
     },
-    duration: {
-        type: String,
-        enum: ['Monthly', 'Yearly'],
+    billingCycle: {
+      type: String,
+      enum: ["Monthly", "Yearly"],
+      default: "Monthly",
     },
-    active: {
-        type: Boolean,
-        required: true,
-        default: false
+    status: {
+      type: String,
+      enum: ["Active", "Expired", "Canceled", "Pending Payment"],
+      default: "Active",
     },
-}, { timestamps: true })
+    startDate: {
+      type: Date,
+      default: Date.now,
+    },
+    endDate: {
+      type: Date,
+      required: true,
+    },
+    paymentHistory: [
+      {
+        amount: Number,
+        paymentDate: Date,
+        paymentMethod: {
+          type: String,
+          default: "EcoCash",
+        },
+        paymentPhone: String,
+        transactionId: String,
+        status: {
+          type: String,
+          enum: ["Pending", "Completed", "Failed"],
+          default: "Pending",
+        },
+      },
+    ],
+    nextRenewalDate: {
+      type: Date,
+    },
+    autoRenew: {
+      type: Boolean,
+      default: false,
+    },
+  },
+  { timestamps: true }
+);
 
 SubscriptionSchema.plugin(fieldEncryption, {
-    fields: ["user"],
-    secret: process.env.MONGO_SECRET_ENCRYPTION_KEY,
-    saltGenerator: function (secret) {
-        const salt = cypto.randomBytes(16).toString('hex').slice(0, 16);
-        return salt;
-    }
+  fields: ["user"],
+  secret: process.env.MONGO_SECRET_ENCRYPTION_KEY,
+  saltGenerator: function (secret) {
+    const salt = crypto.randomBytes(16).toString("hex").slice(0, 16);
+    return salt;
+  },
+});
 
-})
-module.exports = mongoose.model('Subscription', SubscriptionSchema);
+module.exports = mongoose.model("Subscription", SubscriptionSchema);

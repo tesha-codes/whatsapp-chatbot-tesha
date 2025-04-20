@@ -293,6 +293,29 @@ SUPPORT REDIRECT:
             data: await this.billingManager.getBillingHistory(),
           };
 
+        case "view_subscription_plans":
+          return {
+            type: "SUBSCRIPTION_PLANS",
+            data: await this.billingManager.getSubscriptionPlans(),
+          };
+
+        case "view_current_subscription":
+          return {
+            type: "CURRENT_SUBSCRIPTION",
+            data: await this.billingManager.getCurrentSubscription(),
+          };
+
+        case "initiate_subscription_payment":
+          return {
+            type: "PAYMENT_INITIATED",
+            data: await this.billingManager.initiatePayment(
+              params.plan,
+              params.billingCycle,
+              params.paymentPhone,
+              params.paymentMethod || "ecocash"
+            ),
+          };
+        //
         default:
           throw new Error(`Unsupported tool: ${name}`);
       }
@@ -372,14 +395,23 @@ SUPPORT REDIRECT:
       case "DELETE_CONFIRMATION_NEEDED":
         return `⚠️ Confirm deletion by replying "CONFIRM DELETE".\nReason: ${result.data.reason}`;
 
-      case "BILLING_HISTORY":
-        return CHAT_TEMPLATES.BILLING_HISTORY(result.data);
-
       case "REQUEST_ACCEPTED":
         return CHAT_TEMPLATES.REQUEST_ACCEPTED(result.data);
 
       case "REQUEST_DECLINED":
         return CHAT_TEMPLATES.REQUEST_DECLINED(result.data);
+
+      case "BILLING_HISTORY":
+        return CHAT_TEMPLATES.BILLING_HISTORY(result.data);
+
+      case "SUBSCRIPTION_PLANS":
+        return CHAT_TEMPLATES.SUBSCRIPTION_PLANS(result.data);
+
+      case "CURRENT_SUBSCRIPTION":
+        return CHAT_TEMPLATES.CURRENT_SUBSCRIPTION(result.data);
+
+      case "PAYMENT_INITIATED":
+        return CHAT_TEMPLATES.PAYMENT_INITIATED(result.data);
 
       case "VALIDATION_ERROR":
         return `⚠️ Validation Error: ${result.error}`;
