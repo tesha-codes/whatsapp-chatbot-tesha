@@ -61,7 +61,7 @@ router.post("/update", async (req, res) => {
       const provider = await ServiceProvider.findById(
         request.serviceProvider._id
       ).populate("user");
-      
+
       const newOutstandingPayments = Math.max(
         0,
         (provider.outstandingPayments || 1) - 1
@@ -103,6 +103,7 @@ Thank you for your prompt payment!`;
         .status(200)
         .json({ success: true, message: "Payment processed successfully" });
     } else {
+      // : TODO: send for failed payment
       // Update transaction ID but don't mark as paid
       payment.transactionId = paynowreference || pollurl;
       await payment.save();

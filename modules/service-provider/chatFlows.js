@@ -244,7 +244,7 @@ You have marked job ${data.request.id} as completed!
 
 ⏰ Please make payment within 48 hours to maintain your account in good standing.
 
-To make payment now, reply with "Pay service fee for ${data.request.id}"
+To make payment now, reply with "*Pay service fee for ${data.request.id}*"
 
 The client has been notified that you've completed the job. Thank you for providing your services through Tesha!`;
   },
@@ -257,9 +257,9 @@ The client has been notified that you've completed the job. Thank you for provid
     return `
 🔄 *Payment Initiated* 🔄
 
-Your payment of $${data.payment.serviceFee.toFixed(2)} for job ${
+Your payment of $${data.payment.serviceFee.toFixed(2)} for job *${
       data.payment.requestId
-    } has been initiated.
+    }* has been initiated.
 
 💬 ${
       data.instructions ||
@@ -272,9 +272,9 @@ Payment Details:
 - Phone: ${data.payment.paymentPhone}
 - Reference: ${data.payment.reference}
 
-To check if your payment has been confirmed, reply with "Check payment status for ${
-      data.payment.id
-    }".
+To check if your payment has been confirmed, reply with "*Check payment status for ${
+      data.payment.requestId
+    }*".
 `;
   },
 
