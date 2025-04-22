@@ -60,7 +60,7 @@ router.post("/update", async (req, res) => {
       // Update service provider
       const provider = await ServiceProvider.findById(
         request.serviceProvider._id
-      );
+      ).populate("user");
       const newOutstandingPayments = Math.max(
         0,
         (provider.outstandingPayments || 1) - 1
