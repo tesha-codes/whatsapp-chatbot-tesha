@@ -206,81 +206,89 @@ const tools = [
       },
     },
   },
-  // Subscription tools
+  // billing tools
   {
     type: "function",
     function: {
-      name: "view_billing_history",
-      description: "View billing and payment history",
-      strict: true,
-      parameters: {
-        type: "object",
-        properties: {},
-        required: [],
-        additionalProperties: false,
-      },
-    },
-  },
-  {
-    type: "function",
-    function: {
-      name: "view_subscription_plans",
-      description: "View available subscription plans for service providers",
-      strict: true,
-      parameters: {
-        type: "object",
-        properties: {},
-        required: [],
-        additionalProperties: false,
-      },
-    },
-  },
-  {
-    type: "function",
-    function: {
-      name: "view_current_subscription",
-      description: "Check current subscription status and details",
-      strict: true,
-      parameters: {
-        type: "object",
-        properties: {},
-        required: [],
-        additionalProperties: false,
-      },
-    },
-  },
-  {
-    type: "function",
-    function: {
-      name: "initiate_subscription_payment",
-      description: "Initiate a payment for subscription using mobile money",
+      name: "complete_job",
+      description: "Mark a job as completed and submit review",
       strict: true,
       parameters: {
         type: "object",
         properties: {
-          plan: {
+          requestId: {
             type: "string",
-            enum: ["Basic", "Premium"],
-            description: "The subscription plan to purchase",
+            description: "ID of the request to mark as completed",
           },
-          billingCycle: {
+          review: {
             type: "string",
-            enum: ["Monthly", "Yearly"],
-            description: "The billing cycle for the subscription",
+            description: "Optional review comment about the job",
           },
-          paymentPhone: {
+        },
+        required: ["requestId", "review"],
+        additionalProperties: false,
+      },
+    },
+  },
+  {
+    type: "function",
+    function: {
+      name: "view_payments_by_status",
+      description: "View payments filtered by their status (Pending, Paid, Overdue, Failed)",
+      strict: true,
+      parameters: {
+        type: "object",
+        properties: {
+          status: {
             type: "string",
-            description:
-              "Phone number to process payment (e.g., 0771234567)",
+            enum: ["Pending", "Paid", "Overdue", "Failed"],
+            description: "Status of the payment",
+          },
+        },
+        required: ["status"],
+        additionalProperties: false,
+      },
+    },
+  },
+  {
+    type: "function",
+    function: {
+      name: "view_payment_history",
+      description: "View history of payments",
+      strict: true,
+      parameters: {
+        type: "object",
+        properties: {},
+        required: [],
+        additionalProperties: false,
+      },
+    },
+  },
+  {
+    type: "function",
+    function: {
+      name: "pay_service_fee",
+      description: "Pay a service fee for a completed job",
+      strict: true,
+      parameters: {
+        type: "object",
+        properties: {
+          requestId: {
+            type: "string",
+            description: "ID of the service request to pay for",
           },
           paymentMethod: {
             type: "string",
             enum: ["ecocash", "innbucks"],
-            description: "Payment method to use (EcoCash or InnBucks)",
+            description: "Payment method to use",
             default: "ecocash",
           },
+          paymentPhone: {
+            type: "string",
+            description: "Phone number to process payment (e.g., 0771234567)",
+          },
         },
-        required: ["plan", "billingCycle", "paymentPhone", "paymentMethod"],
+        required: ["requestId", "paymentMethod", "paymentPhone"],
         additionalProperties: false,
       },
     },

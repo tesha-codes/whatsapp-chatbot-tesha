@@ -272,12 +272,15 @@ const sendProviderARequestTemplate = async (requestData) => {
     providerPhone,
     requestId,
     clientName,
-    clientPhone,
     date,
     serviceType,
     time,
     location,
     description,
+    estimatedHours,
+    hourlyRate,
+    totalCost,
+    serviceFee,
   } = requestData;
   // get the template id from the template manager
   const templateId = await templateManager.getAvailableTemplateId(
@@ -294,12 +297,17 @@ Hello ${providerName},
 You have a new service request:
 - Request ID: ${requestId}
 - Client Name: ${clientName}
-- Client Phone: +${clientPhone}
 - Service: ${serviceType}
 - Date: ${date}
 - Time: ${time}
 - Location: ${location}
 - Description: ${description}
+
+💰 Job Details:
+- Estimated Hours: ${estimatedHours}
+- Your Hourly Rate: $${hourlyRate}/hour
+- Estimated Total: $${totalCost.toFixed(2)}
+- Service Fee (5%): $${serviceFee.toFixed(2)}
 
 Please review and accept or decline this request. Reply with 'ACCEPT or 'DECLINE to proceed.
     `;
@@ -322,13 +330,82 @@ Please review and accept or decline this request. Reply with 'ACCEPT or 'DECLINE
         location,
         description,
         clientName,
-        clientPhone,
+        estimatedHours,
+        `$${hourlyRate.toFixed(2)}/hour`,
+        `$${totalCost.toFixed(2)}`,
+        `$${serviceFee.toFixed(2)}`,
       ],
     },
     message: {},
   });
 
   return axios.post(TEMPLATE_MSG_URL, params, config);
+};
+
+// Send job completion notification to service provider
+const sendJobCompletionNotification = async (requestData) => {
+  const {
+    providerPhone,
+    providerName,
+    requestId,
+    serviceType,
+    clientName,
+    totalCost,
+    serviceFee,
+    rating,
+    review,
+  } = requestData;
+
+  const message = `
+🎉 *Job Completed by Client* 🎉
+
+Hello ${providerName},
+
+Your ${serviceType} service (${requestId}) has been marked as completed by ${clientName}.
+
+💰 *Payment Details:*
+- Total Amount: $${totalCost.toFixed(2)}
+- Service Fee (5%): $${serviceFee.toFixed(2)}
+
+⭐ *Client Rating:* ${rating} star${rating !== 1 ? "s" : ""}
+📝 *Client Review:* "${review}"
+
+⚠️ Please leave a review for the client and pay your service fee within 48 hours to maintain your account in good standing.
+
+Reply with "*Pay service fee for ${requestId}*" to make your payment.
+
+Thank you for using Tesha!`;
+
+  return sendTextMessage(providerPhone, message);
+};
+
+// Send provider job completion notification to client
+const sendProviderCompletedJobNotification = async (requestData) => {
+  const {
+    clientPhone,
+    clientName,
+    requestId,
+    serviceType,
+    providerName,
+    totalCost,
+  } = requestData;
+
+  const message = `
+🔔 *Service Provider Completed Job* 🔔
+
+Hello ${clientName},
+
+${providerName} has marked your ${serviceType} service (${requestId}) as completed.
+
+📝 Total Cost: $${totalCost.toFixed(2)}
+
+Are you satisfied with the service? Please reply with a rating from 1-5 stars and any feedback.
+
+Example: "*Rate ${requestId} 5 stars - Great work, very professional!*"
+
+Thank you for using Tesha!`;
+
+  return sendTextMessage(clientPhone, message);
 };
 
 module.exports = {
@@ -346,4 +423,6 @@ module.exports = {
   registerServiceProviderTemplate,
   serviceProviderMainMenuTemplate,
   sendProviderARequestTemplate,
+  sendJobCompletionNotification,
+  sendProviderCompletedJobNotification,
 };

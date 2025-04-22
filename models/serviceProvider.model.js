@@ -25,25 +25,34 @@ const ServiceProviderSchema = new mongoose.Schema(
       type: String,
       trim: true,
     },
-    ecocashNumber: {
-      type: String,
-    },
-    subscription: {
-      type: mongoose.Types.ObjectId,
-      ref: "Subscription",
-    },
     isProfileCompleted: {
       type: Boolean,
       default: false,
     },
     rating: {
       type: Number,
-      default: 1.0
+      default: 1.0,
     },
     hourlyRate: {
       type: Number,
-      default: 1.0
-    }
+      default: 1.0,
+    },
+    paymentStatus: {
+      type: String,
+      enum: ["Good Standing", "Payment Due", "Restricted"],
+      default: "Good Standing",
+    },
+    outstandingPayments: {
+      type: Number,
+      default: 0,
+    },
+    totalEarnings: {
+      type: Number,
+      default: 0,
+    },
+    lastPaymentDate: {
+      type: Date,
+    },
   },
   { timestamps: true }
 );

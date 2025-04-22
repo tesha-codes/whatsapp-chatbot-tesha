@@ -144,13 +144,11 @@ Example: 123 Main Street, Harare`,
       "📝 Please provide a brief description of your services (maximum 200 characters).",
     GET_HOURLY_RATE:
       "💲 Please enter your hourly rate in USD.This is the amount you'll charge clients per hour of service. Example: Enter '25' for $25 per hour.",
-    CHOOSE_SUBSCRIPTION:
-      "🎉 Good news! You're eligible for a free 1-month subscription. Choose your plan:\n1. Basic\n2. Standard\n3. Premium\nReply with the number of your choice.",
     UPLOAD_ID_IMAGE:
       "📸 Please upload a clear image of your National ID. This will be used for verification purposes.",
     PROFILE_COMPLETE: `🎉 Congratulations! Your profile is complete! 🎉
 
-You\'re now eligible for a free 3-month subscription. Once verified, you\'ll start receiving tasks. Thanks for joining our platform!`,
+Once verified, you\'ll start receiving tasks. Thanks for joining our platform!`,
     UNAVAILABLE_SERVICE_PROVIDER: `
     Thank you for your request! Unfortunately, the service provider for [requested service] is currently unavailable. We apologize for the inconvenience and are working to find a suitable provider for you. We’ll notify you as soon as we have an update.
 

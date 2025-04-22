@@ -33,6 +33,13 @@ const clientFunctions = [
             type: "string",
             description: "Description of what needs to be done",
           },
+          estimatedHours: {
+            type: "number",
+            description:
+              "Estimated number of hours the job will take (min 0.5)",
+            minimum: 0.5,
+            maximum: 24,
+          },
           confirmation: {
             type: "boolean",
             description: "Final confirmation of service request",
@@ -44,7 +51,8 @@ const clientFunctions = [
           "date",
           "time",
           "location",
-          "confirmation"
+          "estimatedHours",
+          "confirmation",
         ],
         additionalProperties: false,
       },
@@ -76,12 +84,19 @@ const clientFunctions = [
             description:
               "Type of service (e.g., plumbing, electrical, cleaning)",
           },
+          estimatedHours: {
+            type: "number",
+            description:
+              "Estimated number of hours the job will take (min 0.5)",
+            minimum: 0.5,
+            maximum: 24,
+          },
           location: {
             type: "string",
             description: "Location or area where service is needed",
           },
         },
-        required: ["serviceType"],
+        required: ["serviceType", "estimatedHours"],
         additionalProperties: false,
       },
     },
@@ -218,6 +233,34 @@ const clientFunctions = [
           },
         },
         required: ["reason", "confirmation"],
+        additionalProperties: false,
+      },
+    },
+  },
+  {
+    type: "function",
+    function: {
+      name: "complete_job",
+      description: "Mark a job as completed and submit review",
+      strict: true,
+      parameters: {
+        type: "object",
+        properties: {
+          requestId: {
+            type: "string",
+            description: "ID of the request to mark as completed",
+          },
+          rating: {
+            type: "integer",
+            description: "Rating from 1-5 stars",
+            enum: [1, 2, 3, 4, 5],
+          },
+          review: {
+            type: "string",
+            description: "Review comment about the service provider's work",
+          },
+        },
+        required: ["requestId", "rating", "review"],
         additionalProperties: false,
       },
     },

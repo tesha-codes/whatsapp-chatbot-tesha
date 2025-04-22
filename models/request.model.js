@@ -66,14 +66,45 @@ const ServiceRequestSchema = new mongoose.Schema(
     cancelReason: {
       type: String,
     },
-    providerRating: {
+    estimatedHours: {
       type: Number,
-      min: 1,
-      max: 5,
+      default: 1,
+      min: 0.5,
+      max: 24,
     },
-    clientFeedback: {
+    totalCost: {
+      type: Number,
+      default: 0,
+    },
+    serviceFee: {
+      type: Number,
+      default: 0,
+    },
+    paymentStatus: {
+      type: String,
+      enum: ["Pending", "Paid", "Overdue"],
+      default: "Pending",
+    },
+    paymentDueDate: {
+      type: Date,
+    },
+    completedAt: {
+      type: Date,
+    },
+    rating: {
+      type: Number,
+      default: 1.0,
+    },
+    reviewSubmitted: {
+      type: Boolean,
+      default: false,
+    },
+    reviewContent: {
       type: String,
     },
+    providerFeedback:{
+      type: String,
+    }
   },
   { timestamps: true }
 );

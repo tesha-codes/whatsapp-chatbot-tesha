@@ -2,7 +2,6 @@ const ServiceProvider = require("./../../models/serviceProvider.model");
 const serviceMatcher = require("../../utils/serviceMatchingUtil");
 const BookingUtil = require("../../utils/bookingUtil");
 
-
 class ServiceRequestManager {
   constructor(userId) {
     this.userId = userId;
@@ -88,10 +87,10 @@ class ServiceRequestManager {
     `;
   }
   //  get service providers
-  async getServiceProviders(serviceType, location) {
+  async getServiceProviders(serviceType, estimatedHours, location) {
     console.log(
       `Fetching service providers for ${serviceType} in ${
-        location || "any location"
+        location || "any location. Taking about ${estimatedHours} hours"
       }`
     );
 
@@ -159,11 +158,14 @@ class ServiceRequestManager {
             rating: sp.rating || 4.5,
             reviewCount: Math.floor(Math.random() * 10) + 10, // Mock data
             specialties: [sp.service?.title || primaryServiceTitle],
-            rate: sp.hourlyRate || 'Unspecified',
+            rate: sp.hourlyRate || "Unspecified",
+            estimatedHours: estimatedHours || 1,
+            totalCost: ((sp.hourlyRate || 0) * (estimatedHours || 1)).toFixed(
+              2
+            ),
           };
         });
       }
-
       // Prepare result
       return {
         serviceType: primaryServiceTitle,

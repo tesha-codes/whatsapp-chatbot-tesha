@@ -13,7 +13,6 @@ class AccountManager {
         ServiceProvider.findOne({ user: this.userId })
           .populate("category")
           .populate("service")
-          .populate("subscription"),
       ]);
 
       if (!user || !provider) {

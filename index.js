@@ -16,9 +16,9 @@ const ServiceProvider = require("./modules/service-provider/entry");
 const RequestProvider = require("./models/serviceProvider.model");
 const Onboarding = require("./modules/onboarding");
 const DynamicClient = require("./modules/client-flow/entry");
-const { serviceProviderQueue } = require("./jobs/service-provider.job");
 const initializeTemplates = require("./services/initializeTemplates");
 const { onServiceRequestUpdate } = require("./controllers/request.controller");
+const paymentRoutes = require("./routes/payment.routes");
 const User = require("./models/user.model");
 
 const app = express();
@@ -59,7 +59,6 @@ const steps = {
   PROVIDER_COLLECT_SERVICE: "PROVIDER_COLLECT_SERVICE",
   PROVIDER_COLLECT_DESCRIPTION: "PROVIDER_COLLECT_DESCRIPTION",
   PROVIDER_COLLECT_HOURLY_RATE: "PROVIDER_COLLECT_HOURLY_RATE",
-  PROVIDER_COLLECT_SUBSCRIPTION: "PROVIDER_COLLECT_SUBSCRIPTION",
   PROVIDER_COLLECT_ID_IMAGE: "PROVIDER_COLLECT_ID_IMAGE",
   PROVIDER_PROFILE_COMPLETE: "PROVIDER_PROFILE_COMPLETE",
   WAITING_FOR_VERIFICATION: "WAITING_FOR_VERIFICATION",
@@ -92,10 +91,10 @@ app.use(express.json({
 const serverAdapter = new ExpressAdapter();
 
 // Create Bull Board
-createBullBoard({
-  queues: [new BullMQAdapter(serviceProviderQueue)],
-  serverAdapter: serverAdapter,
-});
+// createBullBoard({
+//   queues: [new BullMQAdapter(serviceProviderQueue)],
+//   serverAdapter: serverAdapter,
+// });
 
 // Use the serverAdapter's middleware
 serverAdapter.setBasePath("/admin/queues");
@@ -157,6 +156,10 @@ app.get("/health", (req, res) => {
   });
 });
 
+// payments routes
+app.use("/api/payments", paymentRoutes);
+
+// webhook for incoming messages from WhatsApp
 app.post("/bot", async (req, res) => {
   try {
     const userResponse = req.body.payload;
@@ -248,10 +251,10 @@ app.listen(PORT, function () {
     });
 });
 
-process.on("SIGTERM", async () => {
-  await serviceProviderQueue.close();
-  process.exit(0);
-});
+// process.on("SIGTERM", async () => {
+//   await serviceProviderQueue.close();
+//   process.exit(0);
+// });
 process.on("SIGINT", async () => {
   console.log("Received SIGINT signal. Starting graceful shutdown...");
   await shutdown();

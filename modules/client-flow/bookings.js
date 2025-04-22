@@ -6,10 +6,15 @@ const BookingUtil = require("../../utils/bookingUtil");
 const {
   sendTextMessage,
   sendProviderARequestTemplate,
+  sendJobCompletionNotification,
 } = require("../../services/whatsappService");
 const { getSession, setSession } = require("../../utils/redis");
 const { formatDateTime } = require("../../utils/dateUtil");
 const ChatHistoryManager = require("../../utils/chatHistory");
+const {
+  calculateRequestCosts,
+} = require("../../controllers/request.controller");
+const { createPaymentRecord } = require("../../controllers/payment.controller");
 
 class BookingManager {
   constructor(userId) {
@@ -112,19 +117,22 @@ class BookingManager {
       throw new Error(`Failed to retrieve booking: ${error.message}`);
     }
   }
+
   async scheduleBookingWithProvider(
     provider,
     serviceType,
     date,
     time,
     location,
-    description
+    description,
+    estimatedHours = 1 // Default to 1 hour if not provided
   ) {
     console.log(
       `Scheduling booking with saved provider: ${provider.name} (${provider.id}) for ${serviceType}`
     );
     try {
       // Parse date and time
+      // TODO: TIME and date shouild be be future time only not past dates
       const parsedDate = dateParser.parseDate(date);
       if (!parsedDate.success) {
         throw new Error(`Invalid date: ${parsedDate.message}`);
@@ -143,6 +151,12 @@ class BookingManager {
 
       // Combine date and time for a full datetime object
       const bookingDate = new Date(`${parsedDate.date}T${parsedTime.time}:00`);
+
+      // Validate and normalize estimated hours
+      const normalizedHours = Math.max(
+        0.5,
+        Math.min(24, Number(estimatedHours) || 1)
+      );
 
       // Create service request object
       const serviceRequest = new ServiceRequest({
@@ -166,14 +180,26 @@ class BookingManager {
       await serviceRequest.save();
       console.log(`Service request created with ID: ${requestId}`);
 
+      // Calculate costs for the service request
+      const costDetails = await calculateRequestCosts(
+        serviceRequest._id,
+        normalizedHours
+      );
+
       // Send notification to the provider
-      await this.notifyServiceProvider(provider.id, {
-        requestId,
-        serviceType,
-        date: parsedDate.date,
-        time: parsedTime.time,
-        location,
-        description,
+      setImmediate(async () => {
+        await this.notifyServiceProvider(provider.id, {
+          requestId,
+          serviceType,
+          date: parsedDate.date,
+          time: parsedTime.time,
+          location,
+          description,
+          estimatedHours: normalizedHours,
+          hourlyRate: costDetails.hourlyRate,
+          totalCost: costDetails.totalCost,
+          serviceFee: costDetails.serviceFee,
+        });
       });
 
       // Return booking details
@@ -184,6 +210,8 @@ class BookingManager {
         time,
         location,
         description,
+        estimatedHours: normalizedHours,
+        totalCost: costDetails.totalCost,
         providerName: provider.name,
         status: "Pending",
       };
@@ -210,39 +238,13 @@ class BookingManager {
       const requester = await User.findById(this.userId).select(
         "_id firstName lastName phone"
       );
-      //
-      const requestMessage = `
-      🔔 New Service Request 🔔
 
-      Hello ${
-        provider.user?.firstName || provider.user?.lastName || "Provider"
-      },
-
-      You have a new service request:
-      - Request ID: ${requestDetails.requestId}
-      - Client Name: ${requester.firstName} ${requester.lastName}
-      - Client Phone: +${requester.phone}
-      - Service: ${requestDetails.serviceType}
-      - Date: ${requestDetails.date}
-      - Time: ${requestDetails.time}
-      - Location: ${requestDetails.location}
-      - Description: ${requestDetails.description || "No details provided"}
-
-      Please review and accept or decline this request. Reply with 'ACCEPT or 'DECLINE to proceed.
-      `;
-      //
-      console.log(
-        `[NOTIFICATION] Sending provider notification to ${provider.user?.phone}`
-      );
-      console.log(
-        `Successfully notified provider ${providerId} about request ${requestDetails.requestId}`
-      );
-
+      // Update to include job cost details
       const requestData = {
+        providerPhone: provider.user?.phone,
         providerName: `${provider.user?.firstName} ${
           provider.user?.lastName || ""
         }`.trim(),
-        providerPhone: provider.user?.phone,
         requestId: requestDetails.requestId,
         clientName: `${requester.firstName} ${requester.lastName}`,
         clientPhone: requester.phone,
@@ -251,7 +253,12 @@ class BookingManager {
         time: requestDetails.time,
         location: requestDetails.location,
         description: requestDetails.description || "No details provided",
+        estimatedHours: requestDetails.estimatedHours || 1,
+        hourlyRate: requestDetails.hourlyRate || provider.hourlyRate || 20,
+        totalCost: requestDetails.totalCost || 0,
+        serviceFee: requestDetails.serviceFee || 0,
       };
+
       // run the notification in the next event loop iteration
       setImmediate(async () => {
         const providerPhone = provider.user?.phone;
@@ -266,13 +273,41 @@ class BookingManager {
             accountType: "ServiceProvider",
           });
         }
-        // inject chat histoty
-        const mockUserMessage = "Whats is my pending requests?";
+
+        // Store in chat history
+        const mockUserMessage = "What are my pending requests?";
+
+        // Create notification message with job cost details
+        const requestMessage = `
+🔔 New Service Request 🔔
+
+Hello ${provider.user?.firstName || provider.user?.lastName || "Provider"},
+
+You have a new service request:
+- Request ID: ${requestDetails.requestId}
+- Client Name: ${requester.firstName} ${requester.lastName}
+- Client Phone: +${requester.phone}
+- Service: ${requestDetails.serviceType}
+- Date: ${requestDetails.date}
+- Time: ${requestDetails.time}
+- Location: ${requestDetails.location}
+- Description: ${requestDetails.description || "No details provided"}
+
+💰 Job Details:
+- Estimated Hours: ${requestDetails.estimatedHours}
+- Your Hourly Rate: $${requestData.hourlyRate}/hour
+- Estimated Total: $${requestData.totalCost.toFixed(2)}
+- Service Fee (5%): $${requestData.serviceFee.toFixed(2)}
+
+Please review and accept or decline this request. Reply with 'ACCEPT' or 'DECLINE' to proceed.
+      `;
+
         await ChatHistoryManager.append(
           providerPhone,
           mockUserMessage,
           requestMessage
         );
+
         // inject pending requests details
         await ChatHistoryManager.storeMetadata(
           providerPhone,
@@ -287,6 +322,10 @@ class BookingManager {
             time: requestDetails.time,
             location: requestDetails.location,
             description: requestDetails.description || "No details provided",
+            estimatedHours: requestDetails.estimatedHours,
+            hourlyRate: requestData.hourlyRate,
+            totalCost: requestData.totalCost,
+            serviceFee: requestData.serviceFee,
           }
         );
 
@@ -303,6 +342,152 @@ class BookingManager {
     } catch (error) {
       console.error("Error notifying service provider:", error);
       return false;
+    }
+  }
+
+  async completeJob(requestId, rating, review = "") {
+    try {
+      console.log(
+        `Client marking job ${requestId} as completed with rating ${rating}`
+      );
+
+      // Find the request
+      const request = await ServiceRequest.findOne({
+        id: requestId.toUpperCase(),
+      })
+        .populate("service")
+        .populate("serviceProvider")
+        .populate("requester")
+        .populate({
+          path: "serviceProvider",
+          populate: {
+            path: "user",
+            select: "firstName lastName phone",
+          },
+        });
+
+      if (!request) {
+        throw new Error(`Request with ID ${requestId} not found`);
+      }
+
+      // Verify this client is the requester
+      if (request.requester._id.toString() !== this.userId.toString()) {
+        throw new Error("You are not authorized to complete this request");
+      }
+
+      if (request.status !== "In Progress" && request.status !== "Completed") {
+        throw new Error(
+          `Request status must be 'In Progress' or 'Completed' to mark as completed`
+        );
+      }
+
+      // Update request as completed
+      request.status = "Completed";
+      request.completedAt = new Date();
+
+      // Save review
+      request.reviewSubmitted = true;
+      request.reviewContent = review || "";
+      request.rating = rating;
+
+      await request.save();
+
+      // Create payment record
+      const paymentRecord = await createPaymentRecord(request.id);
+
+      // Notify service provider
+      setImmediate(async () => {
+        const providerPhone = request.serviceProvider?.user?.phone;
+        if (!providerPhone) return;
+        const session = await getSession(providerPhone);
+        // inject session if not present
+        if (Object.keys(session).length === 0) {
+          await setSession(providerPhone, {
+            step: "SERVICE_PROVIDER_MAIN_MENU",
+            message: "Service provider session injected",
+            lActivity: formatDateTime(),
+            accountType: "ServiceProvider",
+          });
+        }
+        //
+        // store in chat history
+        const mockUserMessage = "What are my completed jobs?";
+        const requestMessage = `
+🔔 Job Completed 🔔
+
+Hello ${request.serviceProvider.user?.firstName || "Provider"},
+
+You have a new job completed:
+- Request ID: ${request.id}
+- Client Name: ${request.requester.firstName} ${
+          request.requester.lastName || ""
+        }
+- Client Phone: +${request.requester.phone}
+- Service: ${request.service?.title || "Service"}
+- Date: ${request.date}
+- Time: ${request.time}
+- Location: ${request.location}
+- Description: ${request.description || "No details provided"}
+
+💰 Job Details:
+- Estimated Hours: ${request.estimatedHours}
+- Your Hourly Rate: $${request.service?.unitPrice || 20}/hour
+- Estimated Total: $${request.totalCost.toFixed(2)}
+- Service Fee (5%): $${request.serviceFee.toFixed(2)}
+        `;
+        await ChatHistoryManager.append(
+          providerPhone,
+          mockUserMessage,
+          requestMessage
+        );
+
+        // Store payment metadata for the provider
+        await ChatHistoryManager.storeMetadata(
+          providerPhone,
+          "pendingPayment",
+          {
+            requestId: request.id,
+            paymentId: paymentRecord.paymentId.toString(),
+            serviceFee: request.serviceFee,
+            dueDate: paymentRecord.dueDate,
+          }
+        );
+
+        await sendJobCompletionNotification({
+          providerPhone: request.serviceProvider.user.phone,
+          providerName: `${request.serviceProvider.user.firstName || ""} ${
+            request.serviceProvider.user.lastName || ""
+          }`.trim(),
+          requestId: request.id,
+          serviceType: request.service?.title || "requested",
+          clientName: `${request.requester.firstName} ${
+            request.requester.lastName || ""
+          }`.trim(),
+          totalCost: request.totalCost || 0,
+          serviceFee: request.serviceFee || 0,
+          rating: rating,
+          review: review || "No review provided",
+        });
+      });
+
+      return {
+        request: {
+          id: request.id,
+          service: request.service?.title || "Service",
+          status: request.status,
+          completedAt: request.completedAt,
+          rating: rating,
+          review: review || "No review provided",
+        },
+        paymentRecord: {
+          id: paymentRecord.paymentId.toString(),
+          serviceFee: paymentRecord.serviceFee,
+          dueDate: paymentRecord.dueDate,
+        },
+      };
+    } catch (error) {
+      console.error("Error completing job:", error);
+      throw error;
     }
   }
 

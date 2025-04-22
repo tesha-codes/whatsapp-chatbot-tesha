@@ -55,10 +55,10 @@ const WHATSAPP_TEMPLATES = {
     name: "sendProviderARequest",
     ids: [
       "eb3a6e5d-5128-4ee2-93d7-5de37ccf75ca",
-      "d0943148-6f2a-4bc0-a25e-cd4703e5357b",
-      "10e61239-f702-4d67-bd7d-3ed4af3929ab",
-      "30a70608-208a-486c-8abc-842c1c1230d4",
-      "fe434a2b-6e36-4d66-ae7c-60f657f7aaf7",
+      "77c1f835-537f-4479-b0f7-92b52ed9ca87",
+      "bce1ee85-5611-4597-bff1-b19789109417",
+      "55529d33-d965-45fa-95b9-8383ba3b8f7d",
+      "01da4351-8def-46fb-a723-d753deed4e66",
     ],
   },
 };

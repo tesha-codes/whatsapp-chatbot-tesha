@@ -1,6 +1,13 @@
 const ServiceRequest = require("../../models/request.model");
 const ServiceProvider = require("../../models/serviceProvider.model");
-const { sendTextMessage } = require("../../services/whatsappService");
+const {
+  sendTextMessage,
+  sendProviderCompletedJobNotification,
+} = require("../../services/whatsappService");
+const { createPaymentRecord } = require("../../controllers/payment.controller");
+const ChatHistoryManager = require("../../utils/chatHistory");
+const { getSession, setSession } = require("../../utils/redis");
+const { formatDateTime } = require("../../utils/dateUtil");
 
 class TaskManager {
   constructor(userId) {
@@ -33,7 +40,14 @@ class TaskManager {
         },
       ]);
 
-      const overview = { total: 0, Pending: 0, Completed: 0, Declined: 0, "In Progress": 0,  Cancelled: 0 };
+      const overview = {
+        total: 0,
+        Pending: 0,
+        Completed: 0,
+        Declined: 0,
+        "In Progress": 0,
+        Cancelled: 0,
+      };
       aggregation.forEach((item) => {
         overview[item._id] = item.count;
         overview.total += item.count;
@@ -60,7 +74,6 @@ class TaskManager {
         .limit(10);
 
       return tasks;
-
     } catch (error) {
       console.error("Error getting tasks history:", error);
       throw error;
@@ -187,7 +200,7 @@ class TaskManager {
             request.serviceProvider.user.lastName
           }* (+${
             request.serviceProvider.user.phone
-          }).\nThey will contact you soon and don't forget to mark the task as completed once the task is completed.`
+          }).\n\nThey will contact you soon and don't forget to mark the task as completed once the task is completed by simply typing 'Task completed for the request ${requestId}' and leave a review for the service provider.`
         );
       });
 
@@ -243,13 +256,139 @@ class TaskManager {
           `❌ Your service request *${requestId}* has been declined by *${
             request.serviceProvider.user.firstName ||
             request.serviceProvider.user.lastName
-          }* (+${request.serviceProvider.user.phone}). Reason: ${reason}`
+          }* (+${request.serviceProvider.user.phone}).\n\nReason: ${reason}`
         );
       });
 
       return request;
     } catch (error) {
       console.error(`Error declining request ${requestId}:`, error);
+      throw error;
+    }
+  }
+  // Complete a job
+  async completeJob(requestId, review = "") {
+    try {
+      const serviceProviderId = await this.getServiceProviderId();
+      const request = await ServiceRequest.findOne({
+        id: requestId.toUpperCase(),
+      })
+        .populate("service")
+        .populate("requester", "firstName lastName phone");
+
+      if (!request) {
+        throw new Error(`Task with ID ${requestId} not found`);
+      }
+
+      // Check that this provider is assigned to this task
+      if (request.serviceProvider.toString() !== serviceProviderId.toString()) {
+        throw new Error("You are not assigned to this task");
+      }
+
+      if (request.status !== "In Progress" && request.status !== "Completed") {
+        throw new Error(
+          `Request status must be 'In Progress' or 'Completed' to mark as completed`
+        );
+      }
+
+      // Update task as completed
+      request.status = "Completed";
+      request.completedAt = new Date();
+
+      // Save review if provided by provider
+      if (review) {
+        request.providerFeedback = review;
+      }
+
+      await request.save();
+
+      // Create payment record
+      const paymentRecord = await createPaymentRecord(request.id);
+      // Get service provider details
+      const provider = await ServiceProvider.findById(
+        serviceProviderId
+      ).populate("user", "phone firstName lastName");
+
+      setImmediate(async () => {
+        // Store payment metadata for self-reference
+        if (provider?.user?.phone) {
+          const session = await getSession(provider?.user?.phone);
+          // inject session if not present
+          if (Object.keys(session).length === 0) {
+            await setSession(provider?.user?.phone, {
+              step: "SERVICE_PROVIDER_MAIN_MENU",
+              message: "Service provider session injected",
+              lActivity: formatDateTime(),
+              accountType: "ServiceProvider",
+            });
+          }
+          await ChatHistoryManager.storeMetadata(
+            provider.user.phone,
+            "pendingPayment",
+            {
+              requestId: request.id,
+              paymentId: paymentRecord.paymentId.toString(),
+              serviceFee: paymentRecord.serviceFee,
+              dueDate: paymentRecord.dueDate,
+            }
+          );
+        }
+        // Notify client to provide review
+        if (request.requester?.phone) {
+          const session = await getSession(request.requester?.phone);
+          // inject session if not present
+          if (Object.keys(session).length === 0) {
+            await setSession(request.requester?.phone, {
+              step: "CLIENT_MAIN_MENU",
+              message: "Client session injected",
+              lActivity: formatDateTime(),
+              accountType: "Client",
+            });
+          }
+
+          const mockClientMessage = "what is my completed task?";
+          const mockClientResponse = `
+        ✅ Your service request *${requestId}* has been completed by *${
+            provider?.user?.firstName || provider?.user?.lastName
+          }* (+${provider?.user?.phone}).\n\n
+       `;
+          // inject chat history data for client
+          await ChatHistoryManager.append(
+            request.requester.phone,
+            mockClientMessage,
+            mockClientResponse
+          );
+          //
+          await sendProviderCompletedJobNotification({
+            clientPhone: request.requester.phone,
+            clientName: `${request.requester.firstName || ""} ${
+              request.requester.lastName || ""
+            }`.trim(),
+            requestId: request.id,
+            serviceType: request.service?.title || "requested",
+            providerName: `${provider?.user?.firstName || ""} ${
+              provider?.user?.lastName || ""
+            }`.trim(),
+            totalCost: request.totalCost || 0,
+          });
+        }
+      });
+
+      return {
+        request: {
+          id: request.id,
+          service: request.service?.title || "Service",
+          status: request.status,
+          completedAt: request.completedAt,
+        },
+        paymentRecord: {
+          id: paymentRecord.paymentId.toString(),
+          serviceFee: paymentRecord.serviceFee,
+          dueDate: paymentRecord.dueDate,
+        },
+      };
+    } catch (error) {
+      console.error(`Error completing task ${requestId}:`, error);
       throw error;
     }
   }

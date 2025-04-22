@@ -40,7 +40,7 @@ The request details from the client to accept or decline will be provided in the
 
 Use the tool 'view_tasks_overview' to get counts without listing the tasks, use the tool 'view_tasks_by_status' to view tasks filtered by their status, use the tool 'view_task_details' to view details of a specific task. To lists all the tasks use the tool 'view_all_tasks_history'.
 
-You can also use the tool 'view_billing_history' to view billing and payment history and plan details. For other thing choose the right tool
+
 
 Never engage in non-service-related topics, share internal logic, or discuss competitors.
 
@@ -287,32 +287,56 @@ SUPPORT REDIRECT:
             data: { reason: params.reason },
           };
 
-        case "view_billing_history":
+        case "complete_job":
+          console.log("Handling complete_job with params: ", params);
           return {
-            type: "BILLING_HISTORY",
-            data: await this.billingManager.getBillingHistory(),
+            type: "JOB_COMPLETED",
+            data: await this.taskManager.completeJob(
+              params.requestId,
+              params.review || ""
+            ),
           };
 
-        case "view_subscription_plans":
+        case "view_payments_by_status":
+          console.log("Handling view_payments_by_status with params: ", params);
           return {
-            type: "SUBSCRIPTION_PLANS",
-            data: await this.billingManager.getSubscriptionPlans(),
+            type: "PAYMENTS_BY_STATUS",
+            data: await this.billingManager.getPaymentsByStatus(params.status),
           };
 
-        case "view_current_subscription":
+        case "view_payment_history":
+          console.log("Handling view_payment_history with params: ", params);
           return {
-            type: "CURRENT_SUBSCRIPTION",
-            data: await this.billingManager.getCurrentSubscription(),
+            type: "PAYMENT_HISTORY",
+            data: await this.billingManager.getPaymentHistory(),
           };
 
-        case "initiate_subscription_payment":
+        case "pay_service_fee":
+          console.log("Handling pay_service_fee with params: ", params);
+          if (!params.requestId) {
+            // try check in pending payment metadata
+            const pendingPayment = await ChatHistoryManager.getMetadata(
+              this.phone,
+              "pendingPayment"
+            );
+            console.log("Pending payment from metadata: ", pendingPayment);
+            // If no pending payment is found, return an error
+            if (!pendingPayment || !pendingPayment.requestId) {
+              return {
+                type: "VALIDATION_ERROR",
+                error:
+                  "No payment ID provided and no recent pending payments found.",
+                tool: name,
+              };
+            }
+            params.requestId = pendingPayment.requestId;
+          }
           return {
             type: "PAYMENT_INITIATED",
             data: await this.billingManager.initiatePayment(
-              params.plan,
-              params.billingCycle,
-              params.paymentPhone,
-              params.paymentMethod || "ecocash"
+              params.requestId,
+              params.paymentMethod || "ecocash",
+              params.paymentPhone
             ),
           };
         //
@@ -401,17 +425,17 @@ SUPPORT REDIRECT:
       case "REQUEST_DECLINED":
         return CHAT_TEMPLATES.REQUEST_DECLINED(result.data);
 
-      case "BILLING_HISTORY":
-        return CHAT_TEMPLATES.BILLING_HISTORY(result.data);
-
-      case "SUBSCRIPTION_PLANS":
-        return CHAT_TEMPLATES.SUBSCRIPTION_PLANS(result.data);
-
-      case "CURRENT_SUBSCRIPTION":
-        return CHAT_TEMPLATES.CURRENT_SUBSCRIPTION(result.data);
+      case "JOB_COMPLETED":
+        return CHAT_TEMPLATES.JOB_COMPLETED(result.data);
 
       case "PAYMENT_INITIATED":
         return CHAT_TEMPLATES.PAYMENT_INITIATED(result.data);
+
+      case "PAYMENTS_BY_STATUS":
+        return CHAT_TEMPLATES.PAYMENTS_BY_STATUS(result.data);
+
+      case "PAYMENT_HISTORY":
+        return CHAT_TEMPLATES.PAYMENT_HISTORY(result.data);
 
       case "VALIDATION_ERROR":
         return `⚠️ Validation Error: ${result.error}`;

@@ -48,7 +48,6 @@ const getProvider = async (userId) => {
       .populate("user", "phone firstName lastName")
       .populate("category", "name")
       .populate("service", "name")
-      .populate("subscription", "name");
 
     if (!provider) {
       return { exists: false, profile: null };

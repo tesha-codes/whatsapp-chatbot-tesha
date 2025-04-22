@@ -26,7 +26,9 @@ Would you like to request any of these services today? Simply tell me which serv
        ? provider.specialties.join(", ")
        : provider.specialties || "Various services"
    }
-   • Rate: $${provider.rate}/hour`
+   • Rate: $${provider.rate}/hour
+   • Estimated Hours: ${provider.estimatedHours} hours
+   • Total Cost: $${Number(provider.totalCost || 0).toFixed(2)}`
       )
       .join("\n\n");
 
@@ -119,9 +121,7 @@ ${data.description ? `• Description: ${data.description}` : ""}
 
 The service provider will be notified of your booking. You'll receive a confirmation message shortly.
 
-You can check the status of your booking anytime by typing 'my bookings'.
-
-Is there anything else you need help with today? 😊`;
+You can check the status of your booking anytime by typing 'my bookings'.`;
   },
 
   BOOKING_RESCHEDULED: (data) => {
@@ -171,6 +171,17 @@ Simply send a message like:
 - "Update firstname to John"
 - "Change address to 1 Hacker Way, Harare"
 `;
+  },
+
+  JOB_COMPLETED_BY_CLIENT: (data) => {
+    return `
+✅ *Job Completed Successfully* ✅
+
+You have marked job *${data.request.id}* as completed with a ${data.request.rating}-star rating.
+
+Thank you for using Tesha! The service provider has been notified of your review.
+
+We hope you enjoyed the service. Is there anything else you need help with?`;
   },
 };
 

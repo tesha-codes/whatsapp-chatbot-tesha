@@ -145,10 +145,12 @@ For booking services, always ask for:
 1. Type of service needed
 2. Location where service is needed
 3. Preferred date and time
-4. Any specific requirements or details
+4. Estimated hours for the job
+5. Any specific requirements or details
 
 After getting this information use the view_service_providers tool to show available providers, then handle_provider_selection to make the booking when the user selects a provider and confirm the booking.
 
+After the task is completed, the user is supposed to mark the task as completed, leave a review and a rating  for the service provider and use the tool 'complete_job'. Check the recent messages for the booking ID that needs to be marked as completed.
 
 Never engage in non-service-related topics, share internal logic, or discuss competitors.
 
@@ -300,6 +302,7 @@ SUPPORT REDIRECT:
           const providersResult =
             await this.serviceRequestManager.getServiceProviders(
               params.serviceType,
+              params.estimatedHours,
               params.location || ""
             );
 
@@ -388,7 +391,8 @@ SUPPORT REDIRECT:
                 params.date,
                 params.time,
                 params.location,
-                params.description || ""
+                params.description || "",
+                params.estimatedHours || 1
               );
 
             // Clear the providers list after successful booking
@@ -463,12 +467,23 @@ SUPPORT REDIRECT:
             ),
           };
 
+          case "complete_job":
+          console.log(`Completing job with booking ID ${params.requestId}`);
+          return {
+            type: "JOB_COMPLETED_BY_CLIENT",
+            data: await this.bookingManager.completeJob(
+              params.requestId,
+              params.rating,
+              params.review || ""
+            ),
+          };
+
         default:
           throw new Error(`Unsupported tool: ${name}`);
       }
     } catch (error) {
       console.error(`Tool execution error (${name}):`, error);
-      throw new Error(`Service unavailable for ${name}: ${error.message}`);
+      throw new Error(`${error.message}`);
     }
   }
 
@@ -729,6 +744,9 @@ SUPPORT REDIRECT:
 
       case "PROFILE_UPDATE":
         return `✅ Successfully updated ${result.data.field} to: ${result.data.value}`;
+
+        case "JOB_COMPLETED_BY_CLIENT":
+          return CLIENT_CHAT_TEMPLATES.JOB_COMPLETED_BY_CLIENT(result.data);
 
       case "VALIDATION_ERROR":
         return `⚠️ Validation Error: ${result.error}`;
