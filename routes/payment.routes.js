@@ -6,7 +6,7 @@ const ServiceRequest = require("../models/request.model");
 const { sendTextMessage } = require("../services/whatsappService");
 
 // Handle Paynow result callback
-router.post("/update", async (req, body) => {
+router.post("/update", async (req, res) => {
   try {
     const { reference, paynowreference, status, pollurl } = req.body;
 
