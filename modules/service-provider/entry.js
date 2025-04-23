@@ -15,6 +15,7 @@ const Category = require("../../models/category.model");
 const Service = require("../../models/services.model");
 const { uploadToS3 } = require("../../utils/uploadToS3");
 const cityLookupService = require("../../utils/cityLookup");
+const handleSavingOnBoardingDraft = require('./../../utils/onSaveDraftUtil')
 
 class ServiceProvider {
   constructor(res, userResponse, session, user, steps, messages) {
@@ -101,6 +102,16 @@ class ServiceProvider {
         message: this.message,
         lActivity: this.lActivity,
       });
+
+      // Save draft for onboarding
+      await handleSavingOnBoardingDraft.saveDraft({
+        userId: this.user._id,
+        accountType: "ServiceProvider",
+        phone: this.phone,
+        step: this.steps.COLLECT_PROVIDER_FULL_NAME,
+        payload: this.message,
+      });
+
       return this.res.status(StatusCodes.OK).send(this.messages.GET_FULL_NAME);
     } else {
       await setSession(this.phone, {
@@ -108,6 +119,16 @@ class ServiceProvider {
         message: this.message,
         lActivity: this.lActivity,
       });
+
+      // Save draft for onboarding
+      await handleSavingOnBoardingDraft.saveDraft({
+        userId: this.user._id,
+        accountType: "ServiceProvider",
+        phone: this.phone,
+        step: this.steps.PROVIDER_PROMPT_ACCOUNT,
+        payload: this.message,
+      });
+
       return this.res
         .status(StatusCodes.OK)
         .send(
@@ -134,6 +155,16 @@ class ServiceProvider {
       message: this.message,
       lActivity: this.lActivity,
     });
+
+    // Save draft for onboarding
+    await handleSavingOnBoardingDraft.saveDraft({
+      userId: this.user._id,
+      accountType: "ServiceProvider",
+      phone: this.phone,
+      step: this.steps.COLLECT_USER_ID,
+      payload: this.message,
+    });
+
     return this.res.status(StatusCodes.OK).send(this.messages.GET_NATIONAL_ID);
   }
 
@@ -154,12 +185,22 @@ class ServiceProvider {
       message: this.message,
       lActivity: this.lActivity,
     });
+
+    // Save draft for onboarding
+    await handleSavingOnBoardingDraft.saveDraft({
+      userId: this.user._id,
+      accountType: "ServiceProvider",
+      phone: this.phone,
+      step: this.steps.PROVIDER_COLLECT_CITY,
+      payload: this.message,
+    });
+
     return this.res.status(StatusCodes.OK).send(this.messages.GET_CITY);
   }
 
   async handleCollectCity() {
     const city = this.message.toString();
-    //  enforce cities in our lookup service
+    // Enforce cities in our lookup service
     const result = cityLookupService.lookupFromText(city);
     if (!result) {
       return this.res
@@ -172,6 +213,16 @@ class ServiceProvider {
       message: this.message,
       lActivity: this.lActivity,
     });
+
+    // Save draft for onboarding
+    await handleSavingOnBoardingDraft.saveDraft({
+      userId: this.user._id,
+      accountType: "ServiceProvider",
+      phone: this.phone,
+      step: this.steps.COLLECT_USER_ADDRESS,
+      payload: this.message,
+    });
+
     return this.res.status(StatusCodes.OK).send(this.messages.GET_ADDRESS);
   }
 
@@ -188,6 +239,16 @@ class ServiceProvider {
       message: this.message,
       lActivity: this.lActivity,
     });
+
+    // Save draft for onboarding
+    await handleSavingOnBoardingDraft.saveDraft({
+      userId: this.user._id,
+      accountType: "ServiceProvider",
+      phone: this.phone,
+      step: this.steps.PROVIDER_COLLECT_LOCATION,
+      payload: this.message,
+    });
+
     const locationImgURL =
       "https://tesha-util.s3.af-south-1.amazonaws.com/WhatsApp+Image+2024-10-06+at+11.49.44_12568059.jpg";
     await sendMediaImageMessage(
@@ -216,6 +277,16 @@ class ServiceProvider {
       message: JSON.stringify(this.message),
       lActivity: this.lActivity,
     });
+
+    // Save draft for onboarding
+    await handleSavingOnBoardingDraft.saveDraft({
+      userId: this.user._id,
+      accountType: "ServiceProvider",
+      phone: this.phone,
+      step: this.steps.PROVIDER_COLLECT_CATEGORY,
+      payload: JSON.stringify(this.message),
+    });
+
     const categories = await Category.find({}, "name code").sort("code");
     const categoryList = categories
       .map((cat) => `${cat.code}. ${cat.name}`)
@@ -249,6 +320,16 @@ class ServiceProvider {
       categoryId: category._id.toString(),
       lActivity: this.lActivity,
     });
+
+    // Save draft for onboarding
+    await handleSavingOnBoardingDraft.saveDraft({
+      userId: this.user._id,
+      accountType: "ServiceProvider",
+      phone: this.phone,
+      step: this.steps.PROVIDER_COLLECT_SERVICE,
+      payload: this.message,
+    });
+
     const services = await Service.find(
       { category: category._id },
       "title code"
@@ -287,6 +368,16 @@ class ServiceProvider {
       message: this.message,
       lActivity: this.lActivity,
     });
+
+    // Save draft for onboarding
+    await handleSavingOnBoardingDraft.saveDraft({
+      userId: this.user._id,
+      accountType: "ServiceProvider",
+      phone: this.phone,
+      step: this.steps.PROVIDER_COLLECT_DESCRIPTION,
+      payload: this.message,
+    });
+
     return this.res.status(StatusCodes.OK).send(this.messages.GET_DESCRIPTION);
   }
 
@@ -305,6 +396,16 @@ class ServiceProvider {
       message: this.message,
       lActivity: this.lActivity,
     });
+
+    // Save draft for onboarding
+    await handleSavingOnBoardingDraft.saveDraft({
+      userId: this.user._id,
+      accountType: "ServiceProvider",
+      phone: this.phone,
+      step: this.steps.PROVIDER_COLLECT_HOURLY_RATE,
+      payload: this.message,
+    });
+
     return this.res.status(StatusCodes.OK).send(this.messages.GET_HOURLY_RATE);
   }
 
@@ -322,6 +423,16 @@ class ServiceProvider {
       message: this.message,
       lActivity: this.lActivity,
     });
+
+    // Save draft for onboarding
+    await handleSavingOnBoardingDraft.saveDraft({
+      userId: this.user._id,
+      accountType: "ServiceProvider",
+      phone: this.phone,
+      step: this.steps.PROVIDER_COLLECT_ID_IMAGE,
+      payload: this.message,
+    });
+
     return this.res.status(StatusCodes.OK).send(this.messages.UPLOAD_ID_IMAGE);
   }
 
@@ -354,20 +465,47 @@ class ServiceProvider {
       message: this.message.toString(),
       lActivity: this.lActivity,
     });
+
+    // Save draft for onboarding
+    await handleSavingOnBoardingDraft.saveDraft({
+      userId: this.user._id,
+      accountType: "ServiceProvider",
+      phone: this.phone,
+      step: this.steps.WAITING_FOR_VERIFICATION,
+      payload: this.message,
+    });
+
     return this.res.status(StatusCodes.OK).send(this.messages.PROFILE_COMPLETE);
   }
 
   async handleWaitForVerification() {
     // Check if user is verified
     if (this.user.verified) {
+      // Mark draft as completed
+      await handleSavingOnBoardingDraft.markStatusAsComplete({
+        userId: this.user._id,
+        phone:this.phone
+      });
+
       return this.handleServiceProviderMainMenu();
     }
+
     // Default case - user still waiting for verification
     await setSession(this.phone, {
       step: this.steps.WAITING_FOR_VERIFICATION,
       message: this.message,
       lActivity: this.lActivity,
     });
+
+    // Save draft for onboarding
+    await handleSavingOnBoardingDraft.saveDraft({
+      userId: this.user._id,
+      accountType: "ServiceProvider",
+      phone: this.phone,
+      step: this.steps.WAITING_FOR_VERIFICATION,
+      payload: this.message,
+    });
+
     return this.res
       .status(StatusCodes.OK)
       .send(this.messages.VERIFICATION_WAIT_MESSAGE);
@@ -380,6 +518,16 @@ class ServiceProvider {
       lActivity: this.lActivity,
       accountType: "ServiceProvider",
     });
+
+    // Save draft for suspended status
+    await handleSavingOnBoardingDraft.saveDraft({
+      userId: this.user._id,
+      accountType: "ServiceProvider",
+      phone: this.phone,
+      step: this.steps.ACCOUNT_STATUS_SUSPENDED,
+      payload: this.message,
+    });
+
     return this.res
       .status(StatusCodes.OK)
       .send(this.messages.SUSPENDED_MESSAGE);

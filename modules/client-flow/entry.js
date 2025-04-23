@@ -7,6 +7,7 @@ const {
   clientMainMenuTemplate,
 } = require("../../services/whatsappService");
 const ChatHandler = require("./chatHandler");
+const handleSavingOnBoardingDraft = require('./../../utils/onSaveDraftUtil') 
 
 class Client {
   constructor(res, userResponse, session, user, steps, messages) {
@@ -68,6 +69,16 @@ class Client {
         message: this.message,
         lActivity: this.lActivity,
       });
+
+      // Save onboarding draft
+      await handleSavingOnBoardingDraft.saveDraft({
+        userId: this.user?._id,
+        accountType: "client",
+        phone: this.phone,
+        step: this.steps.COLLECT_CLIENT_FULL_NAME,
+        payload: this.message,
+      });
+
       return this.res.status(StatusCodes.OK).send(this.messages.GET_FULL_NAME);
     } else {
       await setSession(this.phone, {
@@ -75,6 +86,7 @@ class Client {
         message: this.message,
         lActivity: this.lActivity,
       });
+
       return this.res
         .status(StatusCodes.OK)
         .send(
@@ -102,6 +114,12 @@ class Client {
       lActivity: this.lActivity,
     });
 
+    // Mark onboarding as completed
+    await handleSavingOnBoardingDraft.markStatusAsComplete({
+      userId: this.user?._id,
+      phone: this.phone,
+    });
+
     setImmediate(async () => {
       await clientMainMenuTemplate(
         this.phone,
@@ -111,7 +129,7 @@ class Client {
 
     let msg = `
     ✅ Thank you for completing your registration! Your account has been successfully created with the name ${firstName} ${lastName}. You can now access all services through the main menu. Welcome aboard!.
-    `
+    `;
 
     return this.res.status(StatusCodes.OK).send(msg);
   }

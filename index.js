@@ -7,7 +7,7 @@ const { createBullBoard } = require("@bull-board/api");
 const { BullMQAdapter } = require("@bull-board/api/bullMQAdapter");
 const { ExpressAdapter } = require("@bull-board/express");
 const connectDb = require("./database/connect.database");
-const { getSession } = require("./utils/redis");
+const { getSession,setSession } = require("./utils/redis");
 const { getUser } = require("./controllers/user.controllers");
 const { messages } = require("./modules/client");
 const serviceRouter = require("./routes/service.routes");
@@ -20,6 +20,7 @@ const initializeTemplates = require("./services/initializeTemplates");
 const { onServiceRequestUpdate } = require("./controllers/request.controller");
 const paymentRoutes = require("./routes/payment.routes");
 const User = require("./models/user.model");
+const OnboardingDraft = require('./models/onBoardingDraft.model')
 
 const app = express();
 const PORT = process.env.PORT || 3000;
@@ -168,6 +169,22 @@ app.post("/bot", async (req, res) => {
       const phone = userResponse.sender.phone;
       // get session
       const session = await getSession(phone);
+      if (!session.step) {
+        const draft = await OnboardingDraft.findOne({ user: user._id, phone, 
+        completed: false });
+        if (draft) {
+          session.step = draft.lastStep;
+          session.message = draft.lastPayload;
+          session.accountType = draft.accountType;
+          // rehydrate Redis (and reset TTL)
+          await setSession(phone, {
+            step: session.step,
+            message: session.message,
+            accountType: session.accountType,
+          });
+          console.log(`Resumed onboarding for ${phone} at step ${session.step}`);
+        }
+      }
       // get user info
       const user = await getUser(phone);
       // create onboarding instance
