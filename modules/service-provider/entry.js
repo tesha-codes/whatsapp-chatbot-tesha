@@ -6,6 +6,7 @@ const ChatHandler = require("./chatHandler");
 const {
   sendMediaImageMessage,
   serviceProviderMainMenuTemplate,
+  sendTextMessage
 } = require("../../services/whatsappService");
 const {
   createServiceProvider,

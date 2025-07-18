@@ -9,6 +9,7 @@ const {
   registerServiceProviderTemplate,
   serviceProviderMainMenuTemplate,
   clientMainMenuTemplate,
+  sendTextMessage
 } = require("./../services/whatsappService");
 
 class Onboarding {
@@ -51,8 +52,9 @@ class Onboarding {
   }
 
   // Helper method to send response
-  sendResponse(message = "") {
-    return this.res.status(StatusCodes.OK).send(message);
+  async sendResponse(message = "") {
+    await sendTextMessage(message)
+    return this.res.status(200).send("");
   }
 
   // New user creation
