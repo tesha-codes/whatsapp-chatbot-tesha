@@ -324,7 +324,7 @@ class ServiceProvider {
       message: this.message,
       lActivity: this.lActivity,
     });
-    await sendTextMessage(this.messages.GET_HOURLY_RATE)
+    await sendTextMessage(this.phone, this.messages.GET_HOURLY_RATE)
     return this.res.status(StatusCodes.OK).send();
   }
 
