@@ -16,6 +16,8 @@ const Category = require("../../models/category.model");
 const Service = require("../../models/services.model");
 const { uploadToS3 } = require("../../utils/uploadToS3");
 const cityLookupService = require("../../utils/cityLookup");
+const NotificationUtil = require("../../utils/notificationUtil");
+const ServiceProvider = require("../../models/serviceProvider.model");
 
 class ServiceProvider {
   constructor(res, userResponse, session, user, steps, messages) {
@@ -372,6 +374,25 @@ class ServiceProvider {
       nationalIdImage,
       isProfileCompleted: true,
     });
+
+    // Create notification for service provider registration
+    try {
+      const serviceProvider = await ServiceProvider.findOne({ user: this.user._id })
+        .populate('service', 'title')
+        .populate('category', 'name');
+
+      if (serviceProvider && serviceProvider.service) {
+        await NotificationUtil.createServiceProviderRegistrationNotification(
+          serviceProvider,
+          this.user,
+          serviceProvider.service,
+          serviceProvider.city
+        );
+      }
+    } catch (error) {
+      console.error("Error creating service provider notification:", error);
+    }
+
     await setSession(this.phone, {
       step: this.steps.WAITING_FOR_VERIFICATION,
       message: this.message.toString(),

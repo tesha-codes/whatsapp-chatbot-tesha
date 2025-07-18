@@ -1,6 +1,7 @@
 const PaymentRecord = require("../models/paymentRecord.model");
 const ServiceProvider = require("../models/serviceProvider.model");
 const ServiceRequest = require("../models/request.model");
+const NotificationUtil = require("../utils/notificationUtil");
 
 
 // create payment record when job is completed
@@ -60,6 +61,18 @@ const createPaymentRecord = async (requestId) => {
     });
 
     await paymentRecord.save();
+
+    // Create notification for payment record creation
+    try {
+      await NotificationUtil.createPaymentNotification(
+        paymentRecord,
+        request,
+        request.service,
+        "pending"
+      );
+    } catch (error) {
+      console.error("Error creating payment notification:", error);
+    }
 
     // Update request with payment status and due date
     request.paymentStatus = "Pending";

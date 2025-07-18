@@ -7,6 +7,7 @@ const {
   clientMainMenuTemplate,
 } = require("../../services/whatsappService");
 const ChatHandler = require("./chatHandler");
+const NotificationUtil = require("../../utils/notificationUtil");
 
 class Client {
   constructor(res, userResponse, session, user, steps, messages) {
@@ -96,6 +97,20 @@ class Client {
     const firstName = this.message.toString().replace(lastName, " ").trim();
 
     await updateUser({ phone: this.phone, firstName, lastName });
+    
+    // Create notification for client registration
+    try {
+      const updatedUser = await getUser(this.phone);
+      if (updatedUser) {
+        await NotificationUtil.createClientRegistrationNotification(
+          updatedUser,
+          updatedUser.address?.city || "Unknown location"
+        );
+      }
+    } catch (error) {
+      console.error("Error creating client registration notification:", error);
+    }
+
     await setSession(this.phone, {
       step: this.steps.CLIENT_MAIN_MENU,
       message: this.message,

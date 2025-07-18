@@ -1,6 +1,8 @@
 const mongoose = require('mongoose')
 const Request = require('./../models/request.model')
 const User = require('../models/user.model')
+const Service = require('../models/services.model')
+const NotificationUtil = require('../utils/notificationUtil')
 
 module.exports = async (
     phone,
@@ -27,5 +29,22 @@ module.exports = async (
         notes
     });
 
-    return await request.save()
+    const savedRequest = await request.save();
+
+    // Create notification for service request
+    try {
+        const service = await Service.findById(serviceId);
+        if (service) {
+            await NotificationUtil.createServiceRequestNotification(
+                savedRequest,
+                user,
+                service,
+                city
+            );
+        }
+    } catch (error) {
+        console.error("Error creating service request notification:", error);
+    }
+
+    return savedRequest;
 }
