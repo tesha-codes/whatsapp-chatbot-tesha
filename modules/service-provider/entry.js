@@ -102,27 +102,30 @@ class ServiceProvider {
         message: this.message,
         lActivity: this.lActivity,
       });
-      return this.res.status(StatusCodes.OK).send(this.messages.GET_FULL_NAME);
+      await sendTextMessage(this.messages.GET_FULL_NAME)
+      return this.res.status(StatusCodes.OK).send("");
     } else {
       await setSession(this.phone, {
         step: this.steps.PROVIDER_PROMPT_ACCOUNT,
         message: this.message,
         lActivity: this.lActivity,
       });
+      await sendTextMessage("❌ You have cancelled creating profile. You need to have a profile to be able to request services. If you change your mind, please type 'create account' to proceed.")
       return this.res
         .status(StatusCodes.OK)
         .send(
-          "❌ You have cancelled creating profile. You need to have a profile to be able to request services. If you change your mind, please type 'create account' to proceed."
+          ""
         );
     }
   }
 
   async handleCollectFullName() {
     if (this.message.toString().length > 16) {
+    await sendTextMessage("❌ Name and surname provided is too long. Please re-enter your full name, name(s) first and then surname second.")
       return this.res
         .status(StatusCodes.OK)
         .send(
-          "❌ Name and surname provided is too long. Please re-enter your full name, name(s) first and then surname second."
+          ""
         );
     }
     const userNames = this.message.toString().split(" ");
@@ -135,16 +138,18 @@ class ServiceProvider {
       message: this.message,
       lActivity: this.lActivity,
     });
-    return this.res.status(StatusCodes.OK).send(this.messages.GET_NATIONAL_ID);
+    await sendTextMessage(this.messages.GET_NATIONAL_ID)
+    return this.res.status(StatusCodes.OK).send("");
   }
 
   async handleCollectNationalId() {
     const pattern = /^\d{2}-\d{4,}[A-Za-z]\d{2}$/;
     if (!pattern.test(this.message.toString())) {
+      await sendTextMessage("❌ Invalid National Id format, please provide id in the format specified in the example.")
       return this.res
         .status(StatusCodes.OK)
         .send(
-          "❌ Invalid National Id format, please provide id in the format specified in the example."
+          ""
         );
     }
 
@@ -155,7 +160,8 @@ class ServiceProvider {
       message: this.message,
       lActivity: this.lActivity,
     });
-    return this.res.status(StatusCodes.OK).send(this.messages.GET_CITY);
+    await sendTextMessage(this.messages.GET_CITY)
+    return this.res.status(StatusCodes.OK).send("");
   }
 
   async handleCollectCity() {
@@ -163,9 +169,10 @@ class ServiceProvider {
     //  enforce cities in our lookup service
     const result = cityLookupService.lookupFromText(city);
     if (!result) {
+      await sendTextMessage("❌ Invalid city. Please provide a valid city.")
       return this.res
         .status(StatusCodes.OK)
-        .send("❌ Invalid city. Please provide a valid city.");
+        .send("");
     }
     await createServiceProvider({ user: this.user._id, city: result?.city });
     await setSession(this.phone, {
@@ -173,7 +180,8 @@ class ServiceProvider {
       message: this.message,
       lActivity: this.lActivity,
     });
-    return this.res.status(StatusCodes.OK).send(this.messages.GET_ADDRESS);
+    await sendTextMessage(this.messages.GET_ADDRESS)
+    return this.res.status(StatusCodes.OK).send("");
   }
 
   async handleCollectAddress() {
@@ -221,26 +229,30 @@ class ServiceProvider {
     const categoryList = categories
       .map((cat) => `${cat.code}. ${cat.name}`)
       .join("\n");
+
+    await sendTextMessage(`${this.messages.CHOOSE_CATEGORY}\n${categoryList}`)
     return this.res
       .status(StatusCodes.OK)
-      .send(`${this.messages.CHOOSE_CATEGORY}\n${categoryList}`);
+      .send("");
   }
 
   async handleCollectCategory() {
     if (isNaN(this.message)) {
+      await sendTextMessage("❌ Invalid category selection. Please choose a valid number from the list.")
       return this.res
         .status(StatusCodes.OK)
         .send(
-          "❌ Invalid category selection. Please choose a valid number from the list."
+          ""
         );
     }
     const categoryCode = parseInt(this.message);
     const category = await Category.findOne({ code: categoryCode });
     if (!category) {
+      await sendTextMessage("❌ Invalid category selection. Please choose a valid number from the list.")
       return this.res
         .status(StatusCodes.OK)
         .send(
-          "❌ Invalid category selection. Please choose a valid number from the list."
+          ""
         );
     }
     await updateProvider(this.user._id, { category: category._id });
@@ -257,17 +269,20 @@ class ServiceProvider {
     const serviceList = services
       .map((svc) => `${svc.code}. ${svc.title}`)
       .join("\n");
+
+    await sendTextMessage(`${this.messages.CHOOSE_SERVICE}\n${serviceList}`)
     return this.res
       .status(StatusCodes.OK)
-      .send(`${this.messages.CHOOSE_SERVICE}\n${serviceList}`);
+      .send("");
   }
 
   async handleCollectService() {
     if (isNaN(this.message)) {
+      await sendTextMessage("❌ Invalid service selection. Please choose a valid number from the list.")
       return this.res
         .status(StatusCodes.OK)
         .send(
-          "❌ Invalid service selection. Please choose a valid number from the list."
+          ""
         );
     }
     const serviceCode = parseInt(this.message);
@@ -276,10 +291,11 @@ class ServiceProvider {
       category: this.session.categoryId,
     });
     if (!service) {
+      await sendTextMessage("❌ Invalid service selection. Please choose a valid number from the list.")
       return this.res
         .status(StatusCodes.OK)
         .send(
-          "❌ Invalid service selection. Please choose a valid number from the list."
+          ""
         );
     }
     await updateProvider(this.user._id, { service: service._id });
@@ -288,16 +304,18 @@ class ServiceProvider {
       message: this.message,
       lActivity: this.lActivity,
     });
-    return this.res.status(StatusCodes.OK).send(this.messages.GET_DESCRIPTION);
+    await sendTextMessage(this.messages.GET_DESCRIPTION)
+    return this.res.status(StatusCodes.OK).send();
   }
 
   async handleCollectDescription() {
     const description = this.message.toString();
     if (description.length > 200) {
+      await sendTextMessage("❌ Description is too long. Please keep it under 200 characters.")
       return this.res
         .status(StatusCodes.OK)
         .send(
-          "❌ Description is too long. Please keep it under 200 characters."
+          ""
         );
     }
     await updateProvider(this.user._id, { description });
@@ -306,15 +324,17 @@ class ServiceProvider {
       message: this.message,
       lActivity: this.lActivity,
     });
-    return this.res.status(StatusCodes.OK).send(this.messages.GET_HOURLY_RATE);
+    await sendTextMessage(this.messages.GET_HOURLY_RATE)
+    return this.res.status(StatusCodes.OK).send();
   }
 
   async handleCollectHourRate() {
     const hourlyRate = +this.message;
     if (isNaN(hourlyRate)) {
+      await sendTextMessage("Please provide a valid hourly rate in USD. e.g. 25")
       return this.res
         .status(StatusCodes.OK)
-        .send("Please provide a valid hourly rate in USD. e.g. 25");
+        .send("");
     }
 
     await updateProvider(this.user._id, { hourlyRate });
@@ -323,7 +343,8 @@ class ServiceProvider {
       message: this.message,
       lActivity: this.lActivity,
     });
-    return this.res.status(StatusCodes.OK).send(this.messages.UPLOAD_ID_IMAGE);
+    await sendTextMessage(this.messages.UPLOAD_ID_IMAGE)
+    return this.res.status(StatusCodes.OK).send();
   }
 
   async handleCollectIdImage() {
@@ -336,9 +357,10 @@ class ServiceProvider {
     // : check content type
     const contentType = this.message?.contentType;
     if (!contentType.startsWith("image/")) {
+      await sendTextMessage("❌ Invalid image format. Please upload an image file.")
       return this.res
         .status(StatusCodes.OK)
-        .send("❌ Invalid image format. Please upload an image file.");
+        .send("");
     }
     // : upload to AWS S3
     const nationalIdImage = await uploadToS3(
@@ -355,7 +377,8 @@ class ServiceProvider {
       message: this.message.toString(),
       lActivity: this.lActivity,
     });
-    return this.res.status(StatusCodes.OK).send(this.messages.PROFILE_COMPLETE);
+    await sendTextMessage(this.messages.PROFILE_COMPLETE)
+    return this.res.status(StatusCodes.OK).send("");
   }
 
   async handleWaitForVerification() {
@@ -369,9 +392,10 @@ class ServiceProvider {
       message: this.message,
       lActivity: this.lActivity,
     });
+    await sendTextMessage(this.messages.VERIFICATION_WAIT_MESSAGE)
     return this.res
       .status(StatusCodes.OK)
-      .send(this.messages.VERIFICATION_WAIT_MESSAGE);
+      .send("");
   }
 
   async handleAccountStatusSuspended() {
@@ -381,9 +405,10 @@ class ServiceProvider {
       lActivity: this.lActivity,
       accountType: "ServiceProvider",
     });
+    await sendTextMessage(this.messages.SUSPENDED_MESSAGE)
     return this.res
       .status(StatusCodes.OK)
-      .send(this.messages.SUSPENDED_MESSAGE);
+      .send();
   }
 
   async handleAccountStatusInactive() {
@@ -393,7 +418,8 @@ class ServiceProvider {
       lActivity: this.lActivity,
       accountType: "ServiceProvider",
     });
-    return this.res.status(StatusCodes.OK).send(this.messages.INACTIVE_MESSAGE);
+    await sendTextMessage(this.messages.INACTIVE_MESSAGE)
+    return this.res.status(StatusCodes.OK).send("");
   }
 
   async handleServiceProviderMainMenu() {
@@ -418,12 +444,14 @@ class ServiceProvider {
       const chatHandler = new ChatHandler(phone, user._id);
       // : Process message
       const response = await chatHandler.processMessage(message);
-      return res.status(StatusCodes.OK).send(response);
+      await sendTextMessage(response)
+      return res.status(StatusCodes.OK).send("");
     } catch (error) {
       console.error("Error in handleServiceProviderChat:", error);
+      await sendTextMessage(this.messages.ERROR_OCCURRED)
       return res
         .status(StatusCodes.ACCEPTED)
-        .send(this.messages.ERROR_OCCURRED);
+        .send("");
     }
   }
 }
