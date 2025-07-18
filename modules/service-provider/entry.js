@@ -17,7 +17,7 @@ const Service = require("../../models/services.model");
 const { uploadToS3 } = require("../../utils/uploadToS3");
 const cityLookupService = require("../../utils/cityLookup");
 const NotificationUtil = require("../../utils/notificationUtil");
-const ServiceProvider = require("../../models/serviceProvider.model");
+const ServiceProviderModel = require("../../models/serviceProvider.model");
 
 class ServiceProvider {
   constructor(res, userResponse, session, user, steps, messages) {
@@ -377,7 +377,7 @@ class ServiceProvider {
 
     // Create notification for service provider registration
     try {
-      const serviceProvider = await ServiceProvider.findOne({ user: this.user._id })
+      const serviceProvider = await ServiceProviderModel.findOne({ user: this.user._id })
         .populate('service', 'title')
         .populate('category', 'name');
 
