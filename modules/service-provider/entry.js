@@ -102,7 +102,7 @@ class ServiceProvider {
         message: this.message,
         lActivity: this.lActivity,
       });
-      await sendTextMessage(this.messages.GET_FULL_NAME)
+      await sendTextMessage(this.phone, this.messages.GET_FULL_NAME)
       return this.res.status(StatusCodes.OK).send("");
     } else {
       await setSession(this.phone, {
@@ -110,7 +110,7 @@ class ServiceProvider {
         message: this.message,
         lActivity: this.lActivity,
       });
-      await sendTextMessage("❌ You have cancelled creating profile. You need to have a profile to be able to request services. If you change your mind, please type 'create account' to proceed.")
+      await sendTextMessage(this.phone, "❌ You have cancelled creating profile. You need to have a profile to be able to request services. If you change your mind, please type 'create account' to proceed.")
       return this.res
         .status(StatusCodes.OK)
         .send(
@@ -121,7 +121,7 @@ class ServiceProvider {
 
   async handleCollectFullName() {
     if (this.message.toString().length > 16) {
-    await sendTextMessage("❌ Name and surname provided is too long. Please re-enter your full name, name(s) first and then surname second.")
+      await sendTextMessage(this.phone, "❌ Name and surname provided is too long. Please re-enter your full name, name(s) first and then surname second.")
       return this.res
         .status(StatusCodes.OK)
         .send(
@@ -138,14 +138,14 @@ class ServiceProvider {
       message: this.message,
       lActivity: this.lActivity,
     });
-    await sendTextMessage(this.messages.GET_NATIONAL_ID)
+    await sendTextMessage(this.phone, this.messages.GET_NATIONAL_ID)
     return this.res.status(StatusCodes.OK).send("");
   }
 
   async handleCollectNationalId() {
     const pattern = /^\d{2}-\d{4,}[A-Za-z]\d{2}$/;
     if (!pattern.test(this.message.toString())) {
-      await sendTextMessage("❌ Invalid National Id format, please provide id in the format specified in the example.")
+      await sendTextMessage(this.phone, "❌ Invalid National Id format, please provide id in the format specified in the example.")
       return this.res
         .status(StatusCodes.OK)
         .send(
@@ -160,7 +160,7 @@ class ServiceProvider {
       message: this.message,
       lActivity: this.lActivity,
     });
-    await sendTextMessage(this.messages.GET_CITY)
+    await sendTextMessage(this.phone, this.messages.GET_CITY)
     return this.res.status(StatusCodes.OK).send("");
   }
 
@@ -169,7 +169,7 @@ class ServiceProvider {
     //  enforce cities in our lookup service
     const result = cityLookupService.lookupFromText(city);
     if (!result) {
-      await sendTextMessage("❌ Invalid city. Please provide a valid city.")
+      await sendTextMessage(this.phone, "❌ Invalid city. Please provide a valid city.")
       return this.res
         .status(StatusCodes.OK)
         .send("");
@@ -180,7 +180,7 @@ class ServiceProvider {
       message: this.message,
       lActivity: this.lActivity,
     });
-    await sendTextMessage(this.messages.GET_ADDRESS)
+    await sendTextMessage(this.phone, this.messages.GET_ADDRESS)
     return this.res.status(StatusCodes.OK).send("");
   }
 
@@ -230,7 +230,7 @@ class ServiceProvider {
       .map((cat) => `${cat.code}. ${cat.name}`)
       .join("\n");
 
-    await sendTextMessage(`${this.messages.CHOOSE_CATEGORY}\n${categoryList}`)
+    await sendTextMessage(this.phone, `${this.messages.CHOOSE_CATEGORY}\n${categoryList}`)
     return this.res
       .status(StatusCodes.OK)
       .send("");
@@ -238,7 +238,7 @@ class ServiceProvider {
 
   async handleCollectCategory() {
     if (isNaN(this.message)) {
-      await sendTextMessage("❌ Invalid category selection. Please choose a valid number from the list.")
+      await sendTextMessage(this.phone, "❌ Invalid category selection. Please choose a valid number from the list.")
       return this.res
         .status(StatusCodes.OK)
         .send(
@@ -248,7 +248,7 @@ class ServiceProvider {
     const categoryCode = parseInt(this.message);
     const category = await Category.findOne({ code: categoryCode });
     if (!category) {
-      await sendTextMessage("❌ Invalid category selection. Please choose a valid number from the list.")
+      await sendTextMessage(this.phone, "❌ Invalid category selection. Please choose a valid number from the list.")
       return this.res
         .status(StatusCodes.OK)
         .send(
@@ -270,7 +270,7 @@ class ServiceProvider {
       .map((svc) => `${svc.code}. ${svc.title}`)
       .join("\n");
 
-    await sendTextMessage(`${this.messages.CHOOSE_SERVICE}\n${serviceList}`)
+    await sendTextMessage(this.phone, `${this.messages.CHOOSE_SERVICE}\n${serviceList}`)
     return this.res
       .status(StatusCodes.OK)
       .send("");
@@ -278,7 +278,7 @@ class ServiceProvider {
 
   async handleCollectService() {
     if (isNaN(this.message)) {
-      await sendTextMessage("❌ Invalid service selection. Please choose a valid number from the list.")
+      await sendTextMessage(this.phone, "❌ Invalid service selection. Please choose a valid number from the list.")
       return this.res
         .status(StatusCodes.OK)
         .send(
@@ -291,7 +291,7 @@ class ServiceProvider {
       category: this.session.categoryId,
     });
     if (!service) {
-      await sendTextMessage("❌ Invalid service selection. Please choose a valid number from the list.")
+      await sendTextMessage(this.phone, "❌ Invalid service selection. Please choose a valid number from the list.")
       return this.res
         .status(StatusCodes.OK)
         .send(
@@ -304,14 +304,14 @@ class ServiceProvider {
       message: this.message,
       lActivity: this.lActivity,
     });
-    await sendTextMessage(this.messages.GET_DESCRIPTION)
+    await sendTextMessage(this.phone, this.messages.GET_DESCRIPTION)
     return this.res.status(StatusCodes.OK).send();
   }
 
   async handleCollectDescription() {
     const description = this.message.toString();
     if (description.length > 200) {
-      await sendTextMessage("❌ Description is too long. Please keep it under 200 characters.")
+      await sendTextMessage(this.phone, "❌ Description is too long. Please keep it under 200 characters.")
       return this.res
         .status(StatusCodes.OK)
         .send(
@@ -331,7 +331,7 @@ class ServiceProvider {
   async handleCollectHourRate() {
     const hourlyRate = +this.message;
     if (isNaN(hourlyRate)) {
-      await sendTextMessage("Please provide a valid hourly rate in USD. e.g. 25")
+      await sendTextMessage(this.phone, "Please provide a valid hourly rate in USD. e.g. 25")
       return this.res
         .status(StatusCodes.OK)
         .send("");
@@ -343,7 +343,7 @@ class ServiceProvider {
       message: this.message,
       lActivity: this.lActivity,
     });
-    await sendTextMessage(this.messages.UPLOAD_ID_IMAGE)
+    await sendTextMessage(this.phone, this.messages.UPLOAD_ID_IMAGE)
     return this.res.status(StatusCodes.OK).send();
   }
 
@@ -357,7 +357,7 @@ class ServiceProvider {
     // : check content type
     const contentType = this.message?.contentType;
     if (!contentType.startsWith("image/")) {
-      await sendTextMessage("❌ Invalid image format. Please upload an image file.")
+      await sendTextMessage(this.phone, "❌ Invalid image format. Please upload an image file.")
       return this.res
         .status(StatusCodes.OK)
         .send("");
@@ -377,7 +377,7 @@ class ServiceProvider {
       message: this.message.toString(),
       lActivity: this.lActivity,
     });
-    await sendTextMessage(this.messages.PROFILE_COMPLETE)
+    await sendTextMessage(this.phone, this.messages.PROFILE_COMPLETE)
     return this.res.status(StatusCodes.OK).send("");
   }
 
@@ -392,7 +392,7 @@ class ServiceProvider {
       message: this.message,
       lActivity: this.lActivity,
     });
-    await sendTextMessage(this.messages.VERIFICATION_WAIT_MESSAGE)
+    await sendTextMessage(this.phone, this.messages.VERIFICATION_WAIT_MESSAGE)
     return this.res
       .status(StatusCodes.OK)
       .send("");
@@ -405,7 +405,7 @@ class ServiceProvider {
       lActivity: this.lActivity,
       accountType: "ServiceProvider",
     });
-    await sendTextMessage(this.messages.SUSPENDED_MESSAGE)
+    await sendTextMessage(this.phone, this.messages.SUSPENDED_MESSAGE)
     return this.res
       .status(StatusCodes.OK)
       .send();
@@ -418,7 +418,7 @@ class ServiceProvider {
       lActivity: this.lActivity,
       accountType: "ServiceProvider",
     });
-    await sendTextMessage(this.messages.INACTIVE_MESSAGE)
+    await sendTextMessage(this.phone, this.messages.INACTIVE_MESSAGE)
     return this.res.status(StatusCodes.OK).send("");
   }
 
@@ -444,11 +444,11 @@ class ServiceProvider {
       const chatHandler = new ChatHandler(phone, user._id);
       // : Process message
       const response = await chatHandler.processMessage(message);
-      await sendTextMessage(response)
+      await sendTextMessage(this.phone, response)
       return res.status(StatusCodes.OK).send("");
     } catch (error) {
       console.error("Error in handleServiceProviderChat:", error);
-      await sendTextMessage(this.messages.ERROR_OCCURRED)
+      await sendTextMessage(this.phone, this.messages.ERROR_OCCURRED)
       return res
         .status(StatusCodes.ACCEPTED)
         .send("");

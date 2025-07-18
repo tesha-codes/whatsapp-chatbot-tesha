@@ -53,7 +53,7 @@ class Onboarding {
 
   // Helper method to send response
   async sendResponse(message = "") {
-    await sendTextMessage(message)
+    await sendTextMessage(this.phone, message)
     return this.res.status(200).send("");
   }
 
@@ -129,8 +129,8 @@ class Onboarding {
     return handler
       ? handler()
       : this.sendResponse(
-          "⚠️ Account status not recognized. Please double-check your account details or contact our support team for assistance. We're here to help! 😊"
-        );
+        "⚠️ Account status not recognized. Please double-check your account details or contact our support team for assistance. We're here to help! 😊"
+      );
   }
 
   // Handle Service Provider account status
@@ -175,8 +175,8 @@ class Onboarding {
     return handler
       ? handler()
       : this.sendResponse(
-          "⚠️ Account status not recognized. Please double-check your account details or contact our support team for assistance. We're here to help! 😊"
-        );
+        "⚠️ Account status not recognized. Please double-check your account details or contact our support team for assistance. We're here to help! 😊"
+      );
   }
 
   // Handle terms acceptance
