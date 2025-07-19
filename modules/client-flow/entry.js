@@ -4,6 +4,7 @@ const { setSession } = require("../../utils/redis");
 const { updateUser, getUser } = require("../../controllers/user.controllers");
 const {
   sendMediaImageMessage,
+  sendTextMessage,
   clientMainMenuTemplate,
 } = require("../../services/whatsappService");
 const ChatHandler = require("./chatHandler");
@@ -53,9 +54,10 @@ class Client {
       }
     } catch (error) {
       console.error("Client processing error:", error);
+      await sendTextMessage(this.phone, "An error occurred. Please try again later.")
       return this.res
         .status(StatusCodes.ACCEPTED)
-        .send("An error occurred. Please try again later.");
+        .send("");
     }
   }
 
@@ -69,27 +71,30 @@ class Client {
         message: this.message,
         lActivity: this.lActivity,
       });
-      return this.res.status(StatusCodes.OK).send(this.messages.GET_FULL_NAME);
+      await sendTextMessage(this.phone, this.messages.GET_FULL_NAME)
+      return this.res.status(StatusCodes.OK).send("");
     } else {
       await setSession(this.phone, {
         step: this.steps.SETUP_CLIENT_PROFILE,
         message: this.message,
         lActivity: this.lActivity,
       });
+      await sendTextMessage(this.phone, "❌ You have cancelled creating profile. If you change your mind, please type 'create account' to proceed.")
       return this.res
         .status(StatusCodes.OK)
         .send(
-          "❌ You have cancelled creating profile. If you change your mind, please type 'create account' to proceed."
+          ""
         );
     }
   }
 
   async handleCollectFullName() {
     if (this.message.toString().length > 16) {
+      await sendTextMessage(this.phone, "❌ Name and surname provided is too long. Please re-enter your full name, name(s) first and then surname second.")
       return this.res
         .status(StatusCodes.OK)
         .send(
-          "❌ Name and surname provided is too long. Please re-enter your full name, name(s) first and then surname second."
+          ""
         );
     }
     const userNames = this.message.toString().split(" ");
@@ -97,7 +102,7 @@ class Client {
     const firstName = this.message.toString().replace(lastName, " ").trim();
 
     await updateUser({ phone: this.phone, firstName, lastName });
-    
+
     // Create notification for client registration
     try {
       const updatedUser = await getUser(this.phone);
@@ -128,7 +133,8 @@ class Client {
     ✅ Thank you for completing your registration! Your account has been successfully created with the name ${firstName} ${lastName}. You can now access all services through the main menu. Welcome aboard!.
     `
 
-    return this.res.status(StatusCodes.OK).send(msg);
+    await sendTextMessage(this.phone, msg)
+    return this.res.status(StatusCodes.OK).send("");
   }
 
 
@@ -139,15 +145,15 @@ class Client {
       // Process message
       const response = await chatHandler.processMessage(this.message);
       // Return response
-      return this.res.status(StatusCodes.OK).send(response);
+      await sendTextMessage(this.phone, response)
+      return this.res.status(StatusCodes.OK).send("");
     } catch (error) {
       console.error("Error in handleClientChat:", error);
+      await sendTextMessage(this.phone, this.messages.ERROR_OCCURRED ||
+        "An error occurred processing your message. Please try again.")
       return this.res
         .status(StatusCodes.ACCEPTED)
-        .send(
-          this.messages.ERROR_OCCURRED ||
-          "An error occurred processing your message. Please try again."
-        );
+        .send("");
     }
   }
 }
