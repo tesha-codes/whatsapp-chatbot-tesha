@@ -127,7 +127,7 @@ SUPPORT REDIRECT:
         "If the problem persists, you can:\n" +
         "1️⃣ Send your message again\n" +
         "2️⃣ Try rephrasing your request\n" +
-        "3️⃣ Contact support if issues continue"
+        "3️⃣ Contact support if issues continue"`\nError details: ${error.message}`
       );
     }
   }
