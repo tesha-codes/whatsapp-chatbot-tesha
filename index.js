@@ -159,7 +159,16 @@ app.use("/api/payments", paymentRoutes);
 // Main webhook endpoint - immediately acknowledge and process async
 app.post("/bot", async (req, res) => {
   try {
-    const userResponse = req.body.payload;
+    const webhookPayload = req.body;
+    
+    // Handle different webhook types
+    if (webhookPayload?.type === 'message-event' && webhookPayload?.payload?.type === 'enqueued') {
+      console.log("Received message event notification:", webhookPayload.payload.type);
+      res.status(StatusCodes.OK).send("");
+      return;
+    }
+
+    const userResponse = webhookPayload?.payload;
     const phone = userResponse?.sender?.phone;
     
     console.log("Received webhook:", phone, "Message:", userResponse?.payload?.text);
@@ -167,9 +176,13 @@ app.post("/bot", async (req, res) => {
     // Immediately acknowledge the webhook
     res.status(StatusCodes.OK).send("");
 
-    // Validate required fields
+    // Validate required fields for message processing
     if (!userResponse || !userResponse.source || !phone) {
-      console.error("Invalid webhook payload:", req.body);
+      if (webhookPayload) {
+        console.log("Skipping non-message webhook:", webhookPayload.type || 'unknown type');
+      } else {
+        console.error("Invalid webhook payload:", req.body);
+      }
       return;
     }
 

@@ -122,8 +122,15 @@ class ServiceRequestManager {
       );
 
       // Extract city from location for geographic filtering
-      const city = BookingUtil.getCity(location);
-      console.log(`Searching for providers in city: ${city}`);
+      let city = "Unknown";
+      try {
+        city = BookingUtil.getCity(location);
+        console.log(`Searching for providers in city: ${city}`);
+      } catch (cityError) {
+        console.error("Error extracting city from location:", cityError);
+        city = "Unknown";
+        console.log("Falling back to search without city filter");
+      }
 
       // Find service providers with geographic filtering if city is available
       let query = { service: { $in: serviceIds } };

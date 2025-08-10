@@ -184,7 +184,7 @@ SUPPORT REDIRECT:
       ];
 
       const completion = await openai.chat.completions.create({
-        model: "gpt-4-turbo",
+        model: process.env.OPENAI_MODEL,
         messages,
         tools,
         tool_choice: "auto",
@@ -299,37 +299,50 @@ SUPPORT REDIRECT:
             }`
           );
 
-          const providersResult =
-            await this.serviceRequestManager.getServiceProviders(
-              params.serviceType,
-              params.estimatedHours,
-              params.location || ""
-            );
+          try {
+            const providersResult =
+              await this.serviceRequestManager.getServiceProviders(
+                params.serviceType,
+                params.estimatedHours,
+                params.location || ""
+              );
 
-          // If we have providers, store them in Redis
-          if (
-            providersResult.providers &&
-            providersResult.providers.length > 0
-          ) {
-            await ChatHistoryManager.storeMetadata(
-              this.phone,
-              "lastProvidersList",
-              {
-                providers: providersResult.providers,
+            // If we have providers, store them in Redis
+            if (
+              providersResult.providers &&
+              providersResult.providers.length > 0
+            ) {
+              await ChatHistoryManager.storeMetadata(
+                this.phone,
+                "lastProvidersList",
+                {
+                  providers: providersResult.providers,
+                  serviceType: params.serviceType,
+                  location: params.location || "",
+                  timestamp: Date.now(),
+                }
+              );
+
+              console.log(
+                `Stored ${providersResult.providers.length} providers in Redis for phone ${this.phone}`
+              );
+            }
+            return {
+              type: "SERVICE_PROVIDERS_LIST",
+              data: providersResult,
+            };
+          } catch (serviceProviderError) {
+            console.error("Error in view_service_providers tool:", serviceProviderError);
+            return {
+              type: "SERVICE_PROVIDERS_LIST",
+              data: {
                 serviceType: params.serviceType,
-                location: params.location || "",
-                timestamp: Date.now(),
-              }
-            );
-
-            console.log(
-              `Stored ${providersResult.providers.length} providers in Redis for phone ${this.phone}`
-            );
+                location: params.location || "Not specified",
+                providers: [],
+                message: `I encountered an issue while searching for service providers. Please try again with a different service type or location.`,
+              },
+            };
           }
-          return {
-            type: "SERVICE_PROVIDERS_LIST",
-            data: providersResult,
-          };
         // handle booking selection
         case "handle_provider_selection":
           console.log(
