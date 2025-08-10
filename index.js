@@ -20,9 +20,14 @@ const initializeTemplates = require("./services/initializeTemplates");
 const { onServiceRequestUpdate } = require("./controllers/request.controller");
 const paymentRoutes = require("./routes/payment.routes");
 const User = require("./models/user.model");
+const MessageProcessor = require("./services/messageProcessor");
+const { sendTextMessage } = require("./services/whatsappService");
 
 const app = express();
 const PORT = process.env.PORT || 3000;
+
+// Initialize message processor
+const messageProcessor = new MessageProcessor();
 
 const steps = {
   ACCEPTED_TERMS: "ACCEPTED_TERMS",
@@ -73,30 +78,22 @@ const steps = {
   COLLECT_CLIENT_ADDRESS: "COLLECT_CLIENT_ADDRESS",
   COLLECT_CLIENT_LOCATION: "COLLECT_CLIENT_LOCATION",
   CLIENT_REGISTRATION_COMPLETE: "CLIENT_REGISTRATION_COMPLETE",
-  CLIENT_MAIN_MENU:"CLIENT_MAIN_MENU",
+  CLIENT_MAIN_MENU: "CLIENT_MAIN_MENU",
 };
-
-
 
 app.use(morgan("combined"));
 app.use(bodyParser.urlencoded({ extended: false }));
-// Add to your Express config
-app.use(express.json({
-  verify: (req, res, buf) => {
-    req.rawBody = buf.toString();
-  },
-  limit: '10kb'
-}));
+app.use(
+  express.json({
+    verify: (req, res, buf) => {
+      req.rawBody = buf.toString();
+    },
+    limit: "10kb",
+  })
+);
+
 // Express adapter for BullBoard
 const serverAdapter = new ExpressAdapter();
-
-// Create Bull Board
-// createBullBoard({
-//   queues: [new BullMQAdapter(serviceProviderQueue)],
-//   serverAdapter: serverAdapter,
-// });
-
-// Use the serverAdapter's middleware
 serverAdapter.setBasePath("/admin/queues");
 app.use("/admin/queues", serverAdapter.getRouter());
 
@@ -159,80 +156,38 @@ app.get("/health", (req, res) => {
 // payments routes
 app.use("/api/payments", paymentRoutes);
 
-// webhook for incoming messages from WhatsApp
+// Main webhook endpoint - immediately acknowledge and process async
 app.post("/bot", async (req, res) => {
   try {
     const userResponse = req.body.payload;
-    console.log("User response: ", userResponse);
-    if (userResponse && userResponse.source) {
-      const phone = userResponse.sender.phone;
-      // get session
-      const session = await getSession(phone);
-      // get user info
-      const user = await getUser(phone);
-      // create onboarding instance
-      const onboard = new Onboarding(
-        res,
-        userResponse,
-        session,
-        user,
-        steps,
-        messages
-      );
-      // check user
-      if (!user) {
-        // new user
-        return await onboard.createNewUser();
-      } else {
-        // existing users without session
-        if (Object.keys(session).length === 0) {
-          console.log("No sessions found.....");
-          return await onboard.existingUserWithoutSession();
-        }
+    const phone = userResponse?.sender?.phone;
+    
+    console.log("Received webhook:", phone, "Message:", userResponse?.payload?.text);
 
-        // existing users with session with account type
-        if (session?.accountType) {
-          // client
-          if (session.accountType === "Client") {
+    // Immediately acknowledge the webhook
+    res.status(StatusCodes.OK).send("");
 
-            const dynamicClient = new DynamicClient(
-              res,
-              userResponse,
-              session,
-              user,
-              steps,
-              messages
-            );
-
-            return await dynamicClient.mainEntry();
-          } else {
-            // service provider
-            const provider = new ServiceProvider(
-              res,
-              userResponse,
-              session,
-              user,
-              steps,
-              messages
-            );
-            return await provider.mainEntry();
-          }
-        } else {
-          // existing users with session without account type
-          return await onboard.acceptTermsAndChooseAccountType();
-        }
-      }
+    // Validate required fields
+    if (!userResponse || !userResponse.source || !phone) {
+      console.error("Invalid webhook payload:", req.body);
+      return;
     }
 
-    // Acknowledge callback requests
-    return res.status(StatusCodes.OK).send("Callback received:)");
+    // Add to processing queue with deduplication
+    const messageId = `${phone}-${Date.now()}`;
+    await messageProcessor.processMessage({
+      userResponse,
+      steps,
+      messages,
+      messageId,
+    });
+    
   } catch (error) {
-    console.error("Error in /bot route:", error);
-    return res
-      .status(StatusCodes.OK)
-      .send(
-        "😕 Oops! Something went wrong. Please try again a bit later. If the issue persists, feel free to call us at 📞 071-360-3012. Thank you for your patience! 🙏"
-      );
+    console.error("Error in webhook handler:", error);
+    // Still return success to WhatsApp even if there's an error
+    if (!res.headersSent) {
+      res.status(StatusCodes.OK).send("");
+    }
   }
 });
 
@@ -242,8 +197,8 @@ app.listen(PORT, function () {
     .then(async () => {
       console.log(`Database connection successfully established ✅✅`);
       console.log(`Server now running on port ${PORT} 👍👌😁😁`);
-      // initalize templates
       await initializeTemplates();
+      await messageProcessor.initialize();
     })
     .catch((error) => {
       console.error(error);
@@ -251,12 +206,8 @@ app.listen(PORT, function () {
     });
 });
 
-// process.on("SIGTERM", async () => {
-//   await serviceProviderQueue.close();
-//   process.exit(0);
-// });
 process.on("SIGINT", async () => {
   console.log("Received SIGINT signal. Starting graceful shutdown...");
-  await shutdown();
+  await messageProcessor.shutdown();
   process.exit(0);
 });

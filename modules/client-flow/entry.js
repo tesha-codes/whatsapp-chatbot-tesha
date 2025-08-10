@@ -62,79 +62,102 @@ class Client {
   }
 
   async handlePromptAccount() {
-    if (
-      this.message.toString().toLowerCase() === "create account" ||
-      this.message.toString().toLowerCase().includes("1")
-    ) {
+    const message = this.message.toString().toLowerCase().trim();
+    
+    if (message === "create account" || 
+        message === "1" || 
+        message.includes("create") ||
+        message === "yes") {
       await setSession(this.phone, {
         step: this.steps.COLLECT_CLIENT_FULL_NAME,
         message: this.message,
         lActivity: this.lActivity,
+        accountType: "Client",
       });
-      await sendTextMessage(this.phone, this.messages.GET_FULL_NAME)
+      await sendTextMessage(this.phone, this.messages.GET_FULL_NAME);
       return this.res.status(StatusCodes.OK).send("");
-    } else {
+    } else if (message === "cancel" || 
+               message === "2" || 
+               message.includes("cancel") ||
+               message === "no") {
       await setSession(this.phone, {
         step: this.steps.SETUP_CLIENT_PROFILE,
         message: this.message,
         lActivity: this.lActivity,
+        accountType: "Client",
       });
-      await sendTextMessage(this.phone, "❌ You have cancelled creating profile. If you change your mind, please type 'create account' to proceed.")
-      return this.res
-        .status(StatusCodes.OK)
-        .send(
-          ""
-        );
+      await sendTextMessage(this.phone, "❌ You have cancelled creating profile. If you change your mind, please type 'create account' to proceed.");
+      return this.res.status(StatusCodes.OK).send("");
+    } else {
+      // Invalid input, re-prompt with guidance
+      await sendTextMessage(this.phone, "Please reply with '1' to Create Account or '2' to Cancel.\n\nYou can also reply with 'Create Account' or 'Cancel'.");
+      return this.res.status(StatusCodes.OK).send("");
     }
   }
 
   async handleCollectFullName() {
-    if (this.message.toString().length > 16) {
-      await sendTextMessage(this.phone, "❌ Name and surname provided is too long. Please re-enter your full name, name(s) first and then surname second.")
-      return this.res
-        .status(StatusCodes.OK)
-        .send(
-          ""
-        );
+    const fullName = this.message.toString().trim();
+    
+    // Validation checks
+    if (fullName.length < 3) {
+      await sendTextMessage(this.phone, "❌ Name too short. Please enter your full name (at least 3 characters).");
+      return this.res.status(StatusCodes.OK).send("");
     }
-    const userNames = this.message.toString().split(" ");
-    const lastName = userNames[userNames.length - 1];
-    const firstName = this.message.toString().replace(lastName, " ").trim();
+    
+    if (fullName.length > 50) {
+      await sendTextMessage(this.phone, "❌ Name too long. Please enter a shorter name (maximum 50 characters).");
+      return this.res.status(StatusCodes.OK).send("");
+    }
 
-    await updateUser({ phone: this.phone, firstName, lastName });
+    const nameParts = fullName.split(/\s+/);
+    if (nameParts.length < 2) {
+      await sendTextMessage(this.phone, "❌ Please provide both your first name and surname.\nExample: John Doe");
+      return this.res.status(StatusCodes.OK).send("");
+    }
 
-    // Create notification for client registration
+    // Extract first and last name properly
+    const firstName = nameParts.slice(0, -1).join(" ");
+    const lastName = nameParts[nameParts.length - 1];
+
     try {
-      const updatedUser = await getUser(this.phone);
-      if (updatedUser) {
-        await NotificationUtil.createClientRegistrationNotification(
-          updatedUser,
-          updatedUser.address?.city || "Unknown location"
-        );
+      await updateUser({ phone: this.phone, firstName, lastName });
+
+      // Create notification for client registration
+      try {
+        const updatedUser = await getUser(this.phone);
+        if (updatedUser) {
+          await NotificationUtil.createClientRegistrationNotification(
+            updatedUser,
+            updatedUser.address?.city || "Unknown location"
+          );
+        }
+      } catch (error) {
+        console.error("Error creating client registration notification:", error);
       }
+
+      await setSession(this.phone, {
+        step: this.steps.CLIENT_MAIN_MENU,
+        message: this.message,
+        lActivity: this.lActivity,
+        accountType: "Client",
+      });
+
+      setImmediate(async () => {
+        await clientMainMenuTemplate(
+          this.phone,
+          firstName
+        );
+      });
+
+      const msg = `✅ Thank you for completing your registration! Your account has been successfully created with the name ${firstName} ${lastName}. You can now access all services through the main menu. Welcome aboard!`;
+
+      await sendTextMessage(this.phone, msg);
+      return this.res.status(StatusCodes.OK).send("");
     } catch (error) {
-      console.error("Error creating client registration notification:", error);
+      console.error("Error saving client full name:", error);
+      await sendTextMessage(this.phone, "❌ An error occurred while saving your information. Please try again.");
+      return this.res.status(StatusCodes.INTERNAL_SERVER_ERROR).send("");
     }
-
-    await setSession(this.phone, {
-      step: this.steps.CLIENT_MAIN_MENU,
-      message: this.message,
-      lActivity: this.lActivity,
-    });
-
-    setImmediate(async () => {
-      await clientMainMenuTemplate(
-        this.phone,
-        this.user?.firstName || this.user?.lastName
-      );
-    });
-
-    let msg = `
-    ✅ Thank you for completing your registration! Your account has been successfully created with the name ${firstName} ${lastName}. You can now access all services through the main menu. Welcome aboard!.
-    `
-
-    await sendTextMessage(this.phone, msg)
-    return this.res.status(StatusCodes.OK).send("");
   }
 
 

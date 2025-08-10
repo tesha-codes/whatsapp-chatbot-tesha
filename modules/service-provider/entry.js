@@ -98,72 +98,109 @@ class ServiceProvider {
   }
 
   async handlePromptAccount() {
-    if (this.message.toString().toLowerCase() === "create account") {
+    const message = this.message.toString().toLowerCase().trim();
+    
+    if (message === "create account" || 
+        message === "1" || 
+        message.includes("create") ||
+        message === "yes") {
       await setSession(this.phone, {
         step: this.steps.COLLECT_PROVIDER_FULL_NAME,
         message: this.message,
         lActivity: this.lActivity,
+        accountType: "ServiceProvider",
       });
-      await sendTextMessage(this.phone, this.messages.GET_FULL_NAME)
+      await sendTextMessage(this.phone, this.messages.GET_FULL_NAME);
       return this.res.status(StatusCodes.OK).send("");
-    } else {
+    } else if (message === "cancel" || 
+               message === "2" || 
+               message.includes("cancel") ||
+               message === "no") {
       await setSession(this.phone, {
         step: this.steps.PROVIDER_PROMPT_ACCOUNT,
         message: this.message,
         lActivity: this.lActivity,
+        accountType: "ServiceProvider",
       });
-      await sendTextMessage(this.phone, "❌ You have cancelled creating profile. You need to have a profile to be able to request services. If you change your mind, please type 'create account' to proceed.")
-      return this.res
-        .status(StatusCodes.OK)
-        .send(
-          ""
-        );
+      await sendTextMessage(this.phone, "❌ You have cancelled creating profile. You need to have a profile to be able to offer services. If you change your mind, please type 'create account' to proceed.");
+      return this.res.status(StatusCodes.OK).send("");
+    } else {
+      // Invalid input, re-prompt with guidance
+      await sendTextMessage(this.phone, "Please reply with '1' to Create Account or '2' to Cancel.\n\nYou can also reply with 'Create Account' or 'Cancel'.");
+      return this.res.status(StatusCodes.OK).send("");
     }
   }
 
   async handleCollectFullName() {
-    if (this.message.toString().length > 16) {
-      await sendTextMessage(this.phone, "❌ Name and surname provided is too long. Please re-enter your full name, name(s) first and then surname second.")
-      return this.res
-        .status(StatusCodes.OK)
-        .send(
-          ""
-        );
+    const fullName = this.message.toString().trim();
+    
+    // Validation checks
+    if (fullName.length < 3) {
+      await sendTextMessage(this.phone, "❌ Name too short. Please enter your full name (at least 3 characters).");
+      return this.res.status(StatusCodes.OK).send("");
     }
-    const userNames = this.message.toString().split(" ");
-    const lastName = userNames[userNames.length - 1];
-    const firstName = this.message.toString().replace(lastName, " ").trim();
-    //
-    await updateUser({ phone: this.phone, firstName, lastName });
-    await setSession(this.phone, {
-      step: this.steps.COLLECT_USER_ID,
-      message: this.message,
-      lActivity: this.lActivity,
-    });
-    await sendTextMessage(this.phone, this.messages.GET_NATIONAL_ID)
-    return this.res.status(StatusCodes.OK).send("");
+    
+    if (fullName.length > 50) {
+      await sendTextMessage(this.phone, "❌ Name too long. Please enter a shorter name (maximum 50 characters).");
+      return this.res.status(StatusCodes.OK).send("");
+    }
+
+    const nameParts = fullName.split(/\s+/);
+    if (nameParts.length < 2) {
+      await sendTextMessage(this.phone, "❌ Please provide both your first name and surname.\nExample: John Doe");
+      return this.res.status(StatusCodes.OK).send("");
+    }
+
+    // Extract first and last name properly
+    const firstName = nameParts.slice(0, -1).join(" ");
+    const lastName = nameParts[nameParts.length - 1];
+
+    try {
+      await updateUser({ phone: this.phone, firstName, lastName });
+      
+      await setSession(this.phone, {
+        step: this.steps.COLLECT_USER_ID,
+        message: this.message,
+        lActivity: this.lActivity,
+        accountType: "ServiceProvider",
+      });
+      
+      await sendTextMessage(this.phone, this.messages.GET_NATIONAL_ID);
+      return this.res.status(StatusCodes.OK).send("");
+    } catch (error) {
+      console.error("Error saving provider full name:", error);
+      await sendTextMessage(this.phone, "❌ An error occurred while saving your information. Please try again.");
+      return this.res.status(StatusCodes.INTERNAL_SERVER_ERROR).send("");
+    }
   }
 
   async handleCollectNationalId() {
+    const nationalId = this.message.toString().trim();
     const pattern = /^\d{2}-\d{4,}[A-Za-z]\d{2}$/;
-    if (!pattern.test(this.message.toString())) {
-      await sendTextMessage(this.phone, "❌ Invalid National Id format, please provide id in the format specified in the example.")
-      return this.res
-        .status(StatusCodes.OK)
-        .send(
-          ""
-        );
+    
+    if (!pattern.test(nationalId)) {
+      await sendTextMessage(this.phone, "❌ Invalid National ID format. Please provide ID in the correct format.\n\nExample: 63-123456A78");
+      return this.res.status(StatusCodes.OK).send("");
     }
 
-    const nationalId = this.message.toString().toUpperCase();
-    await updateUser({ phone: this.phone, nationalId });
-    await setSession(this.phone, {
-      step: this.steps.PROVIDER_COLLECT_CITY,
-      message: this.message,
-      lActivity: this.lActivity,
-    });
-    await sendTextMessage(this.phone, this.messages.GET_CITY)
-    return this.res.status(StatusCodes.OK).send("");
+    try {
+      const normalizedId = nationalId.toUpperCase();
+      await updateUser({ phone: this.phone, nationalId: normalizedId });
+      
+      await setSession(this.phone, {
+        step: this.steps.PROVIDER_COLLECT_CITY,
+        message: this.message,
+        lActivity: this.lActivity,
+        accountType: "ServiceProvider",
+      });
+      
+      await sendTextMessage(this.phone, this.messages.GET_CITY);
+      return this.res.status(StatusCodes.OK).send("");
+    } catch (error) {
+      console.error("Error saving national ID:", error);
+      await sendTextMessage(this.phone, "❌ An error occurred while saving your information. Please try again.");
+      return this.res.status(StatusCodes.INTERNAL_SERVER_ERROR).send("");
+    }
   }
 
   async handleCollectCity() {
