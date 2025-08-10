@@ -17,8 +17,8 @@ class MessageProcessor {
     this.queue = new Queue("message-processing", {
       connection: this.connection,
       defaultJobOptions: {
-        removeOnComplete: true,
-        removeOnFail: false,
+        removeOnComplete: 50, // Keep 50 completed jobs for monitoring
+        removeOnFail: 100, // Keep 100 failed jobs for debugging
         attempts: 3,
         backoff: {
           type: "exponential",

@@ -74,7 +74,7 @@ SUPPORT REDIRECT:
 
       // Generate OpenAI response
       const completion = await openai.chat.completions.create({
-        model: process.env.OPENAI_MODEL,
+        model: "gpt-5-mini",
         messages,
         tools,
         tool_choice: "auto",
@@ -127,7 +127,7 @@ SUPPORT REDIRECT:
         "If the problem persists, you can:\n" +
         "1️⃣ Send your message again\n" +
         "2️⃣ Try rephrasing your request\n" +
-        "3️⃣ Contact support if issues continue"`\nError details: ${error.message}`
+        "3️⃣ Contact support if issues continue"`\nError details: ${error}`
       );
     }
   }

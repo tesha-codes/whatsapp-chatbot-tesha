@@ -22,6 +22,7 @@ const paymentRoutes = require("./routes/payment.routes");
 const User = require("./models/user.model");
 const MessageProcessor = require("./services/messageProcessor");
 const { sendTextMessage } = require("./services/whatsappService");
+const { bullBoardAuth } = require("./middlewares/bullBoardAuth");
 
 const app = express();
 const PORT = process.env.PORT || 3000;
@@ -81,6 +82,17 @@ const steps = {
   CLIENT_MAIN_MENU: "CLIENT_MAIN_MENU",
 };
 
+// Add no-cache headers to prevent caching when serving through Cloudflared
+app.use((req, res, next) => {
+  res.set({
+    'Cache-Control': 'no-cache, no-store, must-revalidate, private',
+    'Pragma': 'no-cache',
+    'Expires': '0',
+    'X-Accel-Expires': '0'
+  });
+  next();
+});
+
 app.use(morgan("combined"));
 app.use(bodyParser.urlencoded({ extended: false }));
 app.use(
@@ -92,10 +104,12 @@ app.use(
   })
 );
 
-// Express adapter for BullBoard
+// Express adapter for BullBoard (will be configured after messageProcessor initialization)
 const serverAdapter = new ExpressAdapter();
 serverAdapter.setBasePath("/admin/queues");
-app.use("/admin/queues", serverAdapter.getRouter());
+
+// Apply authentication to BullBoard routes
+app.use("/admin/queues", bullBoardAuth, serverAdapter.getRouter());
 
 app.get("/", async (request, response) => {
   console.log("Served");
@@ -212,6 +226,12 @@ app.listen(PORT, function () {
       console.log(`Server now running on port ${PORT} 👍👌😁😁`);
       await initializeTemplates();
       await messageProcessor.initialize();
+      
+      // Configure BullBoard with the message processor queue
+      const { addQueue } = createBullBoard({
+        queues: [new BullMQAdapter(messageProcessor.queue)],
+        serverAdapter: serverAdapter,
+      });
     })
     .catch((error) => {
       console.error(error);
